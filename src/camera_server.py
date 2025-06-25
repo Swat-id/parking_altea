@@ -11,7 +11,7 @@ engine = create_engine(config.DB_URL, echo=False)
 Session = sessionmaker(bind=engine)
 Base.metadata.create_all(engine)
 
-@app.route('/', methods=['POST'])
+@app.route('/camera', methods=['POST'])
 def handle_camera():
     data = request.get_json(force=True)
     ip = request.headers.get('X-Forwarded-For') or request.remote_addr
