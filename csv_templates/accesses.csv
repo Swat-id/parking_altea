@@ -1,0 +1,14 @@
+parking_id,ip,line,name
+1,172.20.17.146,1,ciutat_esportiva camera 1
+2,172.20.5.144,1,Basseta_Asup camera 1
+2,172.20.5.133,1,Basseta_Rastro camera 2
+6,172.20.3.182,1,Piteres_2 camera 2
+6,172.20.3.185,1,Piteres_1 camera 1
+8,172.20.2.181,1,RENFE1 camera 1
+5,172.20.4.139,1,cocoliso2 camera 2
+5,172.20.4.140,1,Cocoliso1 camera 1
+5,172.20.4.157,1,Cocoliso3 camera 3
+4,172.20.4.148,1,INSTITUT camera 1
+3,172.20.4.138,1,palau1 camera 1
+9,172.20.1.154,1,Vella_AI camera 2
+9,172.20.1.162,1,VELLA1 camera 1
