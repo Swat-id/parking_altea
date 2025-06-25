@@ -44,6 +44,7 @@ def handle_camera():
         
         # Log de la petición recibida
         logger.info(f"Camera data from {ip} - Device: {device}, Line: {line}, In: {veh_in}, Out: {veh_out}")
+        logger.info(f"JSON received: {json.dumps(data, indent=2)}")
         
         # Validar campos requeridos
         if line is None or veh_in is None or veh_out is None:
@@ -75,9 +76,15 @@ def handle_camera():
             logger.warning(f"Access not found for IP: {ip}, Line: {line}, Device: {device}")
             return jsonify({'error': 'Access not found'}), 404
         
+        # Log de información del acceso encontrado
+        logger.info(f"Access found - ID: {access.id}, Parking ID: {access.parking_id}, Name: {access.name}")
+        logger.info(f"Previous counters - Last In: {access.last_vehicle_in}, Last Out: {access.last_vehicle_out}")
+        
         # Calcular deltas
         delta_in = veh_in - access.last_vehicle_in if access.last_vehicle_in is not None else 0
         delta_out = veh_out - access.last_vehicle_out if access.last_vehicle_out is not None else 0
+        
+        logger.info(f"Deltas calculated - Delta In: {delta_in}, Delta Out: {delta_out}")
         
         # Actualizar contadores de acceso
         access.last_vehicle_in = veh_in
@@ -85,8 +92,11 @@ def handle_camera():
         
         # Actualizar parking
         parking = access.parking
+        previous_occupancy = parking.current_occupancy
         parking.current_occupancy += (delta_in - delta_out)
         parking.current_occupancy = max(0, min(parking.current_occupancy, parking.max_capacity))
+        
+        logger.info(f"Parking occupancy updated - Previous: {previous_occupancy}, New: {parking.current_occupancy}, Max Capacity: {parking.max_capacity}")
         
         # Registrar histórico
         hist = OccupancyHistory(
@@ -99,9 +109,11 @@ def handle_camera():
         # Calcular estado
         occ = parking.current_occupancy
         parking_name = parking.name  # Obtener el nombre antes de cerrar la sesión
+        previous_status = parking.status
         
         if parking.fixed_message_flag:
             message = None
+            logger.info(f"Fixed message flag is active - no status update")
         else:
             if occ >= parking.threshold_full:
                 parking.status = 'OCUPADO'
@@ -112,9 +124,13 @@ def handle_camera():
             free = parking.max_capacity - occ
             message = f"{parking_name}: {free} libres ({parking.status})"
             
+            logger.info(f"Status updated - Previous: {previous_status}, New: {parking.status}, Free spaces: {free}")
+            logger.info(f"Thresholds - Dense: {parking.threshold_dense}, Full: {parking.threshold_full}")
+            
             # Enviar mensaje a paneles (con manejo de errores)
             try:
                 broadcast(parking, message)
+                logger.info(f"Message broadcasted to panels: {message}")
             except Exception as e:
                 logger.error(f"Error broadcasting to panels: {e}")
         
