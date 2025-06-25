@@ -1,5 +1,5 @@
 import requests
-from config import *
+from config import DB_URL, CAMERA_PORT, API_PORT, LOG_RETENTION_DAYS
 
 # Ejemplo usando Rotuloselect API (ajustar según zip de ejemplo)
 API_ENDPOINT_TEMPLATE = 'http://{ip}/update'
