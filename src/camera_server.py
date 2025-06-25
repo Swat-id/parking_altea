@@ -19,19 +19,35 @@ Base.metadata.create_all(engine)
 
 @app.route('/camera', methods=['POST'])
 def handle_camera():
+    # Obtener IP del cliente al inicio para logging
+    ip = request.headers.get('X-Forwarded-For') or request.remote_addr
+    
+    # Log de recepción de petición
+    logger.info(f"=== CAMERA MESSAGE RECEIVED ===")
+    logger.info(f"Source IP: {ip}")
+    logger.info(f"Headers: {dict(request.headers)}")
+    
+    # Capturar el body raw para logging
     try:
-        # Obtener IP del cliente
-        ip = request.headers.get('X-Forwarded-For') or request.remote_addr
-        
+        raw_data = request.get_data(as_text=True)
+        logger.info(f"Raw body received: {raw_data}")
+    except Exception as e:
+        logger.error(f"Error reading raw body from {ip}: {e}")
+        raw_data = "Unable to read raw body"
+    
+    try:
         # Intentar parsear JSON de forma robusta
         try:
             data = request.get_json(force=True)
+            logger.info(f"JSON parsed successfully from {ip}")
         except Exception as e:
-            logger.error(f"Error parsing JSON from {ip}: {e}")
+            logger.error(f"JSON mal formado descartado from {ip}: {e}")
+            logger.error(f"Raw data that caused error: {raw_data}")
             return jsonify({'error': 'Invalid JSON format'}), 400
         
         if not data:
-            logger.error(f"Empty JSON data from {ip}")
+            logger.error(f"Mensaje vacío descartado from {ip}")
+            logger.error(f"Raw data was empty or null")
             return jsonify({'error': 'Empty JSON data'}), 400
         
         # Extraer campos del nuevo formato
@@ -48,7 +64,8 @@ def handle_camera():
         
         # Validar campos requeridos
         if line is None or veh_in is None or veh_out is None:
-            logger.error(f"Missing required fields from {ip}: line={line}, veh_in={veh_in}, veh_out={veh_out}")
+            logger.error(f"Campos requeridos faltantes from {ip}: line={line}, veh_in={veh_in}, veh_out={veh_out}")
+            logger.error(f"JSON completo que causó el error: {json.dumps(data, indent=2)}")
             return jsonify({'error': 'Missing required fields: line, Vehicle In, Vehicle Out'}), 400
         
         # Convertir a enteros de forma segura
@@ -57,7 +74,8 @@ def handle_camera():
             veh_in = int(veh_in)
             veh_out = int(veh_out)
         except (ValueError, TypeError) as e:
-            logger.error(f"Invalid numeric values from {ip}: {e}")
+            logger.error(f"Valores numéricos inválidos from {ip}: {e}")
+            logger.error(f"Valores problemáticos: line='{line}', veh_in='{veh_in}', veh_out='{veh_out}'")
             return jsonify({'error': 'Invalid numeric values'}), 400
         
         session = Session()
@@ -74,6 +92,7 @@ def handle_camera():
         if not access:
             session.close()
             logger.warning(f"Access not found for IP: {ip}, Line: {line}, Device: {device}")
+            logger.warning(f"JSON completo que no pudo ser procesado: {json.dumps(data, indent=2)}")
             return jsonify({'error': 'Access not found'}), 404
         
         # Log de información del acceso encontrado
@@ -138,15 +157,18 @@ def handle_camera():
         session.close()
         
         logger.info(f"Successfully processed camera data for parking {parking_name} - Occupancy: {occ}")
+        logger.info(f"=== END CAMERA MESSAGE PROCESSING ===")
         return jsonify({'status': 'ok', 'parking': parking_name, 'occupancy': occ})
         
     except Exception as e:
-        logger.error(f"Unexpected error processing camera data: {e}")
+        logger.error(f"Error inesperado procesando datos de cámara from {ip}: {e}")
+        logger.error(f"Raw data that caused unexpected error: {raw_data}")
         # Asegurar que la sesión se cierre en caso de error
         try:
             session.close()
         except:
             pass
+        logger.info(f"=== END CAMERA MESSAGE PROCESSING (WITH ERROR) ===")
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/camera', methods=['GET'])
