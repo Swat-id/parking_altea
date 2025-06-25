@@ -78,6 +78,11 @@ def handle_camera():
             logger.error(f"Valores problemáticos: line='{line}', veh_in='{veh_in}', veh_out='{veh_out}'")
             return jsonify({'error': 'Invalid numeric values'}), 400
         
+        # Ajustar numeración de línea: cámara envía 0,1,2,3... pero BD usa 1,2,3,4...
+        original_line = line
+        line = line + 1
+        logger.info(f"Line number adjusted - Received: {original_line}, Adjusted for DB: {line}")
+        
         session = Session()
         
         # Buscar acceso por IP y línea (método principal)
@@ -87,12 +92,12 @@ def handle_camera():
         if not access and device:
             access = session.query(Access).filter_by(name=device, line=line).first()
             if access:
-                logger.info(f"Found access by device name and line: {device}, line: {line}")
+                logger.info(f"Found access by device name and line: {device}, line: {line} (original: {original_line})")
             else:
                 # Si no encuentra por nombre+línea, buscar solo por nombre para logging
                 device_access = session.query(Access).filter_by(name=device).first()
                 if device_access:
-                    logger.warning(f"Device found but line mismatch - Device: {device}, Expected line: {device_access.line}, Received line: {line}")
+                    logger.warning(f"Device found but line mismatch - Device: {device}, Expected line: {device_access.line}, Received line: {original_line} (adjusted: {line})")
                     logger.warning(f"Message logged but not processed - line validation failed")
                     session.close()
                     return jsonify({'error': 'Line mismatch for device'}), 400
@@ -101,7 +106,7 @@ def handle_camera():
         
         if not access:
             session.close()
-            logger.warning(f"Access not found for IP: {ip}, Line: {line}, Device: {device}")
+            logger.warning(f"Access not found for IP: {ip}, Line: {original_line} (adjusted: {line}), Device: {device}")
             logger.warning(f"JSON completo que no pudo ser procesado: {json.dumps(data, indent=2)}")
             return jsonify({'error': 'Access not found'}), 404
         
