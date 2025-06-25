@@ -80,14 +80,24 @@ def handle_camera():
         
         session = Session()
         
-        # Buscar acceso por IP y línea
+        # Buscar acceso por IP y línea (método principal)
         access = session.query(Access).filter_by(ip=ip, line=line).first()
         
-        # Si no se encuentra por IP, intentar buscar por nombre de dispositivo
+        # Si no se encuentra por IP+línea, intentar buscar por nombre de dispositivo Y línea
         if not access and device:
-            access = session.query(Access).filter_by(name=device).first()
+            access = session.query(Access).filter_by(name=device, line=line).first()
             if access:
-                logger.info(f"Found access by device name: {device}")
+                logger.info(f"Found access by device name and line: {device}, line: {line}")
+            else:
+                # Si no encuentra por nombre+línea, buscar solo por nombre para logging
+                device_access = session.query(Access).filter_by(name=device).first()
+                if device_access:
+                    logger.warning(f"Device found but line mismatch - Device: {device}, Expected line: {device_access.line}, Received line: {line}")
+                    logger.warning(f"Message logged but not processed - line validation failed")
+                    session.close()
+                    return jsonify({'error': 'Line mismatch for device'}), 400
+                else:
+                    logger.warning(f"Device not found in database: {device}")
         
         if not access:
             session.close()
