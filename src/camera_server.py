@@ -139,22 +139,24 @@ def handle_camera():
         occ = parking.current_occupancy
         parking_name = parking.name  # Obtener el nombre antes de cerrar la sesión
         previous_status = parking.status
+        free = parking.max_capacity - occ
         
         if parking.fixed_message_flag:
             message = None
             logger.info(f"Fixed message flag is active - no status update")
         else:
-            if occ >= parking.threshold_full:
-                parking.status = 'OCUPADO'
-            elif occ >= parking.threshold_dense:
+            # Evaluar por plazas libres (no por ocupación)
+            if free <= parking.threshold_full:
+                parking.status = 'COMPLETO'
+            elif free <= parking.threshold_dense:
                 parking.status = 'DENSO'
             else:
                 parking.status = 'LIBRE'
-            free = parking.max_capacity - occ
+            
             message = f"{parking_name}: {free} libres ({parking.status})"
             
             logger.info(f"Status updated - Previous: {previous_status}, New: {parking.status}, Free spaces: {free}")
-            logger.info(f"Thresholds - Dense: {parking.threshold_dense}, Full: {parking.threshold_full}")
+            logger.info(f"Thresholds evaluation - Free spaces: {free}, Dense threshold: {parking.threshold_dense}, Full threshold: {parking.threshold_full}")
             
             # Enviar mensaje a paneles (con manejo de errores)
             try:
