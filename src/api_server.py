@@ -14,14 +14,14 @@ Base.metadata.create_all(engine)
 def list_parkings():
     session = Session()
     parks = session.query(Parking).all()
-    data = [{{
+    data = [{
         'id': p.id,
         'name': p.name,
         'location': p.location,
         'max_capacity': p.max_capacity,
         'current_occupancy': p.current_occupancy,
         'status': p.status
-    }} for p in parks]
+    } for p in parks]
     session.close()
     return jsonify(data)
 
@@ -31,14 +31,14 @@ def get_parking(pid):
     p = session.query(Parking).get(pid)
     if not p:
         return jsonify({'error':'Not found'}), 404
-    data = {{
+    data = {
         'id': p.id,
         'name': p.name,
         'max_capacity': p.max_capacity,
         'current_occupancy': p.current_occupancy,
         'free_spaces': p.max_capacity - p.current_occupancy,
         'status': p.status
-    }}
+    }
     session.close()
     return jsonify(data)
 

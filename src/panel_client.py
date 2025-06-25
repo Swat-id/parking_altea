@@ -1,14 +1,14 @@
 import requests
-from config import {}
+from config import *
 
 # Ejemplo usando Rotuloselect API (ajustar según zip de ejemplo)
-API_ENDPOINT = 'http://{ip}/update'
+API_ENDPOINT_TEMPLATE = 'http://{ip}/update'
 
 
 def send_to_panel(panel_ip: str, text: str) -> bool:
     try:
-        payload = {{'message': text}}
-        r = requests.post(API_ENDPOINT.format(ip=panel_ip), json=payload, timeout=5)
+        payload = {'message': text}
+        r = requests.post(API_ENDPOINT_TEMPLATE.format(ip=panel_ip), json=payload, timeout=5)
         return r.status_code == 200
     except Exception:
         return False
