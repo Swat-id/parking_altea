@@ -98,6 +98,8 @@ def handle_camera():
         
         # Calcular estado
         occ = parking.current_occupancy
+        parking_name = parking.name  # Obtener el nombre antes de cerrar la sesión
+        
         if parking.fixed_message_flag:
             message = None
         else:
@@ -108,7 +110,7 @@ def handle_camera():
             else:
                 parking.status = 'LIBRE'
             free = parking.max_capacity - occ
-            message = f"{parking.name}: {free} libres ({parking.status})"
+            message = f"{parking_name}: {free} libres ({parking.status})"
             
             # Enviar mensaje a paneles (con manejo de errores)
             try:
@@ -119,8 +121,8 @@ def handle_camera():
         session.commit()
         session.close()
         
-        logger.info(f"Successfully processed camera data for parking {parking.name} - Occupancy: {occ}")
-        return jsonify({'status': 'ok', 'parking': parking.name, 'occupancy': occ})
+        logger.info(f"Successfully processed camera data for parking {parking_name} - Occupancy: {occ}")
+        return jsonify({'status': 'ok', 'parking': parking_name, 'occupancy': occ})
         
     except Exception as e:
         logger.error(f"Unexpected error processing camera data: {e}")
