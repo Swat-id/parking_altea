@@ -24,7 +24,8 @@ logger = logging.getLogger(__name__)
 # Importar modelos y configuración
 try:
     from models import Base, Parking, Access, CameraLog, OccupancyHistory, VehicleCount
-    from config import DATABASE_URL
+    from config import DB_URL
+    DATABASE_URL = DB_URL  # Alias para mantener compatibilidad
 except ImportError as e:
     print(f"❌ Error: No se pueden importar los módulos: {e}")
     print(f"   Directorio actual: {os.getcwd()}")
