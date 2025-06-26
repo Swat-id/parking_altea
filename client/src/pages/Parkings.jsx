@@ -87,7 +87,10 @@ const Parkings = () => {
   })
 
   const getOcupationPercentage = (ocupadas, total) => {
-    return total > 0 ? Math.round((ocupadas / total) * 100) : 0
+    if (total <= 0) return 0
+    const percentage = Math.round((ocupadas / total) * 100)
+    // Limitar al 100% máximo para evitar que la barra se desborde
+    return Math.min(percentage, 100)
   }
 
   const startEditing = (parking) => {
@@ -292,6 +295,9 @@ const Parkings = () => {
                         <span className="text-gray-500">Ocupación</span>
                         <span className="font-medium">
                           {getOcupationPercentage(parking.plazas_ocupadas || 0, parking.total_plazas || 0)}%
+                          {(parking.plazas_ocupadas || 0) > (parking.total_plazas || 0) && (
+                            <span className="text-red-600 ml-1">(Descuadre)</span>
+                          )}
                         </span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
@@ -308,6 +314,11 @@ const Parkings = () => {
                           }}
                         />
                       </div>
+                      {(parking.plazas_ocupadas || 0) > (parking.total_plazas || 0) && (
+                        <div className="text-xs text-red-600 mt-1">
+                          ⚠️ Descuadre: {parking.plazas_ocupadas || 0} &gt; {parking.total_plazas || 0}
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 sm:gap-4 text-sm">

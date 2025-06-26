@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { parkingService } from '../services/parkingService'
 import { statisticsService } from '../services/statisticsService'
 import { 
@@ -21,6 +21,8 @@ import toast from 'react-hot-toast'
 
 const Statistics = () => {
   const { id } = useParams()
+  const navigate = useNavigate()
+  const [parkings, setParkings] = useState([])
   const [parking, setParking] = useState(null)
   const [hourlyStats, setHourlyStats] = useState([])
   const [cameraStats, setCameraStats] = useState([])
@@ -48,6 +50,23 @@ const Statistics = () => {
       </div>
     )
   }
+
+  // Cargar lista de parkings al montar
+  useEffect(() => {
+    async function fetchParkings() {
+      try {
+        const data = await parkingService.getParkings()
+        setParkings(data)
+        // Si no hay id, redirigir al primer parking
+        if (!id && data.length > 0) {
+          navigate(`/statistics/${data[0].id}`, { replace: true })
+        }
+      } catch (e) {
+        toast.error('Error cargando lista de parkings')
+      }
+    }
+    fetchParkings()
+  }, [id, navigate])
 
   useEffect(() => {
     if (id) {
@@ -163,17 +182,31 @@ const Statistics = () => {
 
   return (
     <div className="max-w-7xl mx-auto p-6">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">
-          📊 Estadísticas - {parking?.name}
-        </h1>
-        <p className="text-gray-600">Análisis detallado de ocupación y actividad</p>
-        {lastUpdate && (
-          <p className="text-sm text-gray-500 mt-2">
-            Última actualización: {lastUpdate.toLocaleString('es-ES')}
-          </p>
-        )}
+      {/* Header con selector de parking */}
+      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">
+            📊 Estadísticas - {parking?.name}
+          </h1>
+          <p className="text-gray-600">Análisis detallado de ocupación y actividad</p>
+          {lastUpdate && (
+            <p className="text-sm text-gray-500 mt-2">
+              Última actualización: {lastUpdate.toLocaleString('es-ES')}
+            </p>
+          )}
+        </div>
+        <div className="w-full md:w-72">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Selecciona aparcamiento</label>
+          <select
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={id || ''}
+            onChange={e => navigate(`/statistics/${e.target.value}`)}
+          >
+            {parkings.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Filtros */}

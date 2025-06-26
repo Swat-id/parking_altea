@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from src import config
-from models import Base, Parking
+from src.models import Base, Parking
 from datetime import datetime
 
 # Configurar conexión a base de datos
