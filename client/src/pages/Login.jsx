@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
@@ -8,7 +8,14 @@ const Login = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const navigate = useNavigate()
-  const { login } = useAuth()
+  const { login, isAuthenticated } = useAuth()
+
+  // Efecto para navegar cuando el usuario esté autenticado
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard')
+    }
+  }, [isAuthenticated, navigate])
 
   // Credenciales predefinidas para acceso directo
   const validCredentials = {
@@ -30,13 +37,14 @@ const Login = () => {
         email: 'atea.dti@altea.es',
         token: 'local-token-' + Date.now()
       }
+      
+      console.log('Intentando login con:', userData)
       login(userData)
-      navigate('/dashboard')
-      return
+      
+      // No navegar aquí, el useEffect se encargará cuando isAuthenticated cambie
     } catch (err) {
       console.error('Error de conexión:', err)
       setError('Error interno del sistema')
-    } finally {
       setLoading(false)
     }
   }

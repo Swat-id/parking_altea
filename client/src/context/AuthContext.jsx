@@ -35,9 +35,21 @@ export const AuthProvider = ({ children }) => {
 
   const login = (userData) => {
     console.log('Login llamado con:', userData)
+    
+    // Asegurar que userData es válido
+    if (!userData || !userData.token) {
+      console.error('userData inválido:', userData)
+      return
+    }
+    
+    // Actualizar estado inmediatamente
     setUser(userData)
+    
+    // Guardar en localStorage
     localStorage.setItem('user', JSON.stringify(userData))
     localStorage.setItem('token', userData.token)
+    
+    console.log('Estado actualizado, usuario guardado en localStorage')
   }
 
   const logout = () => {
@@ -49,7 +61,13 @@ export const AuthProvider = ({ children }) => {
 
   const isAuthenticated = !!user
 
-  console.log('Estado actual de autenticación:', { user, isAuthenticated, loading })
+  console.log('Estado actual de autenticación:', { 
+    user, 
+    isAuthenticated, 
+    loading,
+    userExists: !!user,
+    tokenExists: !!localStorage.getItem('token')
+  })
 
   const value = {
     user,
