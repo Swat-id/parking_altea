@@ -16,7 +16,24 @@ def ping_panel(panel_ip: str) -> bool:
         if platform.system().lower() == "windows":
             cmd = ["ping", "-n", "1", "-w", "1000", panel_ip]
         else:
-            cmd = ["ping", "-c", "1", "-W", "1", panel_ip]
+            # Usar rutas completas para ping en sistemas Unix
+            ping_paths = ["/bin/ping", "/usr/bin/ping", "/sbin/ping"]
+            ping_cmd = None
+            
+            for path in ping_paths:
+                try:
+                    import os
+                    if os.path.exists(path):
+                        ping_cmd = path
+                        break
+                except:
+                    continue
+            
+            if not ping_cmd:
+                # Si no encontramos ping, intentar con el PATH
+                ping_cmd = "ping"
+            
+            cmd = [ping_cmd, "-c", "1", "-W", "1", panel_ip]
         
         # Ejecutar ping
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
