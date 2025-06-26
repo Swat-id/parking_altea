@@ -8,8 +8,16 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from src.models import Session, Parking
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+import config
+from models import Base, Parking
 from datetime import datetime
+
+# Configurar conexión a base de datos
+engine = create_engine(config.DB_URL, echo=False)
+Session = sessionmaker(bind=engine)
+Base.metadata.create_all(engine)
 
 def fix_parking_status():
     """Corregir estados de parking con descuadre negativo"""
