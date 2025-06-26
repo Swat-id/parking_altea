@@ -1,16 +1,23 @@
-from flask import Flask, request, jsonify
+import os
+import sys
+import time
+import json
+import logging
+from datetime import datetime, timedelta
+from functools import wraps
+from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
-import config
-from models import Base, Parking, ScheduledMessage, OccupancyHistory, Panel, User, UserParking, UserPanel, UserAccess, Access, CameraLog
+from werkzeug.security import generate_password_hash, check_password_hash
+import jwt
+from config import DB_URL, JWT_SECRET_KEY, API_PORT
+from models import Base, User, Parking, Access, Panel, OccupancyHistory, ScheduledMessage, ActivityLog, PanelMessageLog, VehicleCount, CameraLog, UserParking, UserPanel, UserAccess
+from panel_client import send_to_panel
 from auth import (
     create_user, authenticate_user, delete_user, change_password, 
     get_user_permissions, assign_user_to_resources, require_auth
 )
-from datetime import datetime
-import logging
-from panel_client import broadcast
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -19,7 +26,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app, origins=['http://157.180.91.63:5789', 'http://localhost:5173', 'http://localhost:3000'], supports_credentials=True)
 
-engine = create_engine(config.DB_URL, echo=False)
+engine = create_engine(DB_URL, echo=False)
 Session = sessionmaker(bind=engine)
 Base.metadata.create_all(engine)
 
@@ -500,7 +507,6 @@ def set_parking_message(pid):
             return jsonify({'error': 'No panels found for this parking'}), 404
         
         # Enviar mensaje a todos los paneles del parking
-        from panel_client import send_to_panel
         success_count = 0
         failed_panels = []
         
@@ -561,7 +567,6 @@ def set_panel_message(ip):
         parking_name = panel.parking.name
         
         # Enviar mensaje al panel específico
-        from panel_client import send_to_panel
         formatted_message = f"{message}|{color}|{'SCROLL' if scroll else 'CENTER'}"
         
         if send_to_panel(panel.ip, formatted_message):
@@ -697,7 +702,6 @@ def send_message_to_panel(panel_id):
             return jsonify({'error': 'Panel not found'}), 404
         
         # Enviar mensaje al panel
-        from panel_client import send_to_panel
         formatted_message = f"{message}|VERDE|CENTER"
         
         start_time = datetime.now()
@@ -737,7 +741,6 @@ def test_panel(panel_id):
             return jsonify({'error': 'Panel not found'}), 404
         
         # Enviar mensaje de prueba
-        from panel_client import send_to_panel
         test_message = "PRUEBA|VERDE|CENTER"
         
         start_time = datetime.now()
@@ -1342,5 +1345,69 @@ def get_parking_hourly_statistics(pid):
         logger.error(f"Error obteniendo estadísticas por horas del parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@app.route('/panels/verify', methods=['POST'])
+def verify_all_panels():
+    """Verificar el estado de todos los paneles mediante ping"""
+    try:
+        session = Session()
+        panels = session.query(Panel).all()
+        
+        results = []
+        updated_count = 0
+        
+        for panel in panels:
+            try:
+                # Hacer ping al panel
+                test_message = "PING|VERDE|CENTER"
+                
+                start_time = datetime.now()
+                success = send_to_panel(panel.ip, test_message)
+                response_time = (datetime.now() - start_time).total_seconds() * 1000
+                
+                # Determinar estado
+                new_status = 'ONLINE' if success else 'OFFLINE'
+                status_changed = panel.status != new_status
+                
+                # Actualizar estado del panel
+                panel.status = new_status
+                panel.last_update = datetime.now()
+                
+                if status_changed:
+                    updated_count += 1
+                
+                results.append({
+                    'panel_id': panel.id,
+                    'panel_name': panel.name,
+                    'ip': panel.ip,
+                    'previous_status': panel.status if status_changed else None,
+                    'new_status': new_status,
+                    'response_time': response_time,
+                    'status_changed': status_changed
+                })
+                
+            except Exception as e:
+                logger.error(f"Error verificando panel {panel.id}: {e}")
+                results.append({
+                    'panel_id': panel.id,
+                    'panel_name': panel.name,
+                    'ip': panel.ip,
+                    'error': str(e),
+                    'status_changed': False
+                })
+        
+        session.commit()
+        session.close()
+        
+        return jsonify({
+            'status': 'ok',
+            'total_panels': len(panels),
+            'updated_count': updated_count,
+            'results': results
+        })
+        
+    except Exception as e:
+        logger.error(f"Error verificando paneles: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=config.API_PORT, debug=False)
+    app.run(host='0.0.0.0', port=API_PORT, debug=False)
