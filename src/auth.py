@@ -213,23 +213,36 @@ def require_auth(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         token = None
-        
         # Obtener token del header Authorization
         if 'Authorization' in request.headers:
             auth_header = request.headers['Authorization']
             if auth_header.startswith('Bearer '):
                 token = auth_header.split(' ')[1]
-        
+
         if not token:
-            return jsonify({"error": "Token de autenticación requerido"}), 401
-        
-        # Verificar token
+            # Modo sin login: asignar usuario superadmin por defecto
+            from models import User
+            from sqlalchemy.orm import sessionmaker
+            from config import DB_URL
+            from sqlalchemy import create_engine
+            engine = create_engine(DB_URL, echo=False)
+            SessionLocal = sessionmaker(bind=engine)
+            db_session = SessionLocal()
+            user = db_session.query(User).filter(User.email == 'info@swat-id.com').first()
+            db_session.close()
+            if not user:
+                return jsonify({"error": "Usuario superadmin info@swat-id.com no existe"}), 401
+            request.user_data = {
+                "user_id": user.id,
+                "email": user.email,
+                "name": user.name
+            }
+            return f(*args, **kwargs)
+
+        # Verificar token normalmente
         token_data = verify_token(token)
         if not token_data["success"]:
             return jsonify({"error": token_data["error"]}), 401
-        
-        # Agregar información del usuario a la request
         request.user_data = token_data["user_data"]
         return f(*args, **kwargs)
-    
     return decorated_function 
