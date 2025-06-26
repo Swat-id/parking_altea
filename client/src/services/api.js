@@ -10,13 +10,11 @@ const api = axios.create({
   },
 })
 
-// Interceptor para agregar el token a las peticiones
+// Interceptor simple para agregar el token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
+    const token = localStorage.getItem('token') || 'default-token-toni-alos'
+    config.headers.Authorization = `Bearer ${token}`
     return config
   },
   (error) => {
@@ -24,18 +22,13 @@ api.interceptors.request.use(
   }
 )
 
-// Interceptor para manejar errores de respuesta
+// Interceptor simple para manejar errores sin redirecciones
 api.interceptors.response.use(
   (response) => {
     return response
   },
   (error) => {
-    if (error.response?.status === 401) {
-      // Token expirado o inválido
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      window.location.href = '/login'
-    }
+    console.error('API Error:', error.response?.status, error.response?.data)
     return Promise.reject(error)
   }
 )

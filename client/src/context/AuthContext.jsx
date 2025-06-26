@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react'
+import React, { createContext, useContext } from 'react'
 
 const AuthContext = createContext()
 
@@ -11,34 +11,21 @@ export const useAuth = () => {
 }
 
 export const AuthProvider = ({ children }) => {
-  // Usuario por defecto: Toni Alos
-  const defaultUser = {
+  // Usuario fijo: Toni Alos
+  const user = {
     id: 1,
     name: 'Toni Alos',
     email: 'atea.dti@altea.es',
     token: 'default-token-toni-alos'
   }
 
-  const [user] = useState(defaultUser)
-  const [loading] = useState(false)
-
-  // Guardar usuario por defecto en localStorage una sola vez
-  if (!localStorage.getItem('user')) {
-    localStorage.setItem('user', JSON.stringify(defaultUser))
-    localStorage.setItem('token', defaultUser.token)
-  }
-
-  const login = (userData) => {
-    // No hacer nada, mantener siempre el usuario por defecto
-    console.log('Login llamado pero manteniendo usuario por defecto')
-  }
-
-  const logout = () => {
-    // No hacer nada, mantener siempre autenticado
-    console.log('Logout llamado pero manteniendo usuario por defecto')
-  }
-
-  const isAuthenticated = true // Siempre autenticado
+  // Funciones vacías
+  const login = () => {}
+  const logout = () => {}
+  
+  // Siempre autenticado
+  const isAuthenticated = true
+  const loading = false
 
   const value = {
     user,
