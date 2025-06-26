@@ -20,7 +20,8 @@ const Layout = ({ children }) => {
 
   const handleLogout = () => {
     logout()
-    navigate('/login')
+    // En modo sin login, simplemente recargar la página
+    window.location.reload()
   }
 
   const navigation = [

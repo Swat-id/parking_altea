@@ -21,14 +21,18 @@ export const AuthProvider = ({ children }) => {
 
   const [user, setUser] = useState(defaultUser)
   const [loading, setLoading] = useState(false)
+  const [initialized, setInitialized] = useState(false)
 
   useEffect(() => {
-    console.log('AuthProvider: Inicializando con usuario por defecto:', defaultUser)
-    // Guardar usuario por defecto en localStorage
-    localStorage.setItem('user', JSON.stringify(defaultUser))
-    localStorage.setItem('token', defaultUser.token)
-    setLoading(false)
-  }, [])
+    if (!initialized) {
+      console.log('AuthProvider: Inicializando con usuario por defecto:', defaultUser)
+      // Guardar usuario por defecto en localStorage
+      localStorage.setItem('user', JSON.stringify(defaultUser))
+      localStorage.setItem('token', defaultUser.token)
+      setLoading(false)
+      setInitialized(true)
+    }
+  }, [initialized, defaultUser])
 
   const login = (userData) => {
     console.log('AuthProvider: Login llamado con:', userData)
@@ -49,15 +53,20 @@ export const AuthProvider = ({ children }) => {
 
   const isAuthenticated = true // Siempre autenticado
 
-  console.log('AuthProvider: Estado actual de autenticación:', { 
-    user, 
-    isAuthenticated, 
-    loading,
-    userExists: !!user,
-    tokenExists: !!localStorage.getItem('token'),
-    userType: typeof user,
-    userKeys: user ? Object.keys(user) : 'null'
-  })
+  // Solo loggear una vez después de la inicialización
+  useEffect(() => {
+    if (initialized) {
+      console.log('AuthProvider: Estado inicializado:', { 
+        user, 
+        isAuthenticated, 
+        loading,
+        userExists: !!user,
+        tokenExists: !!localStorage.getItem('token'),
+        userType: typeof user,
+        userKeys: user ? Object.keys(user) : 'null'
+      })
+    }
+  }, [initialized, user, isAuthenticated, loading])
 
   const value = {
     user,
