@@ -206,7 +206,6 @@ def get_user_parkings():
             for p in parks
         ]
         session.close()
-        
         return jsonify(data)
         
     except Exception as e:
@@ -216,7 +215,7 @@ def get_user_parkings():
 @app.route('/user/parking/<int:pid>', methods=['GET'])
 @require_auth
 def get_user_parking(pid):
-    """Obtener datos de un parking específico (si el usuario tiene acceso)"""
+    """Obtener un parking específico del usuario autenticado"""
     try:
         user_id = request.user_data['user_id']
         
@@ -229,13 +228,70 @@ def get_user_parking(pid):
         
         if not user_parking:
             session.close()
-            return jsonify({'error': 'Acceso denegado al parking'}), 403
+            return jsonify({'error': 'Parking not found or access denied'}), 404
         
         # Obtener datos del parking
+        parking = session.query(Parking).get(pid)
+        if not parking:
+            session.close()
+            return jsonify({'error': 'Parking not found'}), 404
+        
+        data = {
+            'id': parking.id,
+            'name': parking.name,
+            'location': parking.location,
+            'total_plazas': parking.max_capacity,
+            'plazas_ocupadas': parking.current_occupancy,
+            'plazas_libres': parking.max_capacity - parking.current_occupancy,
+            'estado': parking.status,
+            'threshold_dense': parking.threshold_dense,
+            'threshold_full': parking.threshold_full
+        }
+        session.close()
+        return jsonify(data)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo parking del usuario: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+# ============================================================================
+# ENDPOINTS PÚBLICOS DE PARKINGS
+# ============================================================================
+
+@app.route('/parkings', methods=['GET'])
+def list_parkings():
+    """Listar todos los parkings"""
+    try:
+        session = Session()
+        parks = session.query(Parking).all()
+        data = [
+            {
+                'id': p.id,
+                'name': p.name,
+                'location': p.location,
+                'total_plazas': p.max_capacity,
+                'plazas_ocupadas': p.current_occupancy,
+                'plazas_libres': p.max_capacity - p.current_occupancy,
+                'estado': p.status
+            }
+            for p in parks
+        ]
+        session.close()
+        return jsonify(data)
+        
+    except Exception as e:
+        logger.error(f"Error listando parkings: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/parking/<int:pid>', methods=['GET'])
+def get_parking(pid):
+    """Obtener un parking específico"""
+    try:
+        session = Session()
         p = session.query(Parking).get(pid)
         if not p:
             session.close()
-            return jsonify({'error': 'Parking no encontrado'}), 404
+            return jsonify({'error':'Parking not found'}), 404
         
         data = {
             'id': p.id,
@@ -252,67 +308,21 @@ def get_user_parking(pid):
         return jsonify(data)
         
     except Exception as e:
-        logger.error(f"Error obteniendo parking del usuario: {e}")
+        logger.error(f"Error obteniendo parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
-
-# ============================================================================
-# ENDPOINTS PÚBLICOS (mantienen compatibilidad)
-# ============================================================================
-
-@app.route('/parkings', methods=['GET'])
-def list_parkings():
-    """Obtener datos de todos los aparcamientos con información completa"""
-    session = Session()
-    parks = session.query(Parking).all()
-    data = [
-        {
-            'id': p.id,
-            'name': p.name,
-            'location': p.location,
-            'total_plazas': p.max_capacity,
-            'plazas_ocupadas': p.current_occupancy,
-            'plazas_libres': p.max_capacity - p.current_occupancy,
-            'estado': p.status,
-            'threshold_dense': p.threshold_dense,
-            'threshold_full': p.threshold_full
-        }
-        for p in parks
-    ]
-    session.close()
-    return jsonify(data)
-
-@app.route('/parking/<int:pid>', methods=['GET'])
-def get_parking(pid):
-    """Obtener datos de un parking específico"""
-    session = Session()
-    p = session.query(Parking).get(pid)
-    if not p:
-        session.close()
-        return jsonify({'error':'Parking not found'}), 404
-    
-    data = {
-        'id': p.id,
-        'name': p.name,
-        'location': p.location,
-        'total_plazas': p.max_capacity,
-        'plazas_ocupadas': p.current_occupancy,
-        'plazas_libres': p.max_capacity - p.current_occupancy,
-        'estado': p.status,
-        'threshold_dense': p.threshold_dense,
-        'threshold_full': p.threshold_full
-    }
-    session.close()
-    return jsonify(data)
 
 @app.route('/parking/<int:pid>/occupancy', methods=['POST'])
 def set_occupancy(pid):
-    """Actualizar ocupación manual de un parking"""
+    """Establecer ocupación de un parking"""
     try:
         req = request.get_json(force=True)
-        new_occ = req.get('occupancy')
+        occupancy = req.get('occupancy')
         
-        if new_occ is None:
+        if occupancy is None:
             return jsonify({'error': 'Missing occupancy field'}), 400
+        
+        if not isinstance(occupancy, int) or occupancy < 0:
+            return jsonify({'error': 'Occupancy must be a non-negative integer'}), 400
         
         session = Session()
         p = session.query(Parking).get(pid)
@@ -320,57 +330,46 @@ def set_occupancy(pid):
             session.close()
             return jsonify({'error':'Parking not found'}), 404
         
-        # Validar y ajustar ocupación
-        new_occ = int(new_occ)
-        # PERMITIR OCUPACIÓN POR ENCIMA DEL MÁXIMO Y VALORES NEGATIVOS
-        # No limitar la ocupación al máximo de capacidad
-        # Esto permite reflejar la realidad cuando hay exceso de vehículos
+        # Guardar ocupación anterior para el historial
         previous_occupancy = p.current_occupancy
-        parking_name = p.name  # Guardar el nombre antes de cerrar la sesión
-        p.current_occupancy = new_occ
+        change_amount = occupancy - previous_occupancy
         
-        # Calcular descuadre para estadísticas
-        free_spaces = p.max_capacity - p.current_occupancy
-        occupancy_discrepancy = None
+        # Actualizar ocupación
+        p.current_occupancy = occupancy
         
-        if p.current_occupancy > p.max_capacity:
-            # Exceso de vehículos
-            occupancy_discrepancy = f"EXCESS:{p.current_occupancy - p.max_capacity}"
-            logger.warning(f"MANUAL OCCUPANCY EXCESS - Parking: {parking_name}, Capacity: {p.max_capacity}, Current: {p.current_occupancy}, Excess: {p.current_occupancy - p.max_capacity}")
-        elif free_spaces < 0:
-            # Plazas libres negativas
-            occupancy_discrepancy = f"NEGATIVE_FREE:{abs(free_spaces)}"
-            logger.warning(f"MANUAL NEGATIVE FREE SPACES - Parking: {parking_name}, Free spaces: {free_spaces}")
-        
-        # Calcular estado basado en plazas libres (permitir estados especiales)
+        # Recalcular estado
         free = p.max_capacity - p.current_occupancy
-        
-        if free < 0:
-            # Estado especial para descuadres negativos
-            p.status = 'DESCUADRE_NEGATIVO'
-        elif p.current_occupancy > p.max_capacity:
-            # Estado para exceso de ocupación
-            p.status = 'COMPLETO_EXCESO'
-        elif free <= p.threshold_full:
+        if free <= p.threshold_full:
             p.status = 'COMPLETO'
         elif free <= p.threshold_dense:
             p.status = 'DENSO'
         else:
             p.status = 'LIBRE'
         
-        # Registrar histórico
-        hist = OccupancyHistory(parking_id=pid, occupancy=p.current_occupancy, source='manual')
-        session.add(hist)
-        final_status = p.status  # Guardar el estado antes de cerrar la sesión
+        # Guardar en historial
+        history = OccupancyHistory(
+            parking_id=pid,
+            occupancy=occupancy,
+            source='manual',
+            previous_occupancy=previous_occupancy,
+            change_amount=change_amount
+        )
+        session.add(history)
+        
+        # Guardar nombres antes de cerrar la sesión
+        parking_name = p.name
+        final_occupancy = p.current_occupancy
+        final_status = p.status
+        
         session.commit()
         session.close()
         
-        logger.info(f"Manual occupancy update - Parking: {parking_name}, Previous: {previous_occupancy}, New: {new_occ}, Status: {final_status}")
+        logger.info(f"Parking occupancy updated - Parking: {parking_name}, Occupancy: {final_occupancy}, Status: {final_status}")
         return jsonify({
             'status': 'ok',
             'parking': parking_name,
-            'previous_occupancy': previous_occupancy,
-            'new_occupancy': new_occ,
+            'occupancy': final_occupancy,
+            'free_spaces': p.max_capacity - final_occupancy,
             'status': final_status
         })
         
@@ -380,12 +379,21 @@ def set_occupancy(pid):
 
 @app.route('/parking/<int:pid>/config', methods=['POST'])
 def update_parking_config(pid):
-    """Actualizar configuración de un parking (capacidad y umbrales)"""
+    """Actualizar configuración de un parking"""
     try:
         req = request.get_json(force=True)
-        max_capacity = req.get('max_capacity')
+        max_capacity = req.get('total_plazas')
         threshold_dense = req.get('threshold_dense')
         threshold_full = req.get('threshold_full')
+        
+        if max_capacity is not None and (not isinstance(max_capacity, int) or max_capacity <= 0):
+            return jsonify({'error': 'total_plazas must be a positive integer'}), 400
+        
+        if threshold_dense is not None and (not isinstance(threshold_dense, int) or threshold_dense < 0):
+            return jsonify({'error': 'threshold_dense must be a non-negative integer'}), 400
+        
+        if threshold_full is not None and (not isinstance(threshold_full, int) or threshold_full < 0):
+            return jsonify({'error': 'threshold_full must be a non-negative integer'}), 400
         
         session = Session()
         p = session.query(Parking).get(pid)
@@ -398,11 +406,11 @@ def update_parking_config(pid):
         
         # Actualizar campos si se proporcionan
         if max_capacity is not None:
-            p.max_capacity = int(max_capacity)
+            p.max_capacity = max_capacity
         if threshold_dense is not None:
-            p.threshold_dense = int(threshold_dense)
+            p.threshold_dense = threshold_dense
         if threshold_full is not None:
-            p.threshold_full = int(threshold_full)
+            p.threshold_full = threshold_full
         
         # Recalcular estado con nuevos umbrales
         free = p.max_capacity - p.current_occupancy
@@ -600,6 +608,308 @@ def delete_scheduled_message(pid):
         
     except Exception as e:
         logger.error(f"Error deleting scheduled message: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+# ============================================================================
+# ENDPOINTS DE ESTADÍSTICAS Y LOGS
+# ============================================================================
+
+@app.route('/panels', methods=['GET'])
+def get_all_panels():
+    """Obtener todos los paneles con su estado actual"""
+    try:
+        session = Session()
+        panels = session.query(Panel).all()
+        data = []
+        
+        for panel in panels:
+            panel_data = {
+                'id': panel.id,
+                'name': panel.name,
+                'ip_address': panel.ip,
+                'parking_id': panel.parking_id,
+                'parking_name': panel.parking.name if panel.parking else None,
+                'status': getattr(panel, 'status', 'OFFLINE'),
+                'last_message': getattr(panel, 'last_message', None),
+                'last_update': getattr(panel, 'last_update', None)
+            }
+            if panel_data['last_update']:
+                panel_data['last_update'] = panel_data['last_update'].isoformat()
+            data.append(panel_data)
+        
+        session.close()
+        return jsonify(data)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo paneles: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/panel/<int:panel_id>/message', methods=['POST'])
+def send_message_to_panel(panel_id):
+    """Enviar mensaje a un panel específico por ID"""
+    try:
+        req = request.get_json(force=True)
+        message = req.get('message')
+        duration = req.get('duration', 30)
+        
+        if not message:
+            return jsonify({'error': 'Missing message field'}), 400
+        
+        session = Session()
+        panel = session.query(Panel).get(panel_id)
+        
+        if not panel:
+            session.close()
+            return jsonify({'error': 'Panel not found'}), 404
+        
+        # Enviar mensaje al panel
+        from panel_client import send_to_panel
+        formatted_message = f"{message}|VERDE|CENTER"
+        
+        start_time = datetime.now()
+        success = send_to_panel(panel.ip, formatted_message)
+        response_time = (datetime.now() - start_time).total_seconds() * 1000  # en ms
+        
+        # Actualizar estado del panel
+        panel.status = 'ONLINE' if success else 'OFFLINE'
+        panel.last_message = message
+        panel.last_update = datetime.now()
+        
+        session.commit()
+        session.close()
+        
+        return jsonify({
+            'status': 'ok' if success else 'failed',
+            'panel_id': panel_id,
+            'panel_name': panel.name,
+            'message': message,
+            'duration': duration,
+            'response_time': response_time
+        })
+        
+    except Exception as e:
+        logger.error(f"Error enviando mensaje al panel {panel_id}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/panel/<int:panel_id>/test', methods=['POST'])
+def test_panel(panel_id):
+    """Probar comunicación con un panel"""
+    try:
+        session = Session()
+        panel = session.query(Panel).get(panel_id)
+        
+        if not panel:
+            session.close()
+            return jsonify({'error': 'Panel not found'}), 404
+        
+        # Enviar mensaje de prueba
+        from panel_client import send_to_panel
+        test_message = "PRUEBA|VERDE|CENTER"
+        
+        start_time = datetime.now()
+        success = send_to_panel(panel.ip, test_message)
+        response_time = (datetime.now() - start_time).total_seconds() * 1000
+        
+        # Actualizar estado del panel
+        panel.status = 'ONLINE' if success else 'OFFLINE'
+        panel.last_update = datetime.now()
+        
+        session.commit()
+        session.close()
+        
+        return jsonify({
+            'status': 'ok' if success else 'failed',
+            'panel_id': panel_id,
+            'panel_name': panel.name,
+            'response_time': response_time
+        })
+        
+    except Exception as e:
+        logger.error(f"Error probando panel {panel_id}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/parking/<int:pid>/statistics', methods=['GET'])
+def get_parking_statistics(pid):
+    """Obtener estadísticas de un parking"""
+    try:
+        days = request.args.get('days', 7, type=int)
+        
+        session = Session()
+        
+        # Verificar que el parking existe
+        parking = session.query(Parking).get(pid)
+        if not parking:
+            session.close()
+            return jsonify({'error': 'Parking not found'}), 404
+        
+        # Importar el gestor de estadísticas
+        from statistics import StatisticsManager
+        stats_manager = StatisticsManager(session)
+        
+        # Obtener estadísticas
+        statistics = stats_manager.get_parking_statistics(pid, days)
+        
+        session.close()
+        
+        if statistics:
+            return jsonify({
+                'parking_id': pid,
+                'parking_name': parking.name,
+                'days': days,
+                **statistics
+            })
+        else:
+            return jsonify({'error': 'No statistics available'}), 404
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo estadísticas del parking {pid}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/statistics', methods=['GET'])
+def get_all_statistics():
+    """Obtener estadísticas de todos los parkings"""
+    try:
+        days = request.args.get('days', 7, type=int)
+        
+        session = Session()
+        
+        # Importar el gestor de estadísticas
+        from statistics import StatisticsManager
+        stats_manager = StatisticsManager(session)
+        
+        # Obtener estadísticas de todos los parkings
+        statistics = stats_manager.get_all_parkings_statistics(days)
+        
+        session.close()
+        
+        if statistics:
+            return jsonify({
+                'days': days,
+                'statistics': statistics
+            })
+        else:
+            return jsonify({'error': 'No statistics available'}), 404
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo estadísticas: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/parking/<int:pid>/history', methods=['GET'])
+def get_occupancy_history(pid):
+    """Obtener historial de ocupación de un parking"""
+    try:
+        limit = request.args.get('limit', 100, type=int)
+        
+        session = Session()
+        
+        # Verificar que el parking existe
+        parking = session.query(Parking).get(pid)
+        if not parking:
+            session.close()
+            return jsonify({'error': 'Parking not found'}), 404
+        
+        # Obtener historial
+        history = session.query(OccupancyHistory)\
+            .filter(OccupancyHistory.parking_id == pid)\
+            .order_by(OccupancyHistory.timestamp.desc())\
+            .limit(limit)\
+            .all()
+        
+        data = [
+            {
+                'id': h.id,
+                'timestamp': h.timestamp.isoformat(),
+                'occupancy': h.occupancy,
+                'source': h.source,
+                'previous_occupancy': getattr(h, 'previous_occupancy', None),
+                'change_amount': getattr(h, 'change_amount', None)
+            }
+            for h in history
+        ]
+        
+        session.close()
+        return jsonify({
+            'parking_id': pid,
+            'parking_name': parking.name,
+            'history': data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo historial del parking {pid}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/logs/activity', methods=['GET'])
+@require_auth
+def get_activity_logs():
+    """Obtener logs de actividad (requiere autenticación)"""
+    try:
+        user_id = request.args.get('user_id', type=int)
+        parking_id = request.args.get('parking_id', type=int)
+        action_type = request.args.get('action_type')
+        limit = request.args.get('limit', 100, type=int)
+        
+        session = Session()
+        
+        # Importar el gestor de estadísticas
+        from statistics import StatisticsManager
+        stats_manager = StatisticsManager(session)
+        
+        # Obtener logs
+        logs = stats_manager.get_activity_logs(
+            user_id=user_id,
+            parking_id=parking_id,
+            action_type=action_type,
+            limit=limit
+        )
+        
+        session.close()
+        
+        if logs is not None:
+            return jsonify({
+                'logs': logs,
+                'total': len(logs)
+            })
+        else:
+            return jsonify({'error': 'Error retrieving logs'}), 500
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo logs de actividad: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/logs/panels', methods=['GET'])
+@require_auth
+def get_panel_logs():
+    """Obtener logs de mensajes de paneles (requiere autenticación)"""
+    try:
+        panel_id = request.args.get('panel_id', type=int)
+        parking_id = request.args.get('parking_id', type=int)
+        limit = request.args.get('limit', 100, type=int)
+        
+        session = Session()
+        
+        # Importar el gestor de estadísticas
+        from statistics import StatisticsManager
+        stats_manager = StatisticsManager(session)
+        
+        # Obtener logs
+        logs = stats_manager.get_panel_message_logs(
+            panel_id=panel_id,
+            parking_id=parking_id,
+            limit=limit
+        )
+        
+        session.close()
+        
+        if logs is not None:
+            return jsonify({
+                'logs': logs,
+                'total': len(logs)
+            })
+        else:
+            return jsonify({'error': 'Error retrieving logs'}), 500
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo logs de paneles: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
