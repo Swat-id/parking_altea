@@ -14,8 +14,8 @@
 El sistema Parking Altea v2.2 está **completamente operativo** en producción con todas las funcionalidades implementadas y probadas exitosamente.
 
 ## 🌐 URLs de Acceso
-
-- **Frontend:** http://157.180.91.63:5789
+* http://157.180.91.63:5789
+- **Frontend:*
 - **API Backend:** http://157.180.91.63:6001
 - **Puerto API:** 6001 (corregido desde 5001)
 - **Puerto Frontend:** 5789
