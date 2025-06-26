@@ -168,17 +168,23 @@ def update_parking_config(pid):
         else:
             p.status = 'LIBRE'
         
+        # Guardar valores antes de cerrar la sesión
+        final_max_capacity = p.max_capacity
+        final_threshold_dense = p.threshold_dense
+        final_threshold_full = p.threshold_full
+        final_status = p.status
+        
         session.commit()
         session.close()
         
-        logger.info(f"Parking config updated - Parking: {parking_name}, Max: {p.max_capacity}, Dense: {p.threshold_dense}, Full: {p.threshold_full}")
+        logger.info(f"Parking config updated - Parking: {parking_name}, Max: {final_max_capacity}, Dense: {final_threshold_dense}, Full: {final_threshold_full}")
         return jsonify({
             'status': 'ok',
             'parking': parking_name,
-            'max_capacity': p.max_capacity,
-            'threshold_dense': p.threshold_dense,
-            'threshold_full': p.threshold_full,
-            'current_status': p.status
+            'max_capacity': final_max_capacity,
+            'threshold_dense': final_threshold_dense,
+            'threshold_full': final_threshold_full,
+            'current_status': final_status
         })
         
     except Exception as e:
@@ -206,6 +212,9 @@ def set_parking_message(pid):
             session.close()
             return jsonify({'error':'Parking not found'}), 404
         
+        # Guardar el nombre antes de cerrar la sesión
+        parking_name = p.name
+        
         # Obtener todos los paneles del parking
         panels = session.query(Panel).filter_by(parking_id=pid).all()
         
@@ -232,10 +241,10 @@ def set_parking_message(pid):
         
         session.close()
         
-        logger.info(f"Parking message sent - Parking: {p.name}, Message: {message}, Success: {success_count}/{len(panels)}")
+        logger.info(f"Parking message sent - Parking: {parking_name}, Message: {message}, Success: {success_count}/{len(panels)}")
         return jsonify({
             'status': 'ok',
-            'parking': p.name,
+            'parking': parking_name,
             'message': message,
             'color': color,
             'scroll': scroll,
@@ -270,6 +279,10 @@ def set_panel_message(ip):
             session.close()
             return jsonify({'error': 'Panel not found'}), 404
         
+        # Guardar nombres antes de cerrar la sesión
+        panel_name = panel.name
+        parking_name = panel.parking.name
+        
         # Enviar mensaje al panel específico
         from panel_client import send_to_panel
         formatted_message = f"{message}|{color}|{'SCROLL' if scroll else 'CENTER'}"
@@ -280,8 +293,8 @@ def set_panel_message(ip):
             return jsonify({
                 'status': 'ok',
                 'panel_ip': ip,
-                'panel_name': panel.name,
-                'parking': panel.parking.name,
+                'panel_name': panel_name,
+                'parking': parking_name,
                 'message': message,
                 'color': color,
                 'scroll': scroll
