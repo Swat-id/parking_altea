@@ -11,7 +11,7 @@ from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
-from config import DB_URL, JWT_SECRET_KEY, API_PORT
+from config import DB_URL, API_PORT
 from models import Base, User, Parking, Access, Panel, OccupancyHistory, ScheduledMessage, ActivityLog, PanelMessageLog, VehicleCount, CameraLog, UserParking, UserPanel, UserAccess
 from panel_client import send_to_panel
 from auth import (
