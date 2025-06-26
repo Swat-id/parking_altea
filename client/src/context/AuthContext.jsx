@@ -15,99 +15,43 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
 
   useEffect(() => {
-    // Check for existing token on app load
+    // Verificar si hay un usuario guardado en localStorage al cargar
+    const savedUser = localStorage.getItem('user')
     const token = localStorage.getItem('token')
-    const userData = localStorage.getItem('user')
     
-    if (token && userData) {
+    if (savedUser && token) {
       try {
-        setUser(JSON.parse(userData))
-      } catch (e) {
-        console.error('Error parsing user data:', e)
-        localStorage.removeItem('token')
+        setUser(JSON.parse(savedUser))
+      } catch (error) {
+        console.error('Error parsing saved user:', error)
         localStorage.removeItem('user')
+        localStorage.removeItem('token')
       }
     }
     setLoading(false)
   }, [])
 
-  const login = async (email, password) => {
-    try {
-      setError(null)
-      setLoading(true)
-      
-      const response = await fetch('http://localhost:6001/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Error de autenticación')
-      }
-
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('user', JSON.stringify(data.user))
-      setUser(data.user)
-      return { success: true }
-    } catch (error) {
-      setError(error.message)
-      return { success: false, error: error.message }
-    } finally {
-      setLoading(false)
-    }
+  const login = (userData) => {
+    setUser(userData)
+    // El localStorage ya se maneja en el componente Login
   }
 
   const logout = () => {
-    try {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      setUser(null)
-      setError(null)
-      // Redirect to login page
-      window.location.href = '/login'
-    } catch (error) {
-      console.error('Error during logout:', error)
-    }
+    setUser(null)
+    localStorage.removeItem('user')
+    localStorage.removeItem('token')
   }
 
-  const clearError = () => {
-    setError(null)
-  }
-
-  const updatePassword = async (currentPassword, newPassword) => {
-    try {
-      const response = await authService.updatePassword(currentPassword, newPassword)
-      if (response.success) {
-        toast.success('Contraseña actualizada correctamente')
-        return { success: true }
-      } else {
-        toast.error(response.error || 'Error al actualizar contraseña')
-        return { success: false, error: response.error }
-      }
-    } catch (error) {
-      console.error('Update password error:', error)
-      toast.error('Error al actualizar contraseña')
-      return { success: false, error: 'Error al actualizar contraseña' }
-    }
-  }
+  const isAuthenticated = !!user
 
   const value = {
     user,
-    loading,
-    error,
     login,
     logout,
-    clearError,
-    isAuthenticated: !!user,
-    updatePassword,
+    isAuthenticated,
+    loading
   }
 
   return (
