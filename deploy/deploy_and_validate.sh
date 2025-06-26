@@ -3,7 +3,7 @@
 echo "=== DESPLIEGUE Y VALIDACIÓN COMPLETA DEL SISTEMA ==="
 
 # Navegar al directorio del proyecto
-cd /root/parking_altea
+cd /opt/parking_altea
 
 echo "1. Obteniendo últimos cambios de Git..."
 git pull origin v2.2

@@ -13,10 +13,10 @@ echo "--- Últimas 20 líneas del log de cámaras ---"
 sudo journalctl -u parking-camera --no-pager -n 20
 
 echo "4. Verificando archivo de configuración de cámaras..."
-if [ -f "/root/parking_altea/src/camera_server.py" ]; then
+if [ -f "/opt/parking_altea/src/camera_server.py" ]; then
     echo "Archivo camera_server.py encontrado"
     echo "--- Configuración de puerto ---"
-    grep -n "PORT\|port" /root/parking_altea/src/camera_server.py
+    grep -n "PORT\|port" /opt/parking_altea/src/camera_server.py
 else
     echo "ERROR: Archivo camera_server.py no encontrado"
 fi
