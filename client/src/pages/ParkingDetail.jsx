@@ -73,13 +73,6 @@ const ParkingDetail = () => {
     }
   }, [parking])
 
-  // Cerrar modo edición cuando las mutaciones sean exitosas
-  useEffect(() => {
-    if (updateOccupancyMutation.isSuccess && updateConfigMutation.isSuccess) {
-      setIsEditing(false)
-    }
-  }, [updateOccupancyMutation.isSuccess, updateConfigMutation.isSuccess])
-
   // Mutación para actualizar ocupación
   const updateOccupancyMutation = useMutation(
     ({ occupancy }) => parkingService.updateOccupancy(id, occupancy),
@@ -111,6 +104,13 @@ const ParkingDetail = () => {
       }
     }
   )
+
+  // Cerrar modo edición cuando las mutaciones sean exitosas
+  useEffect(() => {
+    if (updateOccupancyMutation.isSuccess && updateConfigMutation.isSuccess) {
+      setIsEditing(false)
+    }
+  }, [updateOccupancyMutation.isSuccess, updateConfigMutation.isSuccess])
 
   const sendMessageMutation = useMutation(
     (messageData) => parkingService.sendMessage(id, messageData),
