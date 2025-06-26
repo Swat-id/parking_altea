@@ -163,8 +163,8 @@ def update_database_phase2():
             a.last_vehicle_out,
             p.id as parking_id,
             p.name as parking_name,
-            p.current_occupancy,
-            p.capacity,
+            p.plazas_ocupadas as current_occupancy,
+            p.total_plazas as capacity,
             CASE 
                 WHEN a.status = 'ONLINE' AND a.ping_status = 'ONLINE' THEN 'FULLY_ONLINE'
                 WHEN a.status = 'ONLINE' AND a.ping_status = 'OFFLINE' THEN 'ONLINE_NO_PING'
