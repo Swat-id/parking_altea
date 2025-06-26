@@ -1,6 +1,169 @@
 # Parking Altea - Frontend
 
-Frontend React para el sistema de gestión de aparcamientos de Altea.
+Aplicación frontend para el sistema de gestión de aparcamientos Parking Altea.
+
+## 🚀 Configuración
+
+### Desarrollo Local
+```bash
+# Instalar dependencias
+npm install
+
+# Ejecutar en modo desarrollo (puerto 5789)
+npm run dev
+
+# Construir para producción
+npm run build
+
+# Previsualizar build de producción
+npm run preview
+```
+
+### Producción
+- **URL**: http://157.180.91.63:5789
+- **API**: http://157.180.91.63:5000
+- **Puerto**: 5789
+
+## 📋 Funcionalidades
+
+### 🔐 Autenticación
+- Login con JWT
+- Gestión de sesiones
+- Protección de rutas
+
+### 🏢 Gestión de Parkings
+- Listado de parkings
+- Información detallada
+- Actualización de ocupación
+- Configuración de umbrales
+
+### 📊 Estadísticas
+- Estadísticas por hora y día
+- Gráficos interactivos
+- Exportación de datos
+- Métricas de ocupación
+
+### 🖥️ Gestión de Paneles
+- Estado en tiempo real
+- Envío de mensajes
+- Pruebas de comunicación
+- Historial de mensajes
+
+### 👤 Perfil de Usuario
+- Información del usuario
+- Cambio de contraseña
+- Gestión de permisos
+
+## 🛠️ Tecnologías
+
+- **React 18** - Framework de UI
+- **Vite** - Build tool y dev server
+- **React Router** - Enrutamiento
+- **Tailwind CSS** - Estilos
+- **Axios** - Cliente HTTP
+- **Chart.js** - Gráficos
+
+## 📁 Estructura del Proyecto
+
+```
+client/
+├── src/
+│   ├── components/     # Componentes reutilizables
+│   ├── pages/         # Páginas de la aplicación
+│   ├── services/      # Servicios de API
+│   ├── context/       # Contexto de autenticación
+│   ├── utils/         # Utilidades
+│   └── test/          # Configuración de tests
+├── public/            # Archivos estáticos
+├── dist/              # Build de producción
+└── package.json       # Dependencias
+```
+
+## 🔧 Configuración
+
+### Variables de Entorno
+```env
+VITE_API_URL=http://157.180.91.63:5000
+VITE_APP_TITLE=Parking Altea
+VITE_APP_VERSION=2.2
+```
+
+### Vite Config
+- **Puerto de desarrollo**: 5789
+- **Host**: 0.0.0.0 (acceso desde cualquier IP)
+- **Proxy API**: /api -> http://157.180.91.63:5000
+
+## 🚀 Despliegue
+
+### Automático
+```bash
+# Ejecutar script de despliegue completo
+./deploy/deploy_v2.2.sh
+```
+
+### Manual
+```bash
+# 1. Construir frontend
+npm run build
+
+# 2. Subir archivos al servidor
+scp -r dist/* root@157.180.91.63:/opt/parking_altea/client/dist/
+
+# 3. Configurar Nginx (ver script de despliegue)
+```
+
+## 🔑 Credenciales de Prueba
+
+- **Email**: toni@swat-id.com
+- **Password**: admin123!
+
+## 📊 API Endpoints
+
+### Autenticación
+- `POST /auth/login` - Login
+- `POST /auth/register` - Registro
+- `PUT /auth/password` - Cambio de contraseña
+
+### Parkings
+- `GET /parkings` - Listar parkings
+- `GET /parking/{id}` - Obtener parking
+- `POST /parking/{id}/occupancy` - Actualizar ocupación
+
+### Estadísticas
+- `GET /statistics` - Estadísticas generales
+- `GET /parking/{id}/statistics` - Estadísticas de parking
+
+### Paneles
+- `GET /panels` - Listar paneles
+- `POST /panel/{id}/message` - Enviar mensaje
+
+## 🧪 Testing
+
+```bash
+# Ejecutar tests
+npm test
+
+# Tests con coverage
+npm run test:coverage
+```
+
+## 📝 Scripts Disponibles
+
+- `npm run dev` - Servidor de desarrollo
+- `npm run build` - Construir para producción
+- `npm run preview` - Previsualizar build
+- `npm test` - Ejecutar tests
+- `npm run lint` - Linting del código
+
+## 🌐 URLs de Acceso
+
+- **Desarrollo**: http://localhost:5789
+- **Producción**: http://157.180.91.63:5789
+- **API**: http://157.180.91.63:5000
+
+## 📞 Soporte
+
+Para soporte técnico o reportar problemas, contactar al equipo de desarrollo.
 
 ## 🚀 Características
 
