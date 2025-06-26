@@ -1,6 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { authService } from '../services/authService'
-import toast from 'react-hot-toast'
 
 const AuthContext = createContext()
 
@@ -23,7 +21,9 @@ export const AuthProvider = ({ children }) => {
     
     if (savedUser && token) {
       try {
-        setUser(JSON.parse(savedUser))
+        const userData = JSON.parse(savedUser)
+        setUser(userData)
+        console.log('Usuario cargado desde localStorage:', userData)
       } catch (error) {
         console.error('Error parsing saved user:', error)
         localStorage.removeItem('user')
@@ -34,17 +34,21 @@ export const AuthProvider = ({ children }) => {
   }, [])
 
   const login = (userData) => {
+    console.log('Login llamado con:', userData)
     setUser(userData)
     // El localStorage ya se maneja en el componente Login
   }
 
   const logout = () => {
+    console.log('Logout llamado')
     setUser(null)
     localStorage.removeItem('user')
     localStorage.removeItem('token')
   }
 
   const isAuthenticated = !!user
+
+  console.log('Estado actual de autenticación:', { user, isAuthenticated, loading })
 
   const value = {
     user,
