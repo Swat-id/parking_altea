@@ -85,11 +85,11 @@ def test_statistics_endpoints(token):
     headers = {"Authorization": f"Bearer {token}"}
     
     try:
-        # Test estadísticas por hora
-        response = requests.get(f"{BASE_URL}/statistics/hourly", headers=headers, timeout=5)
+        # Test estadísticas generales
+        response = requests.get(f"{BASE_URL}/statistics", headers=headers, timeout=5)
         if response.status_code == 200:
             stats = response.json()
-            return True, f"Estadísticas por hora obtenidas: {len(stats)} registros"
+            return True, f"Estadísticas obtenidas: {len(stats.get('statistics', {}))} parkings"
         else:
             return False, f"Status: {response.status_code}"
     except Exception as e:
