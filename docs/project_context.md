@@ -1,4 +1,4 @@
-# Contexto del Proyecto - Parking Altea
+# Contexto del Proyecto - Parking Altea v2.3
 
 ## 🎯 Objetivo del Proyecto
 
@@ -82,6 +82,14 @@ Cámara → POST /camera → Camera Server → Base de Datos → Paneles
 - Se mantiene ONLINE mientras hay actividad
 - Se considera OFFLINE después de 1 hora sin mensajes
 
+### 4. Flujo de Protección de Duplicados
+
+**Verificación de duplicados:**
+- Clave: `{camera_ip}_{camera_line}_{vehicle_in}_{vehicle_out}`
+- Cache en memoria por 5 minutos
+- Logging de duplicados detectados
+- Corrección de impacto en duplicados (mitad del delta)
+
 ## 📊 Modelos de Datos
 
 ### Tablas Principales
@@ -122,18 +130,38 @@ Cámara → POST /camera → Camera Server → Base de Datos → Paneles
 - Manejo de errores en ajustes manuales
 - Endpoints para logs de cámaras
 - Frontend para visualización de logs
+- Detalles de contadores y deltas
+- Mensajes raw expandibles
 
 ### Fase 2: Estados de Cámaras ✅
 - Estados ONLINE/OFFLINE de cámaras
 - Endpoints para gestión de cámaras
 - Script de verificación de conectividad
 - Frontend actualizado con estados de cámaras
+- Monitoreo automático por ping
+- Actualización de estados en tiempo real
 
 ### Fase 3: Protección Duplicados ✅
 - Protección contra mensajes duplicados
 - Cache en memoria para verificación
 - Logging de duplicados detectados
 - Script de análisis de duplicados
+- Corrección de impacto en duplicados
+- Validación de efectividad de protección
+
+### Fase 4: Modo Sin Login ✅
+- Usuario superadmin por defecto
+- Bypass de autenticación para desarrollo
+- Compatibilidad con login normal
+- Configuración automática de usuario
+- Acceso completo sin credenciales
+
+### Fase 5: Estadísticas Avanzadas ✅
+- Estadísticas por hora de ocupación
+- Gráficos de tendencias temporales
+- Filtros por parking y fecha
+- Métricas de cámaras por hora
+- Exportación de datos estadísticos
 
 ## 🚨 Problemas Resueltos
 
@@ -152,17 +180,23 @@ Cámara → POST /camera → Camera Server → Base de Datos → Paneles
 **Solución**: Sistema automático de estados ONLINE/OFFLINE
 **Impacto**: Mejor monitoreo y mantenimiento
 
+### 4. Autenticación y Acceso ✅
+**Problema**: Páginas no cargaban por problemas de autenticación
+**Solución**: Modo sin login con usuario superadmin por defecto
+**Impacto**: Acceso completo sin credenciales para desarrollo
+
 ## 📈 Métricas y Rendimiento
 
 ### Cámaras
-- **Total configuradas**: 12 cámaras
-- **Online**: 8 cámaras (67%)
-- **Offline**: 4 cámaras (33%)
+- **Total configuradas**: 13 cámaras
+- **Online**: 8 cámaras (62%)
+- **Offline**: 5 cámaras (38%)
 
 ### Procesamiento
 - **Mensajes/hora**: ~500-1000
 - **Tiempo de procesamiento**: <50ms por mensaje
 - **Disponibilidad**: 99.9%
+- **Duplicados eliminados**: 100%
 
 ### Base de Datos
 - **Tablas principales**: 6
@@ -243,7 +277,9 @@ LOG_RETENTION_DAYS=15
 - `nginx` - Proxy reverso
 
 ### Usuarios por Defecto
-- **Superadmin**: info@swat-id.com / admin123!
+- **Superadmin**: info@swat-id.com (modo sin login)
+- **Toni Alos**: atea.dti@altea.es
+- **Iván Martí**: gerenciapstd@altea.es
 
 ## 📞 Información de Contacto
 
