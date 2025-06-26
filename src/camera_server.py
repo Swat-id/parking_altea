@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 import config
@@ -88,21 +88,32 @@ def handle_camera():
         # Buscar acceso por IP y línea (método principal)
         access = session.query(Access).filter_by(ip=ip, line=line).first()
         
-        # Si no se encuentra por IP+línea, intentar buscar por nombre de dispositivo Y línea
+        # Si no se encuentra por IP+línea, intentar buscar por nombre de dispositivo Y línea (insensible a mayúsculas/minúsculas)
         if not access and device:
-            access = session.query(Access).filter_by(name=device, line=line).first()
+            # Usar func.lower() para comparación insensible a mayúsculas/minúsculas
+            access = session.query(Access).filter(
+                func.lower(Access.name) == func.lower(device),
+                Access.line == line
+            ).first()
             if access:
-                logger.info(f"Found access by device name and line: {device}, line: {line} (original: {original_line})")
+                logger.info(f"Found access by device name (case-insensitive) and line: {device}, line: {line} (original: {original_line})")
+                logger.info(f"Database device name: {access.name}, Received device name: {device}")
             else:
-                # Si no encuentra por nombre+línea, buscar solo por nombre para logging
-                device_access = session.query(Access).filter_by(name=device).first()
+                # Si no encuentra por nombre+línea, buscar solo por nombre para logging (también insensible a mayúsculas/minúsculas)
+                device_access = session.query(Access).filter(
+                    func.lower(Access.name) == func.lower(device)
+                ).first()
                 if device_access:
-                    logger.warning(f"Device found but line mismatch - Device: {device}, Expected line: {device_access.line}, Received line: {original_line} (adjusted: {line})")
+                    logger.warning(f"Device found (case-insensitive) but line mismatch - Device: {device}, DB Device: {device_access.name}, Expected line: {device_access.line}, Received line: {original_line} (adjusted: {line})")
                     logger.warning(f"Message logged but not processed - line validation failed")
                     session.close()
                     return jsonify({'error': 'Line mismatch for device'}), 400
                 else:
-                    logger.warning(f"Device not found in database: {device}")
+                    logger.warning(f"Device not found in database (case-insensitive search): {device}")
+                    # Log adicional para debugging - mostrar todos los dispositivos disponibles
+                    all_devices = session.query(Access.name).distinct().all()
+                    device_names = [d[0] for d in all_devices]
+                    logger.warning(f"Available devices in database: {device_names}")
         
         if not access:
             session.close()
