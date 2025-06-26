@@ -134,13 +134,18 @@ const ParkingDetail = () => {
       return
     }
 
-    if (editForm.threshold_dense >= editForm.threshold_full) {
-      toast.error('El umbral denso debe ser menor que el umbral completo')
+    if (editForm.threshold_dense <= editForm.threshold_full) {
+      toast.error('El umbral denso debe ser mayor que el umbral completo')
       return
     }
 
     if (editForm.threshold_full > 100) {
       toast.error('El umbral completo no puede ser mayor al 100%')
+      return
+    }
+
+    if (editForm.threshold_dense > 100) {
+      toast.error('El umbral denso no puede ser mayor al 100%')
       return
     }
 
@@ -429,14 +434,14 @@ const ParkingDetail = () => {
                   threshold_dense: parseInt(e.target.value) || 0
                 })}
                 className={`input-field ${
-                  editForm.threshold_dense >= editForm.threshold_full ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''
+                  editForm.threshold_dense <= editForm.threshold_full ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''
                 }`}
                 min="0"
                 max="100"
               />
-              {editForm.threshold_dense >= editForm.threshold_full && (
+              {editForm.threshold_dense <= editForm.threshold_full && (
                 <p className="mt-1 text-sm text-red-600">
-                  El umbral denso debe ser menor que el umbral completo
+                  El umbral denso debe ser mayor que el umbral completo
                 </p>
               )}
             </div>
@@ -469,7 +474,7 @@ const ParkingDetail = () => {
               onClick={handleSave}
               disabled={updateConfigMutation.isLoading || 
                        editForm.plazas_ocupadas > editForm.total_plazas ||
-                       editForm.threshold_dense >= editForm.threshold_full ||
+                       editForm.threshold_dense <= editForm.threshold_full ||
                        editForm.threshold_full > 100}
               className="btn-primary flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
