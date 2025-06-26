@@ -1,202 +1,110 @@
 #!/usr/bin/env python3
 """
-Script para probar las nuevas funcionalidades de estadísticas
+Script para probar el endpoint de estadísticas por horas
 """
 
 import requests
 import json
-from datetime import datetime, timedelta
-import time
+from datetime import datetime
 
 # Configuración
-BASE_URL = "http://157.180.91.63:5000"
-TEST_USER_EMAIL = "toni@swat-id.com"
-TEST_USER_PASSWORD = "admin123!"
+API_BASE_URL = "http://157.180.91.63:6001"
+PARKING_ID = 1  # Parking de prueba
 
-def get_auth_token():
-    """Obtener token de autenticación"""
+def test_statistics_endpoint():
+    """Probar el endpoint de estadísticas por horas"""
+    print("🔍 Probando endpoint de estadísticas por horas...")
+    print(f"📅 Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"🎯 Parking ID: {PARKING_ID}")
+    print("=" * 80)
+    
     try:
-        response = requests.post(f"{BASE_URL}/auth/login", json={
-            "email": TEST_USER_EMAIL,
-            "password": TEST_USER_PASSWORD
-        })
+        # Probar endpoint de estadísticas por horas
+        url = f"{API_BASE_URL}/parking/{PARKING_ID}/hourly-statistics?days=1"
+        print(f"🌐 URL: {url}")
+        
+        response = requests.get(url, timeout=30)
+        print(f"📊 Status Code: {response.status_code}")
         
         if response.status_code == 200:
-            return response.json()["token"]
+            data = response.json()
+            print("✅ Endpoint funcionando correctamente")
+            print(f"📈 Datos recibidos:")
+            print(f"   - Parking: {data.get('parking_name')}")
+            print(f"   - Período: {data.get('period', {}).get('start_date')} a {data.get('period', {}).get('end_date')}")
+            print(f"   - Estadísticas por horas: {len(data.get('hourly_statistics', []))} registros")
+            print(f"   - Estadísticas de cámaras: {len(data.get('camera_statistics', []))} cámaras")
+            
+            # Mostrar algunas estadísticas de ejemplo
+            hourly_stats = data.get('hourly_statistics', [])
+            if hourly_stats:
+                print("\n📊 Ejemplo de estadísticas por horas:")
+                for stat in hourly_stats[:3]:  # Mostrar solo las primeras 3
+                    print(f"   {stat.get('hour_label')}: {stat.get('total_vehicles_in')} entradas, {stat.get('total_vehicles_out')} salidas")
+            
+            camera_stats = data.get('camera_statistics', [])
+            if camera_stats:
+                print("\n📷 Estadísticas de cámaras:")
+                for camera in camera_stats:
+                    print(f"   {camera.get('camera_name')}: {camera.get('processed_messages')} mensajes procesados, {camera.get('success_rate')}% éxito")
+            
         else:
-            print(f"❌ Error de autenticación: {response.status_code}")
-            return None
+            print(f"❌ Error en endpoint: {response.status_code}")
+            print(f"📄 Respuesta: {response.text}")
+            
+    except requests.exceptions.Timeout:
+        print("⏰ Timeout - El endpoint no responde en 30 segundos")
+    except requests.exceptions.ConnectionError:
+        print("🔌 Error de conexión - No se puede conectar al servidor")
     except Exception as e:
-        print(f"❌ Error obteniendo token: {e}")
-        return None
+        print(f"❌ Error inesperado: {e}")
 
-def test_panels_endpoints(token):
-    """Probar endpoints de paneles"""
-    print("\n🔧 Probando endpoints de paneles...")
+def test_parking_endpoint():
+    """Probar el endpoint básico del parking"""
+    print("\n🔍 Probando endpoint básico del parking...")
     
-    headers = {"Authorization": f"Bearer {token}"} if token else {}
-    
-    # GET /panels
     try:
-        response = requests.get(f"{BASE_URL}/panels", headers=headers)
+        url = f"{API_BASE_URL}/parking/{PARKING_ID}"
+        response = requests.get(url, timeout=10)
+        
         if response.status_code == 200:
-            panels = response.json()
-            print(f"✅ GET /panels - {len(panels)} paneles encontrados")
-            for panel in panels[:3]:  # Mostrar solo los primeros 3
-                print(f"   - Panel {panel['id']}: {panel['name']} ({panel['ip_address']}) - {panel['status']}")
+            data = response.json()
+            print("✅ Endpoint de parking funcionando")
+            print(f"   - Nombre: {data.get('name')}")
+            print(f"   - Capacidad: {data.get('total_plazas')}")
+            print(f"   - Ocupación: {data.get('plazas_ocupadas')}")
         else:
-            print(f"❌ GET /panels - Error {response.status_code}")
+            print(f"❌ Error en endpoint de parking: {response.status_code}")
+            
     except Exception as e:
-        print(f"❌ Error en GET /panels: {e}")
-    
-    # Probar con un panel específico si existe
-    try:
-        response = requests.get(f"{BASE_URL}/panels")
-        if response.status_code == 200:
-            panels = response.json()
-            if panels:
-                panel_id = panels[0]['id']
-                
-                # POST /panel/{id}/test
-                test_response = requests.post(f"{BASE_URL}/panel/{panel_id}/test", headers=headers)
-                if test_response.status_code == 200:
-                    result = test_response.json()
-                    print(f"✅ POST /panel/{panel_id}/test - {result['status']} (Response time: {result.get('response_time', 'N/A')}ms)")
-                else:
-                    print(f"❌ POST /panel/{panel_id}/test - Error {test_response.status_code}")
-                
-                # POST /panel/{id}/message
-                message_response = requests.post(f"{BASE_URL}/panel/{panel_id}/message", 
-                    json={"message": "PRUEBA ESTADÍSTICAS", "duration": 10}, headers=headers)
-                if message_response.status_code == 200:
-                    result = message_response.json()
-                    print(f"✅ POST /panel/{panel_id}/message - {result['status']}")
-                else:
-                    print(f"❌ POST /panel/{panel_id}/message - Error {message_response.status_code}")
-    except Exception as e:
-        print(f"❌ Error probando paneles específicos: {e}")
+        print(f"❌ Error probando parking: {e}")
 
-def test_statistics_endpoints(token):
-    """Probar endpoints de estadísticas"""
-    print("\n📊 Probando endpoints de estadísticas...")
+def test_frontend_api():
+    """Probar si el frontend puede acceder a la API"""
+    print("\n🔍 Probando acceso desde frontend...")
     
-    headers = {"Authorization": f"Bearer {token}"} if token else {}
-    
-    # GET /statistics
     try:
-        response = requests.get(f"{BASE_URL}/statistics?days=7", headers=headers)
+        # Simular la llamada que hace el frontend
+        url = f"{API_BASE_URL}/parking/{PARKING_ID}/hourly-statistics"
+        params = {
+            'days': 1
+        }
+        
+        response = requests.get(url, params=params, timeout=30)
+        print(f"📊 Status: {response.status_code}")
+        
         if response.status_code == 200:
-            stats = response.json()
-            print(f"✅ GET /statistics - Estadísticas obtenidas para {len(stats.get('statistics', {}))} parkings")
+            data = response.json()
+            print("✅ API accesible desde frontend")
+            print(f"📈 Datos disponibles: {list(data.keys())}")
         else:
-            print(f"❌ GET /statistics - Error {response.status_code}")
+            print(f"❌ API no accesible: {response.status_code}")
+            print(f"📄 Error: {response.text}")
+            
     except Exception as e:
-        print(f"❌ Error en GET /statistics: {e}")
-    
-    # Probar con un parking específico
-    try:
-        response = requests.get(f"{BASE_URL}/parkings")
-        if response.status_code == 200:
-            parkings = response.json()
-            if parkings:
-                parking_id = parkings[0]['id']
-                
-                # GET /parking/{id}/statistics
-                stats_response = requests.get(f"{BASE_URL}/parking/{parking_id}/statistics?days=7", headers=headers)
-                if stats_response.status_code == 200:
-                    stats = stats_response.json()
-                    print(f"✅ GET /parking/{parking_id}/statistics - Estadísticas obtenidas")
-                    if 'daily_stats' in stats:
-                        print(f"   - {len(stats['daily_stats'])} días de estadísticas")
-                    if 'hourly_stats' in stats:
-                        print(f"   - {len(stats['hourly_stats'])} horas de estadísticas")
-                else:
-                    print(f"❌ GET /parking/{parking_id}/statistics - Error {stats_response.status_code}")
-                
-                # GET /parking/{id}/history
-                history_response = requests.get(f"{BASE_URL}/parking/{parking_id}/history?limit=10", headers=headers)
-                if history_response.status_code == 200:
-                    history = history_response.json()
-                    print(f"✅ GET /parking/{parking_id}/history - {len(history.get('history', []))} registros de historial")
-                else:
-                    print(f"❌ GET /parking/{parking_id}/history - Error {history_response.status_code}")
-    except Exception as e:
-        print(f"❌ Error probando estadísticas específicas: {e}")
-
-def test_logs_endpoints(token):
-    """Probar endpoints de logs"""
-    print("\n📝 Probando endpoints de logs...")
-    
-    if not token:
-        print("⚠️  Los endpoints de logs requieren autenticación")
-        return
-    
-    headers = {"Authorization": f"Bearer {token}"}
-    
-    # GET /logs/activity
-    try:
-        response = requests.get(f"{BASE_URL}/logs/activity?limit=10", headers=headers)
-        if response.status_code == 200:
-            logs = response.json()
-            print(f"✅ GET /logs/activity - {logs.get('total', 0)} logs de actividad")
-        else:
-            print(f"❌ GET /logs/activity - Error {response.status_code}")
-    except Exception as e:
-        print(f"❌ Error en GET /logs/activity: {e}")
-    
-    # GET /logs/panels
-    try:
-        response = requests.get(f"{BASE_URL}/logs/panels?limit=10", headers=headers)
-        if response.status_code == 200:
-            logs = response.json()
-            print(f"✅ GET /logs/panels - {logs.get('total', 0)} logs de paneles")
-        else:
-            print(f"❌ GET /logs/panels - Error {response.status_code}")
-    except Exception as e:
-        print(f"❌ Error en GET /logs/panels: {e}")
-
-def test_database_tables():
-    """Verificar que las nuevas tablas existen"""
-    print("\n🗄️  Verificando nuevas tablas de base de datos...")
-    
-    # Intentar acceder a estadísticas para verificar que las tablas existen
-    try:
-        response = requests.get(f"{BASE_URL}/statistics?days=1")
-        if response.status_code == 200:
-            print("✅ Tablas de estadísticas funcionando correctamente")
-        elif response.status_code == 404:
-            print("⚠️  No hay datos de estadísticas disponibles (tablas vacías)")
-        else:
-            print(f"❌ Error accediendo a estadísticas: {response.status_code}")
-    except Exception as e:
-        print(f"❌ Error verificando tablas: {e}")
-
-def main():
-    """Función principal de pruebas"""
-    print("🧪 Iniciando pruebas de nuevas funcionalidades de estadísticas")
-    print("=" * 60)
-    
-    # Obtener token de autenticación
-    token = get_auth_token()
-    if token:
-        print(f"✅ Autenticación exitosa - Token obtenido")
-    else:
-        print("⚠️  No se pudo obtener token de autenticación")
-    
-    # Probar endpoints
-    test_panels_endpoints(token)
-    test_statistics_endpoints(token)
-    test_logs_endpoints(token)
-    test_database_tables()
-    
-    print("\n" + "=" * 60)
-    print("✅ Pruebas completadas")
-    print("\n📋 Resumen de nuevas funcionalidades:")
-    print("  - Gestión de paneles con estado en tiempo real")
-    print("  - Estadísticas por hora y día")
-    print("  - Historial de ocupación detallado")
-    print("  - Logs de actividad y mensajes de paneles")
-    print("  - Nuevas tablas de base de datos para estadísticas")
+        print(f"❌ Error accediendo a API: {e}")
 
 if __name__ == "__main__":
-    main() 
+    test_parking_endpoint()
+    test_statistics_endpoint()
+    test_frontend_api() 

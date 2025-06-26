@@ -390,7 +390,7 @@ const CameraLogs = () => {
                         {/* Mostrar deltas si están disponibles */}
                         {log.delta_in !== undefined && log.delta_out !== undefined && (
                           <div className="text-xs text-gray-600 mb-1">
-                            <span className="font-medium">Cambios:</span> 
+                            <span className="font-medium">Cambios:</span>
                             {log.delta_in > 0 && <span className="text-green-600"> +{log.delta_in} entradas</span>}
                             {log.delta_out > 0 && <span className="text-red-600"> +{log.delta_out} salidas</span>}
                             {log.delta_in === 0 && log.delta_out === 0 && <span className="text-gray-500"> Sin cambios</span>}

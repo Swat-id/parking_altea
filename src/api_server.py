@@ -279,7 +279,9 @@ def list_parkings():
                 'total_plazas': p.max_capacity,
                 'plazas_ocupadas': p.current_occupancy,
                 'plazas_libres': p.max_capacity - p.current_occupancy,
-                'estado': p.status
+                'estado': p.status,
+                'threshold_dense': p.threshold_dense,
+                'threshold_full': p.threshold_full
             }
             for p in parks
         ]
