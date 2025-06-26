@@ -114,5 +114,5 @@ tail -f /var/log/nginx/error.log
 
 ## Credenciales de prueba
 
-- **Toni Alos**: toni.alos@swat-id.com / alte2025!
-- **Iván Martí**: ivan.marti@swat-id.com / alte2025! 
+- **Toni Alos**: atea.dti@altea.es / altea2025!
+- **Iván Martí**: gerenciapstd@altea.es / altea2025! 

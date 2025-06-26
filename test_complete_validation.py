@@ -139,7 +139,7 @@ def main():
     
     # Test 3: Login Toni Alos
     print("3. Test de login - Toni Alos...")
-    success, details = test_user_login("toni.alos@swat-id.com", "alte2025!", "Toni Alos")
+    success, details = test_user_login("atea.dti@altea.es", "altea2025!", "Toni Alos")
     print_test_result("Login Toni Alos", success, details)
     if success:
         tests_passed += 1
@@ -149,7 +149,7 @@ def main():
     toni_token = None
     if success:
         try:
-            data = {"email": "toni.alos@swat-id.com", "password": "alte2025!"}
+            data = {"email": "atea.dti@altea.es", "password": "altea2025!"}
             response = requests.post(f"{BASE_URL}/auth/login", json=data, timeout=10)
             if response.status_code == 200:
                 toni_token = response.json().get("token")
@@ -158,7 +158,7 @@ def main():
     
     # Test 4: Login Iván Martí
     print("4. Test de login - Iván Martí...")
-    success, details = test_user_login("ivan.marti@swat-id.com", "alte2025!", "Iván Martí")
+    success, details = test_user_login("gerenciapstd@altea.es", "altea2025!", "Iván Martí")
     print_test_result("Login Iván Martí", success, details)
     if success:
         tests_passed += 1
