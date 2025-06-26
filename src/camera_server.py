@@ -18,6 +18,29 @@ engine = create_engine(config.DB_URL, echo=False)
 Session = sessionmaker(bind=engine)
 Base.metadata.create_all(engine)
 
+# Cache para verificar duplicados recientes (últimos 5 minutos)
+recent_messages = {}
+
+def is_duplicate_message(camera_ip, camera_line, vehicle_in, vehicle_out, timestamp):
+    """Verificar si un mensaje es duplicado basado en IP, línea y contadores"""
+    key = f"{camera_ip}_{camera_line}_{vehicle_in}_{vehicle_out}"
+    
+    # Limpiar mensajes antiguos (más de 5 minutos)
+    current_time = time.time()
+    recent_messages_copy = recent_messages.copy()
+    for msg_key, msg_time in recent_messages_copy.items():
+        if current_time - msg_time > 300:  # 5 minutos
+            del recent_messages[msg_key]
+    
+    # Verificar si ya existe este mensaje
+    if key in recent_messages:
+        logger.warning(f"DUPLICATE MESSAGE DETECTED - IP: {camera_ip}, Line: {camera_line}, In: {vehicle_in}, Out: {vehicle_out}")
+        return True
+    
+    # Registrar este mensaje
+    recent_messages[key] = current_time
+    return False
+
 def log_camera_message(session, camera_ip, camera_line, camera_name, raw_message, 
                       vehicle_in, vehicle_out, status, error_message=None, 
                       access_id=None, parking_id=None, processing_time=None,
@@ -186,6 +209,26 @@ def handle_camera():
         original_line = line
         line = line + 1
         logger.info(f"Line number adjusted - Received: {original_line}, Adjusted for DB: {line}")
+        
+        # VERIFICAR DUPLICADOS ANTES DE PROCESAR
+        if is_duplicate_message(ip, original_line, veh_in, veh_out, time.time()):
+            logger.warning(f"DUPLICATE MESSAGE IGNORED - IP: {ip}, Line: {original_line}, In: {veh_in}, Out: {veh_out}")
+            
+            # Registrar log de duplicado
+            log_camera_message(
+                session=session,
+                camera_ip=ip,
+                camera_line=original_line,
+                camera_name=device,
+                raw_message=raw_data,
+                vehicle_in=veh_in,
+                vehicle_out=veh_out,
+                status="duplicate",
+                error_message="Duplicate message ignored",
+                processing_time=(time.time() - start_time) * 1000
+            )
+            
+            return jsonify({'status': 'duplicate_ignored', 'message': 'Duplicate message ignored'}), 200
         
         # Buscar acceso por IP y línea (método principal)
         access = session.query(Access).filter_by(ip=ip, line=line).first()
