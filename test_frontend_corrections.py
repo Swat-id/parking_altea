@@ -9,8 +9,8 @@ import time
 from datetime import datetime
 
 # Configuración
-BASE_URL = "http://157.180.91.63"
-API_URL = f"{BASE_URL}:6001"
+BASE_URL = "http://157.180.91.63:5789"
+API_URL = "http://157.180.91.63:6001"
 
 def test_api_endpoints():
     """Probar endpoints del API"""
@@ -183,6 +183,7 @@ def main():
     print("   • ✅ Indicadores de última actualización")
     print("   • ✅ Filtros y navegación mejorados")
     print("   • ✅ Manejo de errores mejorado")
+    print(f"\n🌐 Frontend disponible en: {BASE_URL}")
 
 if __name__ == "__main__":
     main() 
