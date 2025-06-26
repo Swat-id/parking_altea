@@ -346,14 +346,6 @@ def handle_camera():
         
         logger.info(f"Deltas calculated - Delta In: {delta_in}, Delta Out: {delta_out}")
         
-        # Aplicar corrección por duplicados si es necesario
-        is_duplicate = is_duplicate_message(ip, line, veh_in, veh_out, time.time())
-        if is_duplicate:
-            corrected_delta_in, corrected_delta_out = apply_duplicate_correction(session, access, delta_in, delta_out)
-            logger.info(f"Duplicate detected - Applying correction: In={delta_in}->{corrected_delta_in}, Out={delta_out}->{corrected_delta_out}")
-            delta_in = corrected_delta_in
-            delta_out = corrected_delta_out
-        
         # Actualizar contadores de acceso
         access.last_vehicle_in = veh_in
         access.last_vehicle_out = veh_out
