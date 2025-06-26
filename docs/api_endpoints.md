@@ -13,22 +13,51 @@ http://157.180.91.63:6001
 
 Obtiene información completa de todos los aparcamientos.
 
-**Respuesta:**
+**Ejemplo de Respuesta Real:**
 ```json
 [
   {
-    "id": 1,
-    "name": "1 - P. Ciutat Esportiva",
-    "location": "38.607426920203615,-0.04519652478288384",
-    "total_plazas": 400,
-    "plazas_ocupadas": 150,
-    "plazas_libres": 250,
     "estado": "LIBRE",
+    "id": 3,
+    "location": "38.60068791931671,-0.056068180693698816",
+    "name": "3 - P. Poble antic/Belles Arts 1",
+    "plazas_libres": 200,
+    "plazas_ocupadas": 0,
     "threshold_dense": 25,
-    "threshold_full": 5
+    "threshold_full": 5,
+    "total_plazas": 200
+  },
+  {
+    "estado": "DESCUADRE_NEGATIVO",
+    "id": 1,
+    "location": "38.607426920203615,-0.04519652478288384",
+    "name": "1 - P. Ciutat Esportiva",
+    "plazas_libres": -50,
+    "plazas_ocupadas": 500,
+    "threshold_dense": 25,
+    "threshold_full": 5,
+    "total_plazas": 450
+  },
+  {
+    "estado": "COMPLETO",
+    "id": 5,
+    "location": "38.598974152477396,-0.056511992285348776",
+    "name": "5 - P. Poble antic/Palau Altea",
+    "plazas_libres": 0,
+    "plazas_ocupadas": 90,
+    "threshold_dense": 10,
+    "threshold_full": 4,
+    "total_plazas": 90
   }
 ]
 ```
+
+**Estados Posibles:**
+- `LIBRE`: Plazas libres suficientes
+- `DENSO`: Ocupación alta pero no completa
+- `COMPLETO`: Parking lleno
+- `DESCUADRE_NEGATIVO`: Ocupación mayor que capacidad máxima
+- `DESCUADRE_POSITIVO`: Ocupación negativa (error de datos)
 
 ### 2. Obtener Datos de un Parking Específico
 
@@ -39,18 +68,18 @@ Obtiene información detallada de un parking específico.
 **Parámetros:**
 - `id`: ID del parking
 
-**Respuesta:**
+**Ejemplo de Respuesta Real:**
 ```json
 {
+  "estado": "DESCUADRE_NEGATIVO",
   "id": 1,
-  "name": "1 - P. Ciutat Esportiva",
   "location": "38.607426920203615,-0.04519652478288384",
-  "total_plazas": 400,
-  "plazas_ocupadas": 150,
-  "plazas_libres": 250,
-  "estado": "LIBRE",
+  "name": "1 - P. Ciutat Esportiva",
+  "plazas_libres": -50,
+  "plazas_ocupadas": 500,
   "threshold_dense": 25,
-  "threshold_full": 5
+  "threshold_full": 5,
+  "total_plazas": 450
 }
 ```
 
@@ -66,20 +95,21 @@ Actualiza la ocupación de un parking de forma manual.
 **Body:**
 ```json
 {
-  "occupancy": 200
+  "occupancy": 480
 }
 ```
 
-**Respuesta:**
+**Ejemplo de Respuesta Real:**
 ```json
 {
-  "status": "ok",
+  "new_occupancy": 480,
   "parking": "1 - P. Ciutat Esportiva",
-  "previous_occupancy": 150,
-  "new_occupancy": 200,
-  "status": "DENSO"
+  "previous_occupancy": 500,
+  "status": "DESCUADRE_NEGATIVO"
 }
 ```
+
+**Nota:** El sistema permite ocupaciones superiores a la capacidad máxima y las registra como descuadres para su posterior corrección.
 
 ### 4. Actualizar Configuración del Parking
 
@@ -99,15 +129,15 @@ Actualiza la capacidad máxima y los umbrales de un parking.
 }
 ```
 
-**Respuesta:**
+**Ejemplo de Respuesta Real:**
 ```json
 {
-  "status": "ok",
-  "parking": "1 - P. Ciutat Esportiva",
+  "current_status": "DENSO",
   "max_capacity": 500,
+  "parking": "1 - P. Ciutat Esportiva",
+  "status": "ok",
   "threshold_dense": 30,
-  "threshold_full": 10,
-  "current_status": "DENSO"
+  "threshold_full": 10
 }
 ```
 
@@ -123,8 +153,8 @@ Envía un mensaje a todos los paneles de un parking específico.
 **Body:**
 ```json
 {
-  "message": "Parking cerrado por mantenimiento",
-  "color": "ROJO",
+  "message": "Test mensaje paneles",
+  "color": "AMARILLO",
   "scroll": true
 }
 ```
@@ -138,19 +168,21 @@ Envía un mensaje a todos los paneles de un parking específico.
 - `true`: Texto con scroll
 - `false`: Texto centrado
 
-**Respuesta:**
+**Ejemplo de Respuesta Real:**
 ```json
 {
-  "status": "ok",
+  "color": "AMARILLO",
+  "message": "Test mensaje paneles",
+  "panels_failed": ["172.20.17.50"],
+  "panels_success": 0,
+  "panels_total": 1,
   "parking": "1 - P. Ciutat Esportiva",
-  "message": "Parking cerrado por mantenimiento",
-  "color": "ROJO",
   "scroll": true,
-  "panels_total": 2,
-  "panels_success": 2,
-  "panels_failed": []
+  "status": "ok"
 }
 ```
+
+**Nota:** Si algún panel no responde, se incluye en `panels_failed` con su IP.
 
 ### 6. Enviar Mensaje a un Panel Específico
 
@@ -192,23 +224,18 @@ Obtiene los mensajes programados de un parking.
 **Parámetros:**
 - `id`: ID del parking
 
-**Respuesta:**
+**Ejemplo de Respuesta Real:**
 ```json
-[
-  {
-    "id": 1,
-    "start_time": "2024-01-15T10:00:00",
-    "end_time": "2024-01-15T18:00:00",
-    "message": "Mantenimiento programado"
-  }
-]
+[]
 ```
 
-### 8. Eliminar Mensaje Programado
+**Nota:** Si no hay mensajes programados, devuelve una lista vacía.
 
-**DELETE** `/parking/{id}/message`
+### 8. Programar Mensaje
 
-Elimina un mensaje programado de un parking.
+**POST** `/parking/{id}/schedule`
+
+Programa un mensaje para ser enviado en una fecha y hora específica.
 
 **Parámetros:**
 - `id`: ID del parking
@@ -216,89 +243,62 @@ Elimina un mensaje programado de un parking.
 **Body:**
 ```json
 {
-  "message_id": 1
+  "message": "Mantenimiento programado",
+  "color": "ROJO",
+  "scroll": true,
+  "start_time": "2024-01-15T10:00:00",
+  "end_time": "2024-01-15T12:00:00"
 }
 ```
 
 **Respuesta:**
 ```json
 {
-  "status": "ok"
+  "status": "ok",
+  "id": 1,
+  "message": "Mensaje programado correctamente"
 }
 ```
 
-## Estados de Parking
+### 9. Eliminar Mensaje Programado
 
-Los parkings pueden tener los siguientes estados:
+**DELETE** `/schedule/{id}`
 
-- **LIBRE**: Más de `threshold_dense` plazas libres
-- **DENSO**: Entre `threshold_full` y `threshold_dense` plazas libres
-- **COMPLETO**: Menos de `threshold_full` plazas libres
-- **COMPLETO_EXCESO**: Ocupación por encima de la capacidad máxima (exceso de vehículos)
-- **DESCUADRE_NEGATIVO**: Plazas libres negativas (error de conteo o overflow)
+Elimina un mensaje programado.
 
-### Gestión de Descuadres
+**Parámetros:**
+- `id`: ID del mensaje programado
 
-El sistema permite y registra automáticamente los siguientes descuadres:
-
-1. **Exceso de Ocupación**: Cuando hay más vehículos que plazas disponibles
-   - Se registra como `EXCESS:{número_de_vehículos_extra}`
-   - Estado: `COMPLETO_EXCESO`
-
-2. **Plazas Libres Negativas**: Cuando el conteo indica más vehículos que capacidad
-   - Se registra como `NEGATIVE_FREE:{número_de_vehículos_extra}`
-   - Estado: `DESCUADRE_NEGATIVO`
-
-Estos descuadres se registran en el histórico de ocupación para:
-- Análisis estadístico posterior
-- Correcciones automáticas diarias
-- Identificación de problemas en el sistema de conteo
-- Auditoría de la precisión del sistema
-
-## Códigos de Error
-
-- **400**: Bad Request - Datos incorrectos o faltantes
-- **404**: Not Found - Recurso no encontrado
-- **500**: Internal Server Error - Error interno del servidor
-
-## Ejemplos de Uso
-
-### Actualizar ocupación del parking 1
-```bash
-curl -X POST http://157.180.91.63:6001/parking/1/occupancy \
-  -H 'Content-Type: application/json' \
-  -d '{"occupancy": 300}'
+**Respuesta:**
+```json
+{
+  "status": "ok",
+  "message": "Mensaje eliminado correctamente"
+}
 ```
 
-### Enviar mensaje a todos los paneles del parking 1
-```bash
-curl -X POST http://157.180.91.63:6001/parking/1/message \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "message": "Parking casi completo",
-    "color": "AMARILLO",
-    "scroll": true
-  }'
+## Códigos de Estado HTTP
+
+- `200 OK`: Operación exitosa
+- `400 Bad Request`: Datos de entrada incorrectos
+- `404 Not Found`: Recurso no encontrado
+- `500 Internal Server Error`: Error interno del servidor
+
+## Manejo de Errores
+
+**Ejemplo de Error:**
+```json
+{
+  "error": "Internal server error"
+}
 ```
 
-### Enviar mensaje a un panel específico
-```bash
-curl -X POST http://157.180.91.63:6001/panel/192.168.1.100/message \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "message": "Mantenimiento en curso",
-    "color": "ROJO",
-    "scroll": false
-  }'
-```
+## Notas Importantes
 
-### Actualizar configuración del parking
-```bash
-curl -X POST http://157.180.91.63:6001/parking/1/config \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "max_capacity": 450,
-    "threshold_dense": 30,
-    "threshold_full": 10
-  }'
-``` 
+1. **Descuadres de Ocupación:** El sistema permite y registra ocupaciones que superan la capacidad máxima o son negativas, marcándolas como descuadres para su posterior corrección.
+
+2. **Paneles No Responsivos:** Si un panel no responde al envío de mensajes, se incluye en la lista `panels_failed` pero no se considera un error crítico.
+
+3. **Estados de Parking:** Los estados se calculan automáticamente basándose en la ocupación actual y los umbrales configurados.
+
+4. **Logging:** Todas las operaciones se registran en logs para auditoría y debugging. 

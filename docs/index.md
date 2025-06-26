@@ -18,9 +18,32 @@ Documentación general del proyecto con descripción, arquitectura, componentes 
 - Tecnologías utilizadas
 - Estado del proyecto
 
+### [Estado del Proyecto](./project_status.md)
+Documento completo del estado actual del proyecto con resultados de pruebas y funcionalidades implementadas.
+
+**Contenido:**
+- Información general del proyecto
+- Arquitectura del sistema
+- Estructura de archivos y funcionalidades
+- Endpoints implementados y probados
+- Resultados de pruebas realizadas
+- Problemas conocidos y soluciones
+- Próximos pasos del desarrollo
+
 ---
 
 ## 🔌 API y Comunicación
+
+### [API REST - Endpoints](./api_endpoints.md)
+Documentación detallada de todos los endpoints de la API REST con ejemplos reales de pruebas.
+
+**Contenido:**
+- Todos los endpoints disponibles
+- Ejemplos de respuestas reales
+- Estados de parking implementados
+- Manejo de errores
+- Códigos de estado HTTP
+- Notas importantes sobre descuadres y paneles
 
 ### [API REST](./api.md)
 Documentación completa de la API REST pública del sistema.
@@ -98,6 +121,17 @@ Guía de mantenimiento rutinario y monitoreo del sistema.
 - Alertas y notificaciones
 - Reportes automáticos
 
+### [Pruebas Automatizadas](./test_automation.md)
+Sistema de pruebas automatizadas para verificar el funcionamiento de la API.
+
+**Contenido:**
+- Script de pruebas automatizadas
+- Endpoints probados
+- Interpretación de resultados
+- Integración con CI/CD
+- Monitoreo continuo
+- Troubleshooting de pruebas
+
 ---
 
 ## 📁 Estructura del Proyecto
@@ -106,6 +140,8 @@ Guía de mantenimiento rutinario y monitoreo del sistema.
 parking_altea/
 ├── docs/                          # Documentación
 │   ├── README.md                  # Documentación principal
+│   ├── project_status.md          # Estado del proyecto
+│   ├── api_endpoints.md           # Endpoints API con ejemplos
 │   ├── api.md                     # API REST
 │   ├── cameras.md                 # Protocolo cámaras
 │   ├── panels.md                  # Protocolo paneles
@@ -120,13 +156,15 @@ parking_altea/
 │   ├── models.py                 # Modelos de BD
 │   ├── config.py                 # Configuración
 │   ├── init_db.py                # Inicialización BD
-│   └── load_data.py              # Carga de datos
+│   ├── load_data.py              # Carga de datos
+│   └── analyze_discrepancies.py  # Análisis de descuadres
 ├── csv_templates/                 # Plantillas CSV
 │   ├── parkings.csv              # Datos de aparcamientos
 │   ├── accesses.csv              # Datos de cámaras
 │   └── panels.csv                # Datos de paneles
 ├── deploy/                        # Archivos de despliegue
 │   ├── setup.sh                  # Script de instalación
+│   ├── update.sh                 # Script de actualización
 │   ├── parking-api.service       # Servicio systemd API
 │   └── parking-camera.service    # Servicio systemd cámaras
 ├── requirements.txt               # Dependencias Python
@@ -168,7 +206,7 @@ sudo -u postgres psql -d parking_db
 ## 📞 Soporte y Contacto
 
 ### Información de Contacto
-- **Email**: admin@swat-id.com
+- **Email**: info@swat-id.com
 - **Servidor**: 157.180.91.63
 - **Usuario**: root
 
@@ -176,15 +214,16 @@ sudo -u postgres psql -d parking_db
 - [Troubleshooting](./maintenance.md#troubleshooting-avanzado)
 - [Logs del sistema](./maintenance.md#monitoreo-diario)
 - [Verificación de estado](./deployment.md#verificación-de-la-instalación)
+- [Estado del proyecto](./project_status.md)
 
 ---
 
 ## 📝 Notas de Versión
 
-### Versión Actual: 1.0
-- **Fecha**: Enero 2025
+### Versión Actual: 1.1
+- **Fecha**: Junio 2025
 - **Estado**: Producción
-- **Última actualización**: Documentación completa
+- **Última actualización**: Documentación completa con ejemplos de pruebas
 
 ### Características Implementadas
 ✅ Servidor de recepción de cámaras  
@@ -194,12 +233,16 @@ sudo -u postgres psql -d parking_db
 ✅ Scripts de despliegue  
 ✅ Documentación completa  
 ✅ Monitoreo y mantenimiento  
+✅ Gestión de descuadres de ocupación  
+✅ Logging completo de operaciones  
+✅ Análisis de discrepancias  
 
 ### Próximas Mejoras
-🔄 Panel de administración web  
-🔄 Reportes avanzados  
-🔄 Integración con sistemas externos  
-🔄 Autenticación y autorización  
+🔄 Panel de administración web (React)  
+🔄 Sistema de programación de mensajes  
+🔄 API de histórico de ocupación  
+🔄 Sistema de autenticación de usuarios  
+🔄 Notificaciones por email/SMS  
 
 ---
 
