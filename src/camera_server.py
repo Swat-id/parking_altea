@@ -272,6 +272,11 @@ def handle_camera():
         logger.info(f"Access found - ID: {access.id}, Parking ID: {access.parking_id}, Name: {access.name}")
         logger.info(f"Previous counters - Last In: {access.last_vehicle_in}, Last Out: {access.last_vehicle_out}")
         
+        # Actualizar estado de la cámara a ONLINE y timestamp de último mensaje
+        access.status = 'ONLINE'
+        access.last_message_received = datetime.now()
+        logger.info(f"Camera status updated to ONLINE - IP: {ip}, Line: {original_line}")
+        
         # Calcular deltas
         delta_in = veh_in - access.last_vehicle_in if access.last_vehicle_in is not None else 0
         delta_out = veh_out - access.last_vehicle_out if access.last_vehicle_out is not None else 0

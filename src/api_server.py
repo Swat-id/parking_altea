@@ -1063,5 +1063,143 @@ def get_camera_logs_stats():
         logger.error(f"Error obteniendo estadísticas de logs de cámaras: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@app.route('/parking/<int:pid>/cameras', methods=['GET'])
+def get_parking_cameras(pid):
+    """Obtener cámaras de un parking específico"""
+    try:
+        session = Session()
+        
+        # Verificar que el parking existe
+        parking = session.query(Parking).get(pid)
+        if not parking:
+            session.close()
+            return jsonify({'error': 'Parking not found'}), 404
+        
+        # Obtener cámaras del parking
+        cameras = session.query(Access).filter_by(parking_id=pid).all()
+        
+        data = []
+        for camera in cameras:
+            camera_data = {
+                'id': camera.id,
+                'name': camera.name,
+                'ip': camera.ip,
+                'line': camera.line,
+                'status': getattr(camera, 'status', 'OFFLINE'),
+                'last_message_received': camera.last_message_received.isoformat() if camera.last_message_received else None,
+                'last_ping_check': camera.last_ping_check.isoformat() if camera.last_ping_check else None,
+                'ping_status': getattr(camera, 'ping_status', 'UNKNOWN'),
+                'last_vehicle_in': camera.last_vehicle_in,
+                'last_vehicle_out': camera.last_vehicle_out
+            }
+            data.append(camera_data)
+        
+        session.close()
+        
+        return jsonify({
+            'parking_id': pid,
+            'parking_name': parking.name,
+            'cameras': data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo cámaras del parking {pid}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/access/<int:access_id>/line', methods=['PUT'])
+def update_camera_line(access_id):
+    """Actualizar línea de una cámara"""
+    try:
+        req = request.get_json(force=True)
+        new_line = req.get('line')
+        
+        if new_line is None:
+            return jsonify({'error': 'Missing line field'}), 400
+        
+        if not isinstance(new_line, int) or new_line < 1:
+            return jsonify({'error': 'Line must be a positive integer'}), 400
+        
+        session = Session()
+        access = session.query(Access).get(access_id)
+        
+        if not access:
+            session.close()
+            return jsonify({'error': 'Camera not found'}), 404
+        
+        # Verificar que no haya conflicto con otra cámara del mismo parking
+        existing_camera = session.query(Access).filter(
+            Access.parking_id == access.parking_id,
+            Access.line == new_line,
+            Access.id != access_id
+        ).first()
+        
+        if existing_camera:
+            session.close()
+            return jsonify({'error': f'Line {new_line} is already used by camera {existing_camera.name}'}), 400
+        
+        # Guardar línea anterior para logging
+        old_line = access.line
+        camera_name = access.name
+        parking_name = access.parking.name
+        
+        # Actualizar línea
+        access.line = new_line
+        
+        session.commit()
+        session.close()
+        
+        logger.info(f"Camera line updated - Camera: {camera_name}, Parking: {parking_name}, Old line: {old_line}, New line: {new_line}")
+        
+        return jsonify({
+            'status': 'ok',
+            'camera_id': access_id,
+            'camera_name': camera_name,
+            'parking_name': parking_name,
+            'old_line': old_line,
+            'new_line': new_line
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating camera line for access {access_id}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/cameras/status', methods=['GET'])
+def get_all_cameras_status():
+    """Obtener estado de todas las cámaras"""
+    try:
+        session = Session()
+        
+        # Obtener todas las cámaras con información del parking
+        cameras = session.query(Access).join(Parking).all()
+        
+        data = []
+        for camera in cameras:
+            camera_data = {
+                'id': camera.id,
+                'name': camera.name,
+                'ip': camera.ip,
+                'line': camera.line,
+                'status': getattr(camera, 'status', 'OFFLINE'),
+                'last_message_received': camera.last_message_received.isoformat() if camera.last_message_received else None,
+                'last_ping_check': camera.last_ping_check.isoformat() if camera.last_ping_check else None,
+                'ping_status': getattr(camera, 'ping_status', 'UNKNOWN'),
+                'parking_id': camera.parking_id,
+                'parking_name': camera.parking.name,
+                'last_vehicle_in': camera.last_vehicle_in,
+                'last_vehicle_out': camera.last_vehicle_out
+            }
+            data.append(camera_data)
+        
+        session.close()
+        
+        return jsonify({
+            'cameras': data,
+            'total_count': len(data)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo estado de cámaras: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=config.API_PORT, debug=False)

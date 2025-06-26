@@ -44,6 +44,10 @@ class Access(Base):
     name = Column(String)
     last_vehicle_in = Column(Integer, default=0, nullable=False)
     last_vehicle_out = Column(Integer, default=0, nullable=False)
+    status = Column(String, default='OFFLINE', nullable=False)  # ONLINE, OFFLINE
+    last_message_received = Column(DateTime(timezone=True))  # Último mensaje recibido
+    last_ping_check = Column(DateTime(timezone=True))  # Última verificación por ping
+    ping_status = Column(String, default='UNKNOWN')  # ONLINE, OFFLINE, UNKNOWN
     parking = relationship('Parking', back_populates='accesses')
     
     # Relación con usuarios a través de tabla intermedia
