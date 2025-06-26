@@ -82,6 +82,7 @@ def set_occupancy(pid):
         # No limitar la ocupación al máximo de capacidad
         # Esto permite reflejar la realidad cuando hay exceso de vehículos
         previous_occupancy = p.current_occupancy
+        parking_name = p.name  # Guardar el nombre antes de cerrar la sesión
         p.current_occupancy = new_occ
         
         # Calcular descuadre para estadísticas
@@ -91,11 +92,11 @@ def set_occupancy(pid):
         if p.current_occupancy > p.max_capacity:
             # Exceso de vehículos
             occupancy_discrepancy = f"EXCESS:{p.current_occupancy - p.max_capacity}"
-            logger.warning(f"MANUAL OCCUPANCY EXCESS - Parking: {p.name}, Capacity: {p.max_capacity}, Current: {p.current_occupancy}, Excess: {p.current_occupancy - p.max_capacity}")
+            logger.warning(f"MANUAL OCCUPANCY EXCESS - Parking: {parking_name}, Capacity: {p.max_capacity}, Current: {p.current_occupancy}, Excess: {p.current_occupancy - p.max_capacity}")
         elif free_spaces < 0:
             # Plazas libres negativas
             occupancy_discrepancy = f"NEGATIVE_FREE:{abs(free_spaces)}"
-            logger.warning(f"MANUAL NEGATIVE FREE SPACES - Parking: {p.name}, Free spaces: {free_spaces}")
+            logger.warning(f"MANUAL NEGATIVE FREE SPACES - Parking: {parking_name}, Free spaces: {free_spaces}")
         
         # Calcular estado basado en plazas libres (permitir estados especiales)
         free = p.max_capacity - p.current_occupancy
@@ -119,10 +120,10 @@ def set_occupancy(pid):
         session.commit()
         session.close()
         
-        logger.info(f"Manual occupancy update - Parking: {p.name}, Previous: {previous_occupancy}, New: {new_occ}, Status: {p.status}")
+        logger.info(f"Manual occupancy update - Parking: {parking_name}, Previous: {previous_occupancy}, New: {new_occ}, Status: {p.status}")
         return jsonify({
             'status': 'ok',
-            'parking': p.name,
+            'parking': parking_name,
             'previous_occupancy': previous_occupancy,
             'new_occupancy': new_occ,
             'status': p.status
@@ -147,6 +148,9 @@ def update_parking_config(pid):
             session.close()
             return jsonify({'error':'Parking not found'}), 404
         
+        # Guardar el nombre antes de cerrar la sesión
+        parking_name = p.name
+        
         # Actualizar campos si se proporcionan
         if max_capacity is not None:
             p.max_capacity = int(max_capacity)
@@ -167,10 +171,10 @@ def update_parking_config(pid):
         session.commit()
         session.close()
         
-        logger.info(f"Parking config updated - Parking: {p.name}, Max: {p.max_capacity}, Dense: {p.threshold_dense}, Full: {p.threshold_full}")
+        logger.info(f"Parking config updated - Parking: {parking_name}, Max: {p.max_capacity}, Dense: {p.threshold_dense}, Full: {p.threshold_full}")
         return jsonify({
             'status': 'ok',
-            'parking': p.name,
+            'parking': parking_name,
             'max_capacity': p.max_capacity,
             'threshold_dense': p.threshold_dense,
             'threshold_full': p.threshold_full,
