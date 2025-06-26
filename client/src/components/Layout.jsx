@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { 
   Home, 
@@ -7,22 +7,14 @@ import {
   Monitor, 
   BarChart3, 
   User, 
-  LogOut, 
   Menu, 
   X,
   Building2
 } from 'lucide-react'
 
 const Layout = ({ children }) => {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const location = useLocation()
-  const navigate = useNavigate()
-
-  const handleLogout = () => {
-    logout()
-    // En modo sin login, simplemente recargar la página
-    window.location.reload()
-  }
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', current: location.pathname === '/dashboard' },
@@ -65,12 +57,6 @@ const Layout = ({ children }) => {
                   <span className="text-sm text-gray-700">
                     {user?.name}
                   </span>
-                  <button
-                    onClick={handleLogout}
-                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm font-medium"
-                  >
-                    Cerrar sesión
-                  </button>
                 </div>
               </div>
             </div>
