@@ -69,7 +69,10 @@ fi
 
 print_status "Frontend reconstruido correctamente"
 
-# 8. Copiar archivos a Nginx si es necesario
+# 8. Crear directorio de Nginx si no existe y copiar archivos
+print_status "Creando directorio de Nginx..."
+sudo mkdir -p /var/www/parking_altea
+
 print_status "Copiando archivos a Nginx..."
 sudo cp -r dist/* /var/www/parking_altea/
 
