@@ -30,6 +30,25 @@ const Statistics = () => {
   const [customDate, setCustomDate] = useState('')
   const [lastUpdate, setLastUpdate] = useState(null)
 
+  // Validar que tenemos un ID válido
+  if (!id) {
+    return (
+      <div className="max-w-7xl mx-auto p-6">
+        <div className="text-center py-8">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error: Parking no especificado</h2>
+          <p className="text-gray-600 mb-4">Debes seleccionar un parking para ver sus estadísticas.</p>
+          <button
+            onClick={() => window.history.back()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            ← Volver
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   useEffect(() => {
     if (id) {
       loadData()

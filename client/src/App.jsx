@@ -18,7 +18,8 @@ function App() {
         <Route path="/parkings" element={<Parkings />} />
         <Route path="/parking/:id" element={<ParkingDetail />} />
         <Route path="/panels" element={<Panels />} />
-        <Route path="/statistics" element={<Statistics />} />
+        <Route path="/statistics" element={<Navigate to="/statistics/1" replace />} />
+        <Route path="/statistics/:id" element={<Statistics />} />
         <Route path="/camera-logs" element={<CameraLogs />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
