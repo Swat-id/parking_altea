@@ -34,7 +34,7 @@ const ParkingDetail = () => {
   // Obtener datos del parking
   const { data: parking, isLoading, error } = useQuery(
     ['parking', id],
-    () => authService.getUserParking(id),
+    () => parkingService.getParking(id),
     {
       retry: 1,
       onError: () => {
@@ -44,7 +44,7 @@ const ParkingDetail = () => {
     }
   )
 
-  // Obtener datos públicos del parking
+  // Obtener datos públicos del parking (redundante ahora, pero mantener por compatibilidad)
   const { data: publicParking } = useQuery(
     ['publicParking', id],
     () => parkingService.getParking(id),
