@@ -5,7 +5,11 @@ Script para analizar y corregir el cálculo del aforo
 
 import sys
 import os
-sys.path.append('src')
+
+# Agregar el directorio src al path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.join(current_dir, 'src')
+sys.path.insert(0, src_dir)
 
 from sqlalchemy import create_engine, func, and_, desc, or_
 from sqlalchemy.orm import sessionmaker
@@ -21,8 +25,11 @@ logger = logging.getLogger(__name__)
 try:
     from models import Base, Parking, Access, CameraLog, OccupancyHistory, VehicleCount
     from config import DATABASE_URL
-except ImportError:
-    print("❌ Error: No se pueden importar los módulos. Asegúrate de estar en el directorio correcto.")
+except ImportError as e:
+    print(f"❌ Error: No se pueden importar los módulos: {e}")
+    print(f"   Directorio actual: {os.getcwd()}")
+    print(f"   Path de src: {src_dir}")
+    print(f"   Archivos en src: {os.listdir(src_dir) if os.path.exists(src_dir) else 'No existe'}")
     sys.exit(1)
 
 def analyze_current_aforo():
