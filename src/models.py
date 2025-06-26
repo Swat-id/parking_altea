@@ -135,11 +135,6 @@ class ParkingStatistics(Base):
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    
-    # Índice único para evitar duplicados
-    __table_args__ = (
-        {'sqlite_on_conflict': 'REPLACE'} if 'sqlite' in str(Base.metadata.bind) else {}
-    )
 
 class DailyStatistics(Base):
     __tablename__ = 'daily_statistics'
