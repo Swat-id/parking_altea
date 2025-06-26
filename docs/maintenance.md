@@ -594,4 +594,219 @@ cat > /opt/parking_altea/incident_template.md <<'EOF'
 - **Cerrado por**: 
 - **Verificación**: 
 EOF
+```
+
+## Gestión de Descuadres y Correcciones
+
+### Tipos de Descuadres
+
+El sistema permite y registra automáticamente los siguientes descuadres:
+
+1. **Exceso de Ocupación**: Cuando hay más vehículos que plazas disponibles
+   - Estado: `COMPLETO_EXCESO`
+   - Causas: Exceso real de vehículos, capacidad subestimada
+
+2. **Plazas Libres Negativas**: Cuando el conteo indica más vehículos que capacidad
+   - Estado: `DESCUADRE_NEGATIVO`
+   - Causas: Errores de conteo, problemas en cámaras, overflow
+
+### Análisis de Descuadres
+
+El sistema incluye un script de análisis que genera estadísticas y sugerencias:
+
+```bash
+# Analizar descuadres de los últimos 7 días
+python src/analyze_discrepancies.py analyze 7
+
+# Generar sugerencias de corrección
+python src/analyze_discrepancies.py suggestions
+
+# Exportar reporte CSV
+python src/analyze_discrepancies.py export reporte.csv
+```
+
+### Correcciones Automáticas
+
+#### 1. Corrección de Excesos Menores (≤5 vehículos)
+```bash
+curl -X POST http://157.180.91.63:6001/parking/{id}/occupancy \
+  -H 'Content-Type: application/json' \
+  -d '{"occupancy": CAPACIDAD_MAXIMA}'
+```
+
+#### 2. Ajuste de Capacidad para Excesos Mayores
+```bash
+curl -X POST http://157.180.91.63:6001/parking/{id}/config \
+  -H 'Content-Type: application/json' \
+  -d '{"max_capacity": NUEVA_CAPACIDAD}'
+```
+
+#### 3. Corrección de Descuadres Negativos
+```bash
+# Para descuadres menores (≤10 vehículos)
+curl -X POST http://157.180.91.63:6001/parking/{id}/occupancy \
+  -H 'Content-Type: application/json' \
+  -d '{"occupancy": CAPACIDAD_MAXIMA}'
+```
+
+### Monitoreo Continuo
+
+#### Logs de Descuadres
+Los descuadres se registran automáticamente en los logs:
+
+```bash
+# Ver logs de descuadres en tiempo real
+journalctl -u parking-camera.service -f | grep -E "(EXCESS|NEGATIVE|DESCUADRE)"
+
+# Ver logs de la API
+journalctl -u parking-api.service -f | grep -E "(EXCESS|NEGATIVE|DESCUADRE)"
+```
+
+#### Alertas Recomendadas
+- **Excesos > 10% de registros**: Revisar capacidad del parking
+- **Descuadres negativos > 5% de registros**: Revisar sistema de conteo
+- **Tendencias significativas**: Analizar cambios en patrones de uso
+
+### Mantenimiento Preventivo
+
+#### Revisión Diaria
+1. Ejecutar análisis de descuadres
+2. Revisar parkings con estados especiales
+3. Aplicar correcciones sugeridas
+
+#### Revisión Semanal
+1. Exportar reporte de descuadres
+2. Analizar tendencias
+3. Ajustar capacidades si es necesario
+
+#### Revisión Mensual
+1. Auditoría completa del sistema
+2. Revisión de precisión de cámaras
+3. Optimización de umbrales
+
+## Mantenimiento del Sistema
+
+### Servicios del Sistema
+
+El sistema consta de dos servicios principales:
+
+1. **parking-api.service**: API REST en puerto 6001
+2. **parking-camera.service**: Servidor de cámaras en puerto 6400
+
+### Comandos de Mantenimiento
+
+#### Reiniciar Servicios
+```bash
+sudo systemctl restart parking-api.service
+sudo systemctl restart parking-camera.service
+```
+
+#### Ver Estado de Servicios
+```bash
+sudo systemctl status parking-api.service
+sudo systemctl status parking-camera.service
+```
+
+#### Ver Logs en Tiempo Real
+```bash
+# API Server
+sudo journalctl -u parking-api.service -f
+
+# Camera Server
+sudo journalctl -u parking-camera.service -f
+```
+
+#### Ver Logs Históricos
+```bash
+# Últimas 100 líneas
+sudo journalctl -u parking-api.service -n 100
+
+# Desde hace 1 hora
+sudo journalctl -u parking-api.service --since "1 hour ago"
+```
+
+### Base de Datos
+
+#### Backup Automático
+```bash
+# Crear backup
+pg_dump parking_altea > backup_$(date +%Y%m%d_%H%M%S).sql
+
+# Restaurar backup
+psql parking_altea < backup_YYYYMMDD_HHMMSS.sql
+```
+
+#### Limpieza de Histórico
+```bash
+# Eliminar registros antiguos (más de 90 días)
+DELETE FROM occupancy_history 
+WHERE timestamp < NOW() - INTERVAL '90 days';
+```
+
+### Monitoreo de Recursos
+
+#### Uso de CPU y Memoria
+```bash
+# Ver uso de recursos
+htop
+
+# Ver procesos específicos
+ps aux | grep python
+```
+
+#### Uso de Disco
+```bash
+# Ver espacio en disco
+df -h
+
+# Ver logs más grandes
+du -sh /var/log/*
+```
+
+### Actualizaciones
+
+#### Actualizar Código
+```bash
+cd /opt/parking_altea
+git pull origin main
+sudo systemctl restart parking-api.service
+sudo systemctl restart parking-camera.service
+```
+
+#### Verificar Funcionamiento
+```bash
+# Probar API
+curl http://157.180.91.63:6001/parkings
+
+# Probar servidor de cámaras
+curl http://157.180.91.63:6400/camera
+```
+
+### Troubleshooting
+
+#### Problemas Comunes
+
+1. **Servicio no inicia**
+   ```bash
+   sudo systemctl status parking-api.service
+   sudo journalctl -u parking-api.service -n 50
+   ```
+
+2. **Error de conexión a base de datos**
+   ```bash
+   sudo systemctl status postgresql
+   sudo -u postgres psql -c "SELECT version();"
+   ```
+
+3. **Puertos ocupados**
+   ```bash
+   sudo netstat -tlnp | grep :6001
+   sudo netstat -tlnp | grep :6400
+   ```
+
+#### Logs de Error
+```bash
+# Ver errores específicos
+sudo journalctl -u parking-api.service -p err
+sudo journalctl -u parking-camera.service -p err
 ``` 

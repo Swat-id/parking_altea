@@ -128,11 +128,27 @@ def handle_camera():
         parking = access.parking
         previous_occupancy = parking.current_occupancy
         parking.current_occupancy += (delta_in - delta_out)
-        parking.current_occupancy = max(0, min(parking.current_occupancy, parking.max_capacity))
+        
+        # PERMITIR OCUPACIÓN POR ENCIMA DEL MÁXIMO Y VALORES NEGATIVOS
+        # No limitar la ocupación al máximo de capacidad
+        # Esto permite reflejar la realidad cuando hay exceso de vehículos
         
         logger.info(f"Parking occupancy updated - Previous: {previous_occupancy}, New: {parking.current_occupancy}, Max Capacity: {parking.max_capacity}")
         
-        # Registrar histórico
+        # Calcular descuadre para estadísticas
+        free_spaces = parking.max_capacity - parking.current_occupancy
+        occupancy_discrepancy = None
+        
+        if parking.current_occupancy > parking.max_capacity:
+            # Exceso de vehículos
+            occupancy_discrepancy = f"EXCESS:{parking.current_occupancy - parking.max_capacity}"
+            logger.warning(f"OCCUPANCY EXCESS - Parking: {parking.name}, Capacity: {parking.max_capacity}, Current: {parking.current_occupancy}, Excess: {parking.current_occupancy - parking.max_capacity}")
+        elif free_spaces < 0:
+            # Plazas libres negativas
+            occupancy_discrepancy = f"NEGATIVE_FREE:{abs(free_spaces)}"
+            logger.warning(f"NEGATIVE FREE SPACES - Parking: {parking.name}, Free spaces: {free_spaces}, This indicates counting errors or overflow")
+        
+        # Registrar histórico con información de descuadre
         hist = OccupancyHistory(
             parking_id=parking.id,
             occupancy=parking.current_occupancy,
@@ -140,7 +156,7 @@ def handle_camera():
         )
         session.add(hist)
         
-        # Calcular estado
+        # Calcular estado (permitir estados especiales para descuadres)
         occ = parking.current_occupancy
         parking_name = parking.name  # Obtener el nombre antes de cerrar la sesión
         previous_status = parking.status
@@ -150,15 +166,26 @@ def handle_camera():
             message = None
             logger.info(f"Fixed message flag is active - no status update")
         else:
-            # Evaluar por plazas libres (no por ocupación)
-            if free <= parking.threshold_full:
+            # Evaluar estado considerando descuadres
+            if free < 0:
+                # Estado especial para descuadres negativos
+                parking.status = 'DESCUADRE_NEGATIVO'
+                message = f"{parking_name}: ERROR - {abs(free)} vehículos de más"
+                logger.warning(f"Status set to DESCUADRE_NEGATIVO - Free spaces: {free}")
+            elif occ > parking.max_capacity:
+                # Estado para exceso de ocupación
+                parking.status = 'COMPLETO_EXCESO'
+                message = f"{parking_name}: COMPLETO + {occ - parking.max_capacity} extra"
+                logger.warning(f"Status set to COMPLETO_EXCESO - Occupancy: {occ}, Capacity: {parking.max_capacity}")
+            elif free <= parking.threshold_full:
                 parking.status = 'COMPLETO'
+                message = f"{parking_name}: {free} libres ({parking.status})"
             elif free <= parking.threshold_dense:
                 parking.status = 'DENSO'
+                message = f"{parking_name}: {free} libres ({parking.status})"
             else:
                 parking.status = 'LIBRE'
-            
-            message = f"{parking_name}: {free} libres ({parking.status})"
+                message = f"{parking_name}: {free} libres ({parking.status})"
             
             logger.info(f"Status updated - Previous: {previous_status}, New: {parking.status}, Free spaces: {free}")
             logger.info(f"Thresholds evaluation - Free spaces: {free}, Dense threshold: {parking.threshold_dense}, Full threshold: {parking.threshold_full}")

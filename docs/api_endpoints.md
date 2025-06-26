@@ -234,6 +234,26 @@ Los parkings pueden tener los siguientes estados:
 - **LIBRE**: Más de `threshold_dense` plazas libres
 - **DENSO**: Entre `threshold_full` y `threshold_dense` plazas libres
 - **COMPLETO**: Menos de `threshold_full` plazas libres
+- **COMPLETO_EXCESO**: Ocupación por encima de la capacidad máxima (exceso de vehículos)
+- **DESCUADRE_NEGATIVO**: Plazas libres negativas (error de conteo o overflow)
+
+### Gestión de Descuadres
+
+El sistema permite y registra automáticamente los siguientes descuadres:
+
+1. **Exceso de Ocupación**: Cuando hay más vehículos que plazas disponibles
+   - Se registra como `EXCESS:{número_de_vehículos_extra}`
+   - Estado: `COMPLETO_EXCESO`
+
+2. **Plazas Libres Negativas**: Cuando el conteo indica más vehículos que capacidad
+   - Se registra como `NEGATIVE_FREE:{número_de_vehículos_extra}`
+   - Estado: `DESCUADRE_NEGATIVO`
+
+Estos descuadres se registran en el histórico de ocupación para:
+- Análisis estadístico posterior
+- Correcciones automáticas diarias
+- Identificación de problemas en el sistema de conteo
+- Auditoría de la precisión del sistema
 
 ## Códigos de Error
 

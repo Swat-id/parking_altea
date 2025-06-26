@@ -77,13 +77,36 @@ def set_occupancy(pid):
             return jsonify({'error':'Parking not found'}), 404
         
         # Validar y ajustar ocupación
-        new_occ = max(0, min(int(new_occ), p.max_capacity))
+        new_occ = int(new_occ)
+        # PERMITIR OCUPACIÓN POR ENCIMA DEL MÁXIMO Y VALORES NEGATIVOS
+        # No limitar la ocupación al máximo de capacidad
+        # Esto permite reflejar la realidad cuando hay exceso de vehículos
         previous_occupancy = p.current_occupancy
         p.current_occupancy = new_occ
         
-        # Calcular estado basado en plazas libres
+        # Calcular descuadre para estadísticas
+        free_spaces = p.max_capacity - p.current_occupancy
+        occupancy_discrepancy = None
+        
+        if p.current_occupancy > p.max_capacity:
+            # Exceso de vehículos
+            occupancy_discrepancy = f"EXCESS:{p.current_occupancy - p.max_capacity}"
+            logger.warning(f"MANUAL OCCUPANCY EXCESS - Parking: {p.name}, Capacity: {p.max_capacity}, Current: {p.current_occupancy}, Excess: {p.current_occupancy - p.max_capacity}")
+        elif free_spaces < 0:
+            # Plazas libres negativas
+            occupancy_discrepancy = f"NEGATIVE_FREE:{abs(free_spaces)}"
+            logger.warning(f"MANUAL NEGATIVE FREE SPACES - Parking: {p.name}, Free spaces: {free_spaces}")
+        
+        # Calcular estado basado en plazas libres (permitir estados especiales)
         free = p.max_capacity - p.current_occupancy
-        if free <= p.threshold_full:
+        
+        if free < 0:
+            # Estado especial para descuadres negativos
+            p.status = 'DESCUADRE_NEGATIVO'
+        elif p.current_occupancy > p.max_capacity:
+            # Estado para exceso de ocupación
+            p.status = 'COMPLETO_EXCESO'
+        elif free <= p.threshold_full:
             p.status = 'COMPLETO'
         elif free <= p.threshold_dense:
             p.status = 'DENSO'
