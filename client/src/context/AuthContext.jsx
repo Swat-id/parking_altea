@@ -36,7 +36,8 @@ export const AuthProvider = ({ children }) => {
   const login = (userData) => {
     console.log('Login llamado con:', userData)
     setUser(userData)
-    // El localStorage ya se maneja en el componente Login
+    localStorage.setItem('user', JSON.stringify(userData))
+    localStorage.setItem('token', userData.token)
   }
 
   const logout = () => {

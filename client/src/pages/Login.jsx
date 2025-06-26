@@ -23,7 +23,7 @@ const Login = () => {
     setError('')
 
     try {
-      // Verificación local simple primero
+      // Verificación local simple
       if (validCredentials[email] && validCredentials[email] === password) {
         console.log('Login exitoso con credenciales locales')
         
@@ -36,62 +36,18 @@ const Login = () => {
           token: 'local-token-' + Date.now()
         }
 
-        // Guardar en localStorage
-        localStorage.setItem('token', userData.token)
-        localStorage.setItem('user', JSON.stringify(userData))
-        
-        // Actualizar contexto
+        // Actualizar contexto (el localStorage se maneja en el contexto)
         login(userData)
         
         // Redirigir al dashboard
         navigate('/dashboard')
         return
-      }
-
-      // Si no coincide con credenciales locales, intentar API
-      console.log('Intentando login con API...')
-      
-      const response = await fetch('http://157.180.91.63:6001/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        console.log('Login exitoso con API:', data)
-        
-        localStorage.setItem('token', data.token)
-        localStorage.setItem('user', JSON.stringify(data.user))
-        
-        login(data.user)
-        navigate('/dashboard')
       } else {
-        const errorData = await response.json()
-        console.error('Error de API:', errorData)
-        setError(errorData.error || 'Error de autenticación')
+        setError('Credenciales incorrectas')
       }
     } catch (err) {
       console.error('Error de conexión:', err)
-      setError('Error de conexión con el servidor. Usando modo local.')
-      
-      // Fallback: usar credenciales locales si la API falla
-      if (validCredentials[email] && validCredentials[email] === password) {
-        const userData = {
-          id: email === 'atea.dti@altea.es' ? 1 : email === 'gerenciapstd@altea.es' ? 2 : 999,
-          name: email === 'atea.dti@altea.es' ? 'Toni Alos' : 
-                email === 'gerenciapstd@altea.es' ? 'Iván Martí' : 'Admin',
-          email: email,
-          token: 'fallback-token-' + Date.now()
-        }
-
-        localStorage.setItem('token', userData.token)
-        localStorage.setItem('user', JSON.stringify(userData))
-        login(userData)
-        navigate('/dashboard')
-      }
+      setError('Error interno del sistema')
     } finally {
       setLoading(false)
     }
@@ -160,7 +116,7 @@ const Login = () => {
           </div>
 
           <div className="text-xs text-gray-500 text-center">
-            <p>Credenciales de prueba:</p>
+            <p>Credenciales de acceso:</p>
             <p>Toni Alos: atea.dti@altea.es / altea2025!</p>
             <p>Iván Martí: gerenciapstd@altea.es / altea2025!</p>
             <p>Admin: admin / admin123</p>
