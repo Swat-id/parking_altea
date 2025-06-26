@@ -23,28 +23,16 @@ const Login = () => {
     setError('')
 
     try {
-      // Verificación local simple
-      if (validCredentials[email] && validCredentials[email] === password) {
-        console.log('Login exitoso con credenciales locales')
-        
-        // Crear objeto de usuario simulado
-        const userData = {
-          id: email === 'atea.dti@altea.es' ? 1 : email === 'gerenciapstd@altea.es' ? 2 : 999,
-          name: email === 'atea.dti@altea.es' ? 'Toni Alos' : 
-                email === 'gerenciapstd@altea.es' ? 'Iván Martí' : 'Admin',
-          email: email,
-          token: 'local-token-' + Date.now()
-        }
-
-        // Actualizar contexto (el localStorage se maneja en el contexto)
-        login(userData)
-        
-        // Redirigir al dashboard
-        navigate('/dashboard')
-        return
-      } else {
-        setError('Credenciales incorrectas')
+      // Login simulado SIEMPRE como Toni Alos
+      const userData = {
+        id: 1,
+        name: 'Toni Alos',
+        email: 'atea.dti@altea.es',
+        token: 'local-token-' + Date.now()
       }
+      login(userData)
+      navigate('/dashboard')
+      return
     } catch (err) {
       console.error('Error de conexión:', err)
       setError('Error interno del sistema')
