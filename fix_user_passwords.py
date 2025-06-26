@@ -1,63 +1,84 @@
 #!/usr/bin/env python3
 """
-Script para actualizar las contraseñas de los usuarios a altea2025!
+Script para actualizar las contraseñas de los usuarios existentes
+Según la documentación oficial del proyecto
 """
 
 import sys
 import os
-sys.path.append('/opt/parking_altea/src')
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+import config
 from models import User
-import bcrypt
+from auth import hash_password
+import logging
 
-def hash_password(password: str) -> str:
-    """Hashea una contraseña usando bcrypt"""
-    salt = bcrypt.gensalt()
-    password_hash = bcrypt.hashpw(password.encode('utf-8'), salt)
-    return password_hash.decode('utf-8')
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def update_user_passwords():
-    """Actualizar contraseñas de usuarios a altea2025!"""
+    """Actualizar contraseñas de usuarios según la documentación"""
+    engine = create_engine(config.DB_URL, echo=False)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    
     try:
-        # Conectar a la base de datos
-        engine = create_engine('postgresql://parking_user:parking_pass@localhost/parking_db')
-        Session = sessionmaker(bind=engine)
-        session = Session()
+        # Usuarios según la documentación
+        users_to_update = [
+            {
+                "email": "atea.dti@altea.es",
+                "name": "Toni Alos",
+                "password": "altea2025!"
+            },
+            {
+                "email": "gerenciapstd@altea.es", 
+                "name": "Iván Martí",
+                "password": "altea2025!"
+            }
+        ]
         
-        print("=== ACTUALIZANDO CONTRASEÑAS DE USUARIOS ===")
-        
-        # Nueva contraseña
-        new_password = "alte2025!"
-        password_hash = hash_password(new_password)
-        
-        # Actualizar ambos usuarios
-        users = session.query(User).filter(User.is_active == True).all()
-        
-        for user in users:
-            print(f"Actualizando contraseña para: {user.name} ({user.email})")
-            user.password_hash = password_hash
+        for user_data in users_to_update:
+            email = user_data["email"]
+            name = user_data["name"]
+            password = user_data["password"]
+            
+            # Buscar usuario por email
+            user = session.query(User).filter(User.email == email).first()
+            
+            if user:
+                # Actualizar contraseña
+                password_hash = hash_password(password)
+                user.password_hash = password_hash
+                logger.info(f"Contraseña actualizada para {name} ({email})")
+            else:
+                logger.warning(f"Usuario no encontrado: {name} ({email})")
         
         session.commit()
-        print(f"✅ Contraseñas actualizadas para {len(users)} usuarios")
+        logger.info("Todas las contraseñas actualizadas correctamente")
         
-        # Verificar que funciona
-        print("\n=== VERIFICANDO CONTRASEÑAS ===")
+        # Verificar usuarios
+        logger.info("Verificando usuarios...")
+        users = session.query(User).filter(User.is_active == True).all()
         for user in users:
-            is_valid = bcrypt.checkpw(new_password.encode('utf-8'), user.password_hash.encode('utf-8'))
-            print(f"Usuario {user.name}: {'✅' if is_valid else '❌'}")
+            logger.info(f"  - {user.name} ({user.email}) - ID: {user.id}")
         
         return True
         
     except Exception as e:
-        print(f"❌ Error: {e}")
-        if 'session' in locals():
-            session.rollback()
+        logger.error(f"Error actualizando contraseñas: {e}")
+        session.rollback()
         return False
     finally:
-        if 'session' in locals():
-            session.close()
+        session.close()
 
 if __name__ == "__main__":
-    update_user_passwords() 
+    logger.info("Actualizando contraseñas de usuarios...")
+    
+    if update_user_passwords():
+        logger.info("Actualización completada exitosamente")
+    else:
+        logger.error("Error en la actualización")
+        sys.exit(1) 
