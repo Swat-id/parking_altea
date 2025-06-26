@@ -1,6 +1,6 @@
 import api from './api';
 
-class CameraService {
+export const cameraService = {
   /**
    * Obtener cámaras de un parking específico
    * @param {number} parkingId - ID del parking
@@ -14,7 +14,7 @@ class CameraService {
       console.error('Error obteniendo cámaras del parking:', error);
       throw error;
     }
-  }
+  },
 
   /**
    * Actualizar línea de una cámara
@@ -30,7 +30,7 @@ class CameraService {
       console.error('Error actualizando línea de cámara:', error);
       throw error;
     }
-  }
+  },
 
   /**
    * Obtener estado de todas las cámaras
@@ -44,7 +44,7 @@ class CameraService {
       console.error('Error obteniendo estado de cámaras:', error);
       throw error;
     }
-  }
+  },
 
   /**
    * Verificar estado de una cámara por IP
@@ -61,7 +61,7 @@ class CameraService {
       console.error('Error verificando estado de cámara:', error);
       return false;
     }
-  }
+  },
 
   /**
    * Formatear timestamp para mostrar
@@ -90,7 +90,7 @@ class CameraService {
       hour: '2-digit',
       minute: '2-digit'
     });
-  }
+  },
 
   /**
    * Obtener color de estado para UI
@@ -106,7 +106,7 @@ class CameraService {
       default:
         return 'text-gray-600 bg-gray-100';
     }
-  }
+  },
 
   /**
    * Obtener icono de estado para UI
@@ -123,6 +123,4 @@ class CameraService {
         return '🟡';
     }
   }
-}
-
-export default new CameraService(); 
+}; 

@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { authService } from '../services/authService'
-import parkingService from '../services/parkingService'
-import cameraService from '../services/cameraService'
-import cameraLogService from '../services/cameraLogService'
+import { parkingService } from '../services/parkingService'
+import { cameraService } from '../services/cameraService'
+import { cameraLogService } from '../services/cameraLogService'
 import { 
   ArrowLeft, 
   Edit, 
