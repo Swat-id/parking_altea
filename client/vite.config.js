@@ -9,7 +9,7 @@ export default defineConfig({
     host: '0.0.0.0', // Permitir acceso desde cualquier IP
     proxy: {
       '/api': {
-        target: 'http://157.180.91.63:5000',
+        target: 'http://157.180.91.63:6001',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       }

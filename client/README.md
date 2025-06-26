@@ -21,7 +21,7 @@ npm run preview
 
 ### Producción
 - **URL**: http://157.180.91.63:5789
-- **API**: http://157.180.91.63:5000
+- **API**: http://157.180.91.63:6001
 - **Puerto**: 5789
 
 ## 📋 Funcionalidades
@@ -83,7 +83,7 @@ client/
 
 ### Variables de Entorno
 ```env
-VITE_API_URL=http://157.180.91.63:5000
+VITE_API_URL=http://157.180.91.63:6001
 VITE_APP_TITLE=Parking Altea
 VITE_APP_VERSION=2.2
 ```
@@ -91,7 +91,7 @@ VITE_APP_VERSION=2.2
 ### Vite Config
 - **Puerto de desarrollo**: 5789
 - **Host**: 0.0.0.0 (acceso desde cualquier IP)
-- **Proxy API**: /api -> http://157.180.91.63:5000
+- **Proxy API**: /api -> http://157.180.91.63:6001
 
 ## 🚀 Despliegue
 
@@ -112,10 +112,10 @@ scp -r dist/* root@157.180.91.63:/opt/parking_altea/client/dist/
 # 3. Configurar Nginx (ver script de despliegue)
 ```
 
-## 🔑 Credenciales de Prueba
+## 🔑 Usuarios Disponibles
 
-- **Email**: toni@swat-id.com
-- **Password**: admin123!
+- **Toni Alos**: atea.dti@altea.es
+- **Iván Martí**: gerenciapstd@altea.es
 
 ## 📊 API Endpoints
 
@@ -159,7 +159,7 @@ npm run test:coverage
 
 - **Desarrollo**: http://localhost:5789
 - **Producción**: http://157.180.91.63:5789
-- **API**: http://157.180.91.63:5000
+- **API**: http://157.180.91.63:6001
 
 ## 📞 Soporte
 

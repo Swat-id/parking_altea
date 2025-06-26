@@ -104,16 +104,6 @@ const Login = () => {
               )}
             </button>
           </div>
-
-          <div className="text-center">
-            <p className="text-sm text-gray-600">
-              Credenciales de prueba:
-            </p>
-            <div className="mt-2 text-xs text-gray-500 space-y-1">
-              <p><strong>Toni Alos:</strong> atea.dti@altea.es / altea2025!</p>
-              <p><strong>Iván Martí:</strong> gerenciapstd@altea.es / altea2025!</p>
-            </div>
-          </div>
         </form>
       </div>
     </div>

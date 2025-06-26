@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script completo de despliegue Parking Altea v2.2
-# Backend: Puerto 5000
+# Backend: Puerto 6001
 # Frontend: Puerto 5789
 
 echo "🚀 Desplegando Parking Altea v2.2..."
@@ -66,7 +66,7 @@ server {
     
     # Proxy para API
     location /api/ {
-        proxy_pass http://localhost:5000/;
+        proxy_pass http://localhost:6001/;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -105,8 +105,8 @@ ssh root@$SERVER_IP "systemctl status nginx --no-pager"
 # 13. Verificar puertos
 echo "🔍 Verificando puertos..."
 ssh root@$SERVER_IP "
-    echo 'Puerto 5000 (API):'
-    netstat -tlnp | grep :5000
+    echo 'Puerto 6001 (API):'
+    netstat -tlnp | grep :6001
     echo ''
     echo 'Puerto 5789 (Frontend):'
     netstat -tlnp | grep :5789
@@ -116,7 +116,7 @@ echo ""
 echo "🎉 Despliegue completado exitosamente!"
 echo "======================================"
 echo "🌐 Frontend: http://$SERVER_IP:5789"
-echo "📊 API: http://$SERVER_IP:5000"
+echo "📊 API: http://$SERVER_IP:6001"
 echo ""
 echo "📋 Funcionalidades disponibles:"
 echo "  ✅ Sistema de autenticación JWT"
@@ -126,9 +126,9 @@ echo "  ✅ Gestión de paneles electrónicos"
 echo "  ✅ Logs de actividad y auditoría"
 echo "  ✅ Frontend responsive con React"
 echo ""
-echo "🔑 Credenciales de prueba:"
-echo "  Email: toni@swat-id.com"
-echo "  Password: admin123!"
+echo "🔑 Usuarios disponibles:"
+echo "  Email: atea.dti@altea.es"
+echo "  Email: gerenciapstd@altea.es"
 echo ""
 echo "📝 Próximos pasos:"
 echo "  1. Acceder a http://$SERVER_IP:5789"
