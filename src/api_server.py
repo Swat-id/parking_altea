@@ -1357,18 +1357,30 @@ def verify_all_panels():
         
         from panel_client import ping_panel
         
+        logger.info(f"Iniciando verificación de {len(panels)} paneles")
+        
         for panel in panels:
             try:
+                logger.info(f"Verificando panel {panel.id} ({panel.name}) - IP: {panel.ip} - Estado actual: {panel.status}")
+                
                 start_time = datetime.now()
                 success = ping_panel(panel.ip)
                 response_time = (datetime.now() - start_time).total_seconds() * 1000
+                
                 new_status = 'ONLINE' if success else 'OFFLINE'
                 previous_status = panel.status
                 status_changed = previous_status != new_status
+                
+                logger.info(f"Panel {panel.id}: ping_success={success}, previous_status={previous_status}, new_status={new_status}, status_changed={status_changed}")
+                
+                # Actualizar estado del panel
                 panel.status = new_status
                 panel.last_update = datetime.now()
+                
                 if status_changed:
                     updated_count += 1
+                    logger.info(f"Panel {panel.id} actualizado: {previous_status} → {new_status}")
+                
                 results.append({
                     'panel_id': panel.id,
                     'panel_name': panel.name,
@@ -1379,6 +1391,7 @@ def verify_all_panels():
                     'status_changed': status_changed,
                     'ping_success': success
                 })
+                
             except Exception as e:
                 logger.error(f"Error verificando panel {panel.id}: {e}")
                 results.append({
@@ -1389,11 +1402,19 @@ def verify_all_panels():
                     'status_changed': False,
                     'ping_success': False
                 })
+        
+        logger.info(f"Commit de cambios: {updated_count} paneles actualizados")
         session.commit()
+        
         # Refrescar los objetos panel para asegurar persistencia
         for panel in panels:
             session.refresh(panel)
+            logger.info(f"Panel {panel.id} después del refresh: status={panel.status}")
+        
         session.close()
+        
+        logger.info(f"Verificación completada: {len(panels)} total, {updated_count} actualizados")
+        
         return jsonify({
             'status': 'ok',
             'total_panels': len(panels),
