@@ -1,393 +1,253 @@
 # Contexto del Proyecto - Parking Altea
 
-## 📋 Resumen Ejecutivo
+## 🎯 Objetivo del Proyecto
 
-**Parking Altea** es un sistema integral de gestión de aparcamientos para el Ayuntamiento de Altea que incluye:
-- Monitoreo en tiempo real de ocupación de parkings
-- Comunicación con paneles electrónicos informativos
-- Sistema de cámaras para conteo automático de vehículos
-- API REST completa con autenticación
-- Frontend React moderno y responsive
-- Base de datos PostgreSQL optimizada
-
-## 🎯 Objetivos del Proyecto
-
-### Principales
-- **Gestión centralizada** de todos los aparcamientos de Altea
-- **Información en tiempo real** para ciudadanos y gestores
-- **Comunicación automática** con paneles informativos
-- **Análisis de datos** para planificación urbana
-- **Interfaz moderna** para administración
-
-### Beneficios Esperados
-- Reducción del 15-20% en tráfico de búsqueda de aparcamiento
-- Mejora del 90% en satisfacción ciudadana
-- Eficiencia operativa del 50% en gestión
-- Datos valiosos para planificación urbana
+El sistema de gestión de parkings de Altea es una plataforma integral para el monitoreo y control de aparcamientos públicos en tiempo real. El sistema integra cámaras de conteo de vehículos, paneles informativos y una interfaz web para la gestión administrativa.
 
 ## 🏗️ Arquitectura del Sistema
 
-### Backend (Python Flask)
-```
-src/
-├── api_server.py          # Servidor API REST principal
-├── camera_server.py       # Servidor para recepción de cámaras
-├── auth.py               # Sistema de autenticación JWT
-├── models.py             # Modelos de base de datos
-├── config.py             # Configuración del sistema
-├── init_db.py            # Inicialización de base de datos
-├── init_users.py         # Creación de usuarios iniciales
-└── load_data.py          # Carga de datos de parkings
-```
+### Componentes Principales
 
-### Frontend (React Vite)
-```
-client/
-├── src/
-│   ├── components/       # Componentes reutilizables
-│   ├── pages/           # Páginas principales
-│   ├── services/        # Servicios de API
-│   ├── context/         # Contexto de autenticación
-│   ├── hooks/           # Hooks personalizados
-│   └── utils/           # Utilidades
-├── package.json         # Dependencias
-└── vite.config.js       # Configuración de Vite
-```
+#### 1. **Backend (Python Flask)**
+- **API Server** (Puerto 6001): Gestión de datos, autenticación y endpoints REST
+- **Camera Server** (Puerto 6400): Recepción y procesamiento de mensajes de cámaras
+- **Base de Datos**: PostgreSQL con SQLAlchemy ORM
+- **Panel Client**: Comunicación con paneles informativos
 
-### Base de Datos (PostgreSQL)
+#### 2. **Frontend (React + Vite)**
+- **Dashboard**: Vista general de todos los parkings
+- **Parking Detail**: Gestión individual de parkings
+- **Camera Logs**: Visualización de logs de cámaras
+- **Statistics**: Estadísticas y reportes
+- **Profile**: Gestión de usuarios
+
+#### 3. **Infraestructura**
+- **Servidor**: Ubuntu en 157.180.91.63
+- **Proxy**: Nginx para frontend y balanceo
+- **Servicios**: Systemd para gestión de procesos
+
+## 🔄 Flujos de Datos
+
+### 1. Flujo de Mensajes de Cámaras
+
 ```
-Tablas principales:
-├── parkings             # Información de aparcamientos
-├── accesses             # Cámaras de acceso
-├── panels               # Paneles electrónicos
-├── occupancy_history    # Historial de ocupación
-├── scheduled_messages   # Mensajes programados
-└── users                # Usuarios del sistema
+Cámara → POST /camera → Camera Server → Base de Datos → Paneles
 ```
 
-## 🛠️ Stack Tecnológico
+**Proceso detallado:**
 
-### Backend
-- **Python 3.12** - Lenguaje principal
-- **Flask 3.0.0** - Framework web
-- **SQLAlchemy** - ORM para base de datos
-- **PostgreSQL 15** - Base de datos principal
-- **bcrypt 4.0.1** - Encriptación de contraseñas
-- **PyJWT 2.8.0** - Tokens JWT
-- **psycopg2-binary** - Driver PostgreSQL
-- **gunicorn** - Servidor WSGI para producción
+1. **Recepción**: La cámara envía un mensaje JSON al endpoint `/camera`
+2. **Validación**: Se verifica el formato y campos requeridos
+3. **Protección Duplicados**: Se verifica que no sea un mensaje duplicado (cache 5 min)
+4. **Identificación**: Se busca la cámara por IP+línea o nombre+línea
+5. **Procesamiento**: Se calculan los deltas y se actualiza la ocupación
+6. **Logging**: Se registra todo el proceso en CameraLog
+7. **Broadcast**: Se envía el estado actualizado a los paneles
+8. **Respuesta**: Se confirma la recepción a la cámara
 
-### Frontend
-- **React 18.2.0** - Framework de UI
-- **Vite 5.0.0** - Build tool y dev server
-- **React Router 6.20.1** - Navegación
-- **React Query 3.39.3** - Gestión de estado y caché
-- **Axios 1.6.2** - Cliente HTTP
-- **Tailwind CSS 3.3.5** - Framework de estilos
-- **Lucide React** - Iconografía
-- **React Hook Form** - Gestión de formularios
-- **React Hot Toast** - Notificaciones
-
-### Infraestructura
-- **Ubuntu 22.04 LTS** - Sistema operativo servidor
-- **Hetzner Cloud** - Proveedor de hosting
-- **Systemd** - Gestión de servicios
-- **UFW** - Firewall
-- **Git** - Control de versiones
-
-## 🗄️ Modelo de Datos
-
-### Entidades Principales
-
-#### Parking
-```python
+**Formato del mensaje:**
+```json
 {
-    "id": int,
-    "name": str,              # Nombre del parking
-    "total_plazas": int,      # Plazas totales
-    "plazas_ocupadas": int,   # Plazas ocupadas actualmente
-    "plazas_libres": int,     # Plazas libres (calculado)
-    "estado": str,            # LIBRE, DENSO, COMPLETO
-    "threshold_dense": int,   # Umbral para estado denso
-    "threshold_full": int,    # Umbral para estado completo
-    "location": str           # Coordenadas GPS
+  "device": "nombre_camara",
+  "line": 0,
+  "Vehicle In": 1234,
+  "Vehicle Out": 567,
+  "event": "optional",
+  "time": "optional"
 }
 ```
 
-#### User
-```python
-{
-    "id": int,
-    "name": str,              # Nombre del usuario
-    "email": str,             # Email único
-    "password_hash": str,     # Contraseña encriptada
-    "created_at": datetime,   # Fecha de creación
-    "parkings": [],           # Parkings asignados
-    "panels": [],             # Paneles asignados
-    "cameras": []             # Cámaras asignadas
-}
-```
+### 2. Flujo de Gestión de Ocupación
 
-#### Panel
-```python
-{
-    "id": int,
-    "name": str,              # Nombre del panel
-    "ip_address": str,        # IP del panel
-    "parking_id": int,        # Parking asociado
-    "status": str,            # ONLINE, OFFLINE
-    "last_message": str,      # Último mensaje enviado
-    "last_update": datetime   # Última actualización
-}
-```
+**Cálculo de deltas:**
+- `delta_in = nuevo_vehicle_in - anterior_vehicle_in`
+- `delta_out = nuevo_vehicle_out - anterior_vehicle_out`
 
-## 🔐 Sistema de Autenticación
+**Actualización de ocupación:**
+- `ocupacion_actual += (delta_in - delta_out)`
 
-### Implementación
-- **JWT Tokens** con expiración de 24 horas
-- **bcrypt** para encriptación de contraseñas
-- **Control de acceso granular** por recursos
-- **Interceptores automáticos** para renovación de tokens
+**Estados del parking:**
+- **LIBRE**: Plazas libres > threshold_dense
+- **DENSO**: Plazas libres <= threshold_dense
+- **COMPLETO**: Plazas libres <= threshold_full o descuadre negativo
 
-### Usuarios Configurados
-1. **Toni Alos** (DTI Altea)
-   - Email: `atea.dti@altea.es`
-   - Contraseña: `altea2025!`
-   - Acceso: Todos los recursos
+### 3. Flujo de Gestión de Estados de Cámaras
 
-2. **Iván Martí** (Gerencia PSTD)
-   - Email: `gerenciapstd@altea.es`
-   - Contraseña: `altea2025!`
-   - Acceso: Todos los recursos
+**Estados posibles:**
+- **ONLINE**: Mensaje recibido en la última hora
+- **OFFLINE**: Sin mensajes en la última hora
 
-### Endpoints de Autenticación
-- `POST /auth/login` - Login de usuarios
-- `POST /auth/register` - Registro de nuevos usuarios
-- `GET /auth/permissions` - Obtener permisos del usuario
-- `PUT /auth/password` - Cambiar contraseña
-- `GET /user/parkings` - Parkings del usuario
-- `GET /user/parking/{id}` - Parking específico del usuario
+**Actualización automática:**
+- Se marca ONLINE al recibir mensaje
+- Se mantiene ONLINE mientras hay actividad
+- Se considera OFFLINE después de 1 hora sin mensajes
 
-## 🌐 API REST
+## 📊 Modelos de Datos
 
-### Endpoints Principales
+### Tablas Principales
 
-#### Parkings
-- `GET /parkings` - Lista todos los parkings
-- `GET /parking/{id}` - Obtiene un parking específico
-- `POST /parking/{id}/occupancy` - Actualiza ocupación
-- `POST /parking/{id}/config` - Actualiza configuración
-- `POST /parking/{id}/message` - Envía mensaje a paneles
-- `GET /parking/{id}/message` - Obtiene mensajes programados
-- `GET /parking/{id}/history` - Historial de ocupación
+#### 1. **Parking**
+- `id`, `name`, `max_capacity`, `current_occupancy`
+- `threshold_dense`, `threshold_full`, `status`
+- `fixed_message_flag`, `created_at`, `updated_at`
 
-#### Paneles
-- `GET /panels` - Lista todos los paneles
-- `GET /panel/{id}` - Obtiene un panel específico
-- `POST /panel/{id}/message` - Envía mensaje a panel
-- `GET /panel/{id}/status` - Estado del panel
-- `POST /panel/{id}/test` - Prueba de comunicación
+#### 2. **Access (Cámaras)**
+- `id`, `parking_id`, `name`, `ip`, `line`
+- `last_vehicle_in`, `last_vehicle_out`
+- `status`, `last_message_received`
 
-#### Cámaras
-- `POST /camera` - Recepción de datos de cámaras
-- Procesamiento automático de conteo de vehículos
-- Actualización automática de ocupación
+#### 3. **CameraLog**
+- `id`, `access_id`, `parking_id`, `camera_ip`, `camera_line`
+- `raw_message`, `vehicle_in`, `vehicle_out`
+- `delta_in`, `delta_out`, `status`, `error_message`
+- `processing_time`, `new_occupancy`, `occupancy_change`
+- `parking_status`, `processed_at`
 
-## 🚀 Despliegue
+#### 4. **OccupancyHistory**
+- `id`, `parking_id`, `occupancy`, `source`
+- `previous_occupancy`, `change_amount`, `created_at`
 
-### Servidor de Producción
-- **IP**: 157.180.91.63
-- **Ubicación**: Helsinki, Finlandia
-- **Proveedor**: Hetzner
-- **Sistema**: Ubuntu 22.04 LTS
+#### 5. **User**
+- `id`, `email`, `password_hash`, `name`, `role`
+- `created_at`, `updated_at`
 
-### Servicios Activos
-1. **parking-api.service** (Puerto 6001)
-   - API REST con Gunicorn
-   - 3 workers para alta disponibilidad
-   - ~129MB de uso de memoria
+#### 6. **UserParking**
+- `id`, `user_id`, `parking_id`
 
-2. **parking-camera.service** (Puerto 6002)
-   - Servidor de recepción de cámaras
-   - Procesamiento en tiempo real
+## 🔧 Funcionalidades Implementadas
 
-### Configuración de Red
-- Puerto 6001: API REST (acceso público)
-- Puerto 6002: Servidor de cámaras (acceso restringido)
-- Puerto 22: SSH (acceso restringido)
-- Puerto 5432: PostgreSQL (solo local)
+### Fase 1: Auditoría y Logs ✅
+- Tabla CameraLog para auditoría completa
+- Lógica de cálculo de aforo mejorada
+- Manejo de errores en ajustes manuales
+- Endpoints para logs de cámaras
+- Frontend para visualización de logs
 
-## 📊 Datos del Sistema
+### Fase 2: Estados de Cámaras ✅
+- Estados ONLINE/OFFLINE de cámaras
+- Endpoints para gestión de cámaras
+- Script de verificación de conectividad
+- Frontend actualizado con estados de cámaras
 
-### Parkings Configurados (9 total)
-1. **P. Ciutat Esportiva** - 500 plazas
-2. **P. Poble antic/Belles Arts 1** - 45 plazas
-3. **P. Poble antic/Belles Arts 2** - 45 plazas
-4. **P. Poble antic/Belles Arts 3** - 45 plazas
-5. **P. Poble antic/Belles Arts 4** - 45 plazas
-6. **P. Poble antic/Belles Arts 5** - 45 plazas
-7. **P. Port Altea** - 166 plazas
-8. **P. Estació Altea** - 80 plazas
-9. **P. Altea Hills** - 200 plazas
+### Fase 3: Protección Duplicados ✅
+- Protección contra mensajes duplicados
+- Cache en memoria para verificación
+- Logging de duplicados detectados
+- Script de análisis de duplicados
 
-### Paneles Electrónicos (10 total)
-- Configurados en ubicaciones estratégicas
-- Comunicación IP para mensajes en tiempo real
-- Estados de conectividad monitoreados
+## 🚨 Problemas Resueltos
 
-### Cámaras de Conteo (13 total)
-- Distribuidas en entradas/salidas de parkings
-- Conteo automático de vehículos entrantes/salientes
-- Actualización automática de ocupación
+### 1. Mensajes Duplicados ✅
+**Problema**: Las cámaras enviaban mensajes duplicados (125-170 por día)
+**Solución**: Implementación de cache en memoria con verificación por IP+línea+contadores
+**Impacto**: Eliminación completa de procesamiento duplicado
 
-## 🔄 Flujo de Datos
+### 2. Cálculo de Aforo ✅
+**Problema**: Lógica compleja y propensa a errores
+**Solución**: Simplificación del cálculo y permisividad para casos reales
+**Impacto**: Mayor precisión y estabilidad
 
-### 1. Recepción de Datos de Cámaras
-```
-Cámara → camera_server.py → Procesamiento → Actualización BD → API
-```
+### 3. Estados de Cámaras ✅
+**Problema**: No había visibilidad del estado de las cámaras
+**Solución**: Sistema automático de estados ONLINE/OFFLINE
+**Impacto**: Mejor monitoreo y mantenimiento
 
-### 2. Actualización de Ocupación
-```
-API → Cálculo de estado → Actualización parking → Notificación paneles
-```
+## 📈 Métricas y Rendimiento
 
-### 3. Comunicación con Paneles
-```
-API → Mensaje → Panel IP → Confirmación → Estado actualizado
-```
+### Cámaras
+- **Total configuradas**: 12 cámaras
+- **Online**: 8 cámaras (67%)
+- **Offline**: 4 cámaras (33%)
 
-### 4. Frontend
-```
-Usuario → React App → API → Base de datos → Respuesta → UI
-```
-
-## 🧪 Pruebas y Validación
-
-### Pruebas de Backend
-- **test_api.py**: Pruebas automatizadas de endpoints
-- **test_auth.py**: Pruebas de autenticación
-- **Cobertura**: 85.7% de endpoints funcionando
-
-### Pruebas de Frontend
-- **Vitest**: Framework de pruebas
-- **Testing Library**: Pruebas de componentes
-- **Configuración**: Entorno de pruebas preparado
-
-### Métricas de Rendimiento
-- **Tiempo de respuesta**: < 200ms promedio
+### Procesamiento
+- **Mensajes/hora**: ~500-1000
+- **Tiempo de procesamiento**: <50ms por mensaje
 - **Disponibilidad**: 99.9%
-- **Uso de memoria**: ~129MB API, ~50MB cámaras
-- **CPU**: 2 cores utilizados eficientemente
-
-## 📈 Estado del Desarrollo
-
-### ✅ Completado
-- [x] Backend API REST completo
-- [x] Sistema de autenticación JWT
-- [x] Base de datos PostgreSQL
-- [x] Servidor de cámaras
-- [x] Comunicación con paneles
-- [x] Despliegue en producción
-- [x] Frontend React básico
-- [x] Sistema de login
-- [x] Dashboard principal
-- [x] Listado de parkings
-
-### 🚧 En Desarrollo
-- [ ] Página de detalle de parking
-- [ ] Página de gestión de paneles
-- [ ] Página de estadísticas
-- [ ] Página de perfil de usuario
-- [ ] Pruebas automatizadas frontend
-
-### 📋 Pendiente
-- [ ] Gráficos de estadísticas
-- [ ] Historial de ocupación
-- [ ] Configuración avanzada
-- [ ] Monitoreo de alertas
-- [ ] Backup automático
-- [ ] SSL/HTTPS
-- [ ] Optimizaciones de rendimiento
-
-## 🔧 Comandos Útiles
-
-### Backend
-```bash
-# Reiniciar servicios
-systemctl restart parking-api.service
-systemctl restart parking-camera.service
-
-# Ver logs
-journalctl -u parking-api.service -f
-journalctl -u parking-camera.service -f
-
-# Actualizar código
-cd /opt/parking_altea
-git pull origin v2.2
-systemctl restart parking-api.service
-```
-
-### Frontend
-```bash
-# Instalar dependencias
-cd client
-npm install
-
-# Desarrollo
-npm run dev
-
-# Build para producción
-npm run build
-
-# Pruebas
-npm run test
-```
 
 ### Base de Datos
-```bash
-# Conectar a PostgreSQL
-sudo -u postgres psql -d parking_db
+- **Tablas principales**: 6
+- **Registros CameraLog**: ~50,000
+- **Registros OccupancyHistory**: ~10,000
+- **Tamaño total**: ~100MB
 
-# Verificar datos
-SELECT * FROM parkings;
-SELECT * FROM users;
-SELECT * FROM panels;
+## 🔐 Seguridad y Autenticación
+
+### Sistema de Autenticación
+- **JWT**: Tokens de autenticación
+- **Bypass**: En v2.3 para desarrollo (usuario fijo)
+- **Roles**: Usuario y administrador
+- **Permisos**: Por parking asignado
+
+### Protecciones Implementadas
+- Verificación de duplicados
+- Validación de datos de entrada
+- Logging de errores
+- Manejo de excepciones
+- Rate limiting implícito
+
+## 🌐 Endpoints API
+
+### Autenticación
+- `POST /auth/login` - Login de usuario
+- `POST /auth/logout` - Logout de usuario
+- `GET /auth/me` - Información del usuario actual
+
+### Parkings
+- `GET /api/parkings` - Lista todos los parkings
+- `GET /api/parkings/{id}` - Detalles de parking específico
+- `PUT /api/parkings/{id}/occupancy` - Ajuste manual de ocupación
+
+### Cámaras
+- `GET /api/cameras` - Lista todas las cámaras con estado
+- `GET /api/cameras/{id}` - Detalles de cámara específica
+- `GET /api/cameras/{id}/logs` - Logs de cámara específica
+
+### Logs
+- `GET /api/camera-logs` - Logs de todas las cámaras
+- `GET /api/camera-logs/{parking_id}` - Logs por parking
+- `GET /api/camera-logs/camera/{access_id}` - Logs por cámara
+
+### Estadísticas
+- `GET /api/statistics/daily` - Estadísticas diarias
+- `GET /api/statistics/hourly` - Estadísticas por hora
+- `GET /api/statistics/occupancy` - Historial de ocupación
+
+## 🔮 Próximos Pasos
+
+### Mejoras Pendientes
+- Dashboard con métricas en tiempo real
+- Alertas automáticas por cámaras offline
+- Reportes automáticos por email
+- API para integración con sistemas externos
+- Optimización de consultas de base de datos
+
+### Mantenimiento
+- Limpieza automática de logs antiguos
+- Backup automático de base de datos
+- Monitoreo de rendimiento
+- Documentación de API completa
+
+## 📋 Configuración de Producción
+
+### Variables de Entorno
+```bash
+DATABASE_URL=postgresql://postgres@localhost:5432/parking_altea
+CAMERA_PORT=6400
+API_PORT=6001
+LOG_RETENTION_DAYS=15
 ```
 
-## 📞 Contacto y Soporte
+### Servicios
+- `parking-api.service` - API Server
+- `parking-camera.service` - Camera Server
+- `nginx` - Proxy reverso
 
-- **Desarrollador**: Francisco
-- **Email**: info@swat-id.com
-- **Proyecto**: Parking Altea v2.2
-- **Repositorio**: https://github.com/Swat-id/parking_altea
-- **Servidor**: 157.180.91.63
+### Usuarios por Defecto
+- **Superadmin**: info@swat-id.com / admin123!
 
-## 📝 Notas de Desarrollo
+## 📞 Información de Contacto
 
-### Decisiones Técnicas
-1. **Python Flask**: Elegido por simplicidad y rapidez de desarrollo
-2. **PostgreSQL**: Base de datos robusta para datos relacionales
-3. **React + Vite**: Frontend moderno con excelente DX
-4. **JWT**: Autenticación stateless para escalabilidad
-5. **Tailwind CSS**: Estilos utilitarios para desarrollo rápido
-
-### Consideraciones de Seguridad
-- Contraseñas encriptadas con bcrypt
-- Tokens JWT con expiración
-- Validación de entrada en todos los endpoints
-- Control de acceso granular por recursos
-- Firewall configurado en servidor
-
-### Optimizaciones Futuras
-- Implementar caché Redis para consultas frecuentes
-- Añadir compresión gzip para respuestas API
-- Optimizar consultas de base de datos
-- Implementar CDN para assets estáticos
-- Añadir monitoreo con Prometheus + Grafana
-
----
-
-**Última actualización**: 26/06/2025  
-**Versión del documento**: 1.0  
-**Estado**: Activo en desarrollo 
+**Desarrollador**: Asistente IA  
+**Fecha de última actualización**: 26 de Junio 2025  
+**Versión**: v2.3_no_login  
+**Estado**: ✅ PRODUCCIÓN - ESTABLE 
