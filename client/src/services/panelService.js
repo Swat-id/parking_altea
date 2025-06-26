@@ -64,5 +64,18 @@ export const panelService = {
       console.error('Error obteniendo estado del panel:', error)
       throw error
     }
+  },
+
+  /**
+   * Verificar el estado de todos los paneles mediante ping
+   */
+  async verifyAllPanels() {
+    try {
+      const response = await api.post('/panels/verify')
+      return response.data
+    } catch (error) {
+      console.error('Error verificando paneles:', error)
+      throw error
+    }
   }
 } 

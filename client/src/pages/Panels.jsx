@@ -13,7 +13,8 @@ import {
   Clock,
   RefreshCw,
   Zap,
-  X
+  X,
+  Loader
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -23,6 +24,7 @@ const Panels = () => {
   const [showMessageForm, setShowMessageForm] = useState(false)
   const [messageText, setMessageText] = useState('')
   const [messageDuration, setMessageDuration] = useState(30)
+  const [verificationResults, setVerificationResults] = useState(null)
 
   // Obtener paneles
   const { data: panels = [], isLoading, refetch } = useQuery(
@@ -60,6 +62,26 @@ const Panels = () => {
       },
       onError: () => {
         toast.error('Error al probar el panel')
+      }
+    }
+  )
+
+  // Nueva mutación para verificar todos los paneles
+  const verifyPanelsMutation = useMutation(
+    () => panelService.verifyAllPanels(),
+    {
+      onSuccess: (data) => {
+        setVerificationResults(data)
+        toast.success(`Verificación completada: ${data.updated_count} paneles actualizados`)
+        queryClient.invalidateQueries('panels')
+        
+        // Ocultar resultados después de 5 segundos
+        setTimeout(() => {
+          setVerificationResults(null)
+        }, 5000)
+      },
+      onError: () => {
+        toast.error('Error al verificar paneles')
       }
     }
   )
@@ -110,6 +132,10 @@ const Panels = () => {
     testPanelMutation.mutate(panelId)
   }
 
+  const handleVerifyAllPanels = () => {
+    verifyPanelsMutation.mutate()
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -131,14 +157,67 @@ const Panels = () => {
             Gestión y comunicación con paneles informativos
           </p>
         </div>
-        <button
-          onClick={() => refetch()}
-          className="btn-secondary flex items-center"
-        >
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Actualizar
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={handleVerifyAllPanels}
+            disabled={verifyPanelsMutation.isLoading}
+            className="btn-primary flex items-center"
+          >
+            {verifyPanelsMutation.isLoading ? (
+              <Loader className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Zap className="h-4 w-4 mr-2" />
+            )}
+            {verifyPanelsMutation.isLoading ? 'Verificando...' : 'Verificar Estado'}
+          </button>
+          <button
+            onClick={() => refetch()}
+            className="btn-secondary flex items-center"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Actualizar
+          </button>
+        </div>
       </div>
+
+      {/* Resultados de verificación */}
+      {verificationResults && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <CheckCircle className="h-5 w-5 text-blue-600 mr-2" />
+              <h3 className="text-sm font-medium text-blue-900">
+                Verificación Completada
+              </h3>
+            </div>
+            <button
+              onClick={() => setVerificationResults(null)}
+              className="text-blue-400 hover:text-blue-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="mt-2 text-sm text-blue-700">
+            <p>Total de paneles verificados: {verificationResults.total_panels}</p>
+            <p>Paneles actualizados: {verificationResults.updated_count}</p>
+            {verificationResults.updated_count > 0 && (
+              <div className="mt-2">
+                <p className="font-medium">Cambios realizados:</p>
+                <ul className="mt-1 space-y-1">
+                  {verificationResults.results
+                    .filter(result => result.status_changed)
+                    .map((result, index) => (
+                      <li key={index} className="text-xs">
+                        • {result.panel_name}: {result.previous_status} → {result.new_status}
+                        {result.response_time && ` (${result.response_time.toFixed(0)}ms)`}
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Estadísticas */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
