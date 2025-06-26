@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect } from 'react'
 import { authService } from '../services/authService'
 import toast from 'react-hot-toast'
 
@@ -14,20 +14,21 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
+    // Check for existing token on app load
     const token = localStorage.getItem('token')
     const userData = localStorage.getItem('user')
     
     if (token && userData) {
       try {
         setUser(JSON.parse(userData))
-        setIsAuthenticated(true)
-      } catch (error) {
-        console.error('Error parsing user data:', error)
-        logout()
+      } catch (e) {
+        console.error('Error parsing user data:', e)
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
       }
     }
     setLoading(false)
@@ -35,38 +36,50 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
+      setError(null)
       setLoading(true)
-      const response = await authService.login(email, password)
       
-      if (response.success) {
-        const { token, user: userData } = response
-        localStorage.setItem('token', token)
-        localStorage.setItem('user', JSON.stringify(userData))
-        
-        setUser(userData)
-        setIsAuthenticated(true)
-        
-        toast.success(`Bienvenido, ${userData.name}`)
-        return { success: true }
-      } else {
-        toast.error('Credenciales incorrectas')
-        return { success: false, error: 'Credenciales incorrectas' }
+      const response = await fetch('http://localhost:6001/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Error de autenticación')
       }
+
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('user', JSON.stringify(data.user))
+      setUser(data.user)
+      return { success: true }
     } catch (error) {
-      console.error('Login error:', error)
-      toast.error('Error al iniciar sesión')
-      return { success: false, error: 'Error al iniciar sesión' }
+      setError(error.message)
+      return { success: false, error: error.message }
     } finally {
       setLoading(false)
     }
   }
 
   const logout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    setUser(null)
-    setIsAuthenticated(false)
-    toast.success('Sesión cerrada correctamente')
+    try {
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      setUser(null)
+      setError(null)
+      // Redirect to login page
+      window.location.href = '/login'
+    } catch (error) {
+      console.error('Error during logout:', error)
+    }
+  }
+
+  const clearError = () => {
+    setError(null)
   }
 
   const updatePassword = async (currentPassword, newPassword) => {
@@ -88,10 +101,12 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
-    isAuthenticated,
     loading,
+    error,
     login,
     logout,
+    clearError,
+    isAuthenticated: !!user,
     updatePassword,
   }
 
