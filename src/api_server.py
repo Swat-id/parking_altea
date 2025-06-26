@@ -1355,28 +1355,20 @@ def verify_all_panels():
         results = []
         updated_count = 0
         
-        # Importar la función de ping
         from panel_client import ping_panel
         
         for panel in panels:
             try:
-                # Hacer ping real al panel
                 start_time = datetime.now()
                 success = ping_panel(panel.ip)
                 response_time = (datetime.now() - start_time).total_seconds() * 1000
-                
-                # Determinar estado
                 new_status = 'ONLINE' if success else 'OFFLINE'
                 previous_status = panel.status
                 status_changed = previous_status != new_status
-                
-                # Actualizar estado del panel
                 panel.status = new_status
                 panel.last_update = datetime.now()
-                
                 if status_changed:
                     updated_count += 1
-                
                 results.append({
                     'panel_id': panel.id,
                     'panel_name': panel.name,
@@ -1387,7 +1379,6 @@ def verify_all_panels():
                     'status_changed': status_changed,
                     'ping_success': success
                 })
-                
             except Exception as e:
                 logger.error(f"Error verificando panel {panel.id}: {e}")
                 results.append({
@@ -1398,17 +1389,17 @@ def verify_all_panels():
                     'status_changed': False,
                     'ping_success': False
                 })
-        
         session.commit()
+        # Refrescar los objetos panel para asegurar persistencia
+        for panel in panels:
+            session.refresh(panel)
         session.close()
-        
         return jsonify({
             'status': 'ok',
             'total_panels': len(panels),
             'updated_count': updated_count,
             'results': results
         })
-        
     except Exception as e:
         logger.error(f"Error verificando paneles: {e}")
         return jsonify({'error': 'Internal server error'}), 500
