@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { authService } from '../services/authService'
@@ -53,7 +53,34 @@ const ParkingDetail = () => {
     }
   )
 
-  // Mutaciones
+  // Estados de edición
+  const [editForm, setEditForm] = useState({
+    plazas_ocupadas: 0,
+    total_plazas: 0,
+    threshold_dense: 0,
+    threshold_full: 0
+  })
+
+  // Inicializar formulario cuando se cargan los datos
+  useEffect(() => {
+    if (parking) {
+      setEditForm({
+        plazas_ocupadas: parking.plazas_ocupadas || 0,
+        total_plazas: parking.total_plazas || 0,
+        threshold_dense: parking.threshold_dense || 0,
+        threshold_full: parking.threshold_full || 0
+      })
+    }
+  }, [parking])
+
+  // Cerrar modo edición cuando las mutaciones sean exitosas
+  useEffect(() => {
+    if (updateOccupancyMutation.isSuccess && updateConfigMutation.isSuccess) {
+      setIsEditing(false)
+    }
+  }, [updateOccupancyMutation.isSuccess, updateConfigMutation.isSuccess])
+
+  // Mutación para actualizar ocupación
   const updateOccupancyMutation = useMutation(
     ({ occupancy }) => parkingService.updateOccupancy(id, occupancy),
     {
@@ -62,25 +89,25 @@ const ParkingDetail = () => {
         queryClient.invalidateQueries(['publicParking', id])
         queryClient.invalidateQueries('userParkings')
         toast.success('Ocupación actualizada correctamente')
-        setIsEditing(false)
       },
-      onError: () => {
-        toast.error('Error al actualizar la ocupación')
+      onError: (error) => {
+        toast.error(error?.response?.data?.message || 'Error al actualizar la ocupación')
       }
     }
   )
 
+  // Mutación para actualizar configuración
   const updateConfigMutation = useMutation(
     (config) => parkingService.updateConfig(id, config),
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['parking', id])
         queryClient.invalidateQueries(['publicParking', id])
+        queryClient.invalidateQueries('userParkings')
         toast.success('Configuración actualizada correctamente')
-        setIsEditing(false)
       },
-      onError: () => {
-        toast.error('Error al actualizar la configuración')
+      onError: (error) => {
+        toast.error(error?.response?.data?.message || 'Error al actualizar la configuración')
       }
     }
   )
@@ -100,32 +127,59 @@ const ParkingDetail = () => {
     }
   )
 
-  // Estados de edición
-  const [editForm, setEditForm] = useState({
-    plazas_ocupadas: 0,
-    total_plazas: 0,
-    threshold_dense: 0,
-    threshold_full: 0
-  })
+  const handleSave = () => {
+    // Validaciones
+    if (editForm.plazas_ocupadas > editForm.total_plazas) {
+      toast.error('Las plazas ocupadas no pueden ser mayores que el total')
+      return
+    }
 
-  // Inicializar formulario cuando se cargan los datos
-  useState(() => {
-    if (parking) {
-      setEditForm({
-        plazas_ocupadas: parking.plazas_ocupadas,
-        total_plazas: parking.total_plazas,
-        threshold_dense: parking.threshold_dense,
-        threshold_full: parking.threshold_full
+    if (editForm.threshold_dense >= editForm.threshold_full) {
+      toast.error('El umbral denso debe ser menor que el umbral completo')
+      return
+    }
+
+    if (editForm.threshold_full > 100) {
+      toast.error('El umbral completo no puede ser mayor al 100%')
+      return
+    }
+
+    // Actualizar ocupación si cambió
+    if (editForm.plazas_ocupadas !== parking.plazas_ocupadas) {
+      updateOccupancyMutation.mutate({ occupancy: editForm.plazas_ocupadas })
+    }
+
+    // Actualizar configuración si cambió
+    const configChanged = editForm.total_plazas !== parking.total_plazas ||
+                         editForm.threshold_dense !== parking.threshold_dense ||
+                         editForm.threshold_full !== parking.threshold_full
+
+    if (configChanged) {
+      updateConfigMutation.mutate({
+        total_plazas: editForm.total_plazas,
+        threshold_dense: editForm.threshold_dense,
+        threshold_full: editForm.threshold_full
       })
     }
-  })
 
-  const handleSave = () => {
-    updateConfigMutation.mutate(editForm)
+    // Si no hay cambios, cerrar edición
+    if (editForm.plazas_ocupadas === parking.plazas_ocupadas && !configChanged) {
+      setIsEditing(false)
+      toast.info('No hay cambios para guardar')
+    }
   }
 
-  const handleUpdateOccupancy = () => {
-    updateOccupancyMutation.mutate({ occupancy: editForm.plazas_ocupadas })
+  const handleCancel = () => {
+    // Restaurar valores originales
+    if (parking) {
+      setEditForm({
+        plazas_ocupadas: parking.plazas_ocupadas || 0,
+        total_plazas: parking.total_plazas || 0,
+        threshold_dense: parking.threshold_dense || 0,
+        threshold_full: parking.threshold_full || 0
+      })
+    }
+    setIsEditing(false)
   }
 
   const handleSendMessage = () => {
@@ -283,11 +337,11 @@ const ParkingDetail = () => {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>Umbral Denso</span>
-                  <span className="font-medium">{parking.threshold_dense}</span>
+                  <span className="font-medium">{parking.threshold_dense}%</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Umbral Completo</span>
-                  <span className="font-medium">{parking.threshold_full}</span>
+                  <span className="font-medium">{parking.threshold_full}%</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Ubicación</span>
@@ -314,7 +368,7 @@ const ParkingDetail = () => {
               className="w-full flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
             >
               <Settings className="h-4 w-4 mr-2" />
-              Configurar
+              Editar Configuración
             </button>
           </div>
         </div>
@@ -336,10 +390,17 @@ const ParkingDetail = () => {
                   ...editForm,
                   plazas_ocupadas: parseInt(e.target.value) || 0
                 })}
-                className="input-field"
+                className={`input-field ${
+                  editForm.plazas_ocupadas > editForm.total_plazas ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''
+                }`}
                 min="0"
                 max={editForm.total_plazas}
               />
+              {editForm.plazas_ocupadas > editForm.total_plazas && (
+                <p className="mt-1 text-sm text-red-600">
+                  Las plazas ocupadas no pueden ser mayores que el total
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -358,7 +419,7 @@ const ParkingDetail = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Umbral Denso
+                Umbral Denso (%)
               </label>
               <input
                 type="number"
@@ -367,13 +428,21 @@ const ParkingDetail = () => {
                   ...editForm,
                   threshold_dense: parseInt(e.target.value) || 0
                 })}
-                className="input-field"
+                className={`input-field ${
+                  editForm.threshold_dense >= editForm.threshold_full ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''
+                }`}
                 min="0"
+                max="100"
               />
+              {editForm.threshold_dense >= editForm.threshold_full && (
+                <p className="mt-1 text-sm text-red-600">
+                  El umbral denso debe ser menor que el umbral completo
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Umbral Completo
+                Umbral Completo (%)
               </label>
               <input
                 type="number"
@@ -382,30 +451,33 @@ const ParkingDetail = () => {
                   ...editForm,
                   threshold_full: parseInt(e.target.value) || 0
                 })}
-                className="input-field"
+                className={`input-field ${
+                  editForm.threshold_full > 100 ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''
+                }`}
                 min="0"
+                max="100"
               />
+              {editForm.threshold_full > 100 && (
+                <p className="mt-1 text-sm text-red-600">
+                  El umbral completo no puede ser mayor al 100%
+                </p>
+              )}
             </div>
           </div>
           <div className="flex space-x-3 mt-6">
             <button
               onClick={handleSave}
-              disabled={updateConfigMutation.isLoading}
-              className="btn-primary flex items-center"
+              disabled={updateConfigMutation.isLoading || 
+                       editForm.plazas_ocupadas > editForm.total_plazas ||
+                       editForm.threshold_dense >= editForm.threshold_full ||
+                       editForm.threshold_full > 100}
+              className="btn-primary flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="h-4 w-4 mr-2" />
-              {updateConfigMutation.isLoading ? 'Guardando...' : 'Guardar Configuración'}
+              {updateConfigMutation.isLoading ? 'Guardando...' : 'Guardar Cambios'}
             </button>
             <button
-              onClick={handleUpdateOccupancy}
-              disabled={updateOccupancyMutation.isLoading}
-              className="btn-secondary flex items-center"
-            >
-              <TrendingUp className="h-4 w-4 mr-2" />
-              {updateOccupancyMutation.isLoading ? 'Actualizando...' : 'Actualizar Ocupación'}
-            </button>
-            <button
-              onClick={() => setIsEditing(false)}
+              onClick={handleCancel}
               className="btn-secondary"
             >
               Cancelar
@@ -417,7 +489,22 @@ const ParkingDetail = () => {
       {/* Formulario de mensaje */}
       {showMessageForm && (
         <div className="card">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Enviar Mensaje a Paneles</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-medium text-gray-900">
+              Enviar Mensaje a {parking.name}
+            </h2>
+            <button
+              onClick={() => {
+                setShowMessageForm(false)
+                setMessageText('')
+                setMessageDuration(30)
+              }}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -428,12 +515,8 @@ const ParkingDetail = () => {
                 onChange={(e) => setMessageText(e.target.value)}
                 className="input-field"
                 rows="3"
-                placeholder="Escribe el mensaje que se mostrará en los paneles..."
-                maxLength="100"
+                placeholder="Escribe tu mensaje aquí..."
               />
-              <p className="text-xs text-gray-500 mt-1">
-                {messageText.length}/100 caracteres
-              </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -443,27 +526,31 @@ const ParkingDetail = () => {
                 type="number"
                 value={messageDuration}
                 onChange={(e) => setMessageDuration(parseInt(e.target.value) || 30)}
-                className="input-field w-32"
-                min="10"
+                className="input-field"
+                min="5"
                 max="300"
               />
             </div>
-          </div>
-          <div className="flex space-x-3 mt-6">
-            <button
-              onClick={handleSendMessage}
-              disabled={sendMessageMutation.isLoading}
-              className="btn-primary flex items-center"
-            >
-              <Send className="h-4 w-4 mr-2" />
-              {sendMessageMutation.isLoading ? 'Enviando...' : 'Enviar Mensaje'}
-            </button>
-            <button
-              onClick={() => setShowMessageForm(false)}
-              className="btn-secondary"
-            >
-              Cancelar
-            </button>
+            <div className="flex space-x-3">
+              <button
+                onClick={handleSendMessage}
+                disabled={sendMessageMutation.isLoading || !messageText.trim()}
+                className="btn-primary flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Send className="h-4 w-4 mr-2" />
+                {sendMessageMutation.isLoading ? 'Enviando...' : 'Enviar Mensaje'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowMessageForm(false)
+                  setMessageText('')
+                  setMessageDuration(30)
+                }}
+                className="btn-secondary"
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}

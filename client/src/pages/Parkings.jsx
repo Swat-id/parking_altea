@@ -190,22 +190,23 @@ const Parkings = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredParkings.map((parking) => (
-                <div key={parking.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow duration-200">
+                <div key={parking.id} className="border border-gray-200 rounded-lg p-4 sm:p-6 hover:shadow-md transition-all duration-200 bg-white">
                   <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-medium text-gray-900 mb-1">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-1 truncate">
                         {parking.name}
                       </h3>
                       <div className="flex items-center text-sm text-gray-500">
-                        <MapPin className="h-4 w-4 mr-1" />
-                        ID: {parking.id}
+                        <MapPin className="h-4 w-4 mr-1 flex-shrink-0" />
+                        <span className="truncate">ID: {parking.id}</span>
                       </div>
                     </div>
-                    <div className={`flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(parking.estado)}`}>
+                    <div className={`flex items-center px-2 py-1 rounded-full text-xs font-medium ml-2 flex-shrink-0 ${getStatusColor(parking.estado)}`}>
                       {getStatusIcon(parking.estado)}
-                      <span className="ml-1">{parking.estado}</span>
+                      <span className="ml-1 hidden sm:inline">{parking.estado}</span>
+                      <span className="ml-1 sm:hidden">{parking.estado.charAt(0)}</span>
                     </div>
                   </div>
 
@@ -219,7 +220,7 @@ const Parkings = () => {
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
-                          className={`h-2 rounded-full ${
+                          className={`h-2 rounded-full transition-all duration-300 ${
                             getOcupationPercentage(parking.plazas_ocupadas || 0, parking.total_plazas || 0) < 50
                               ? 'bg-green-500'
                               : getOcupationPercentage(parking.plazas_ocupadas || 0, parking.total_plazas || 0) < 80
@@ -233,18 +234,18 @@ const Parkings = () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-500">Ocupadas:</span>
-                        <span className="ml-1 font-medium">{parking.plazas_ocupadas || 0}</span>
+                    <div className="grid grid-cols-2 gap-2 sm:gap-4 text-sm">
+                      <div className="text-center sm:text-left">
+                        <div className="text-gray-500 text-xs sm:text-sm">Ocupadas</div>
+                        <div className="font-medium text-sm sm:text-base">{parking.plazas_ocupadas || 0}</div>
                       </div>
-                      <div>
-                        <span className="text-gray-500">Libres:</span>
-                        <span className="ml-1 font-medium">{parking.plazas_libres || 0}</span>
+                      <div className="text-center sm:text-left">
+                        <div className="text-gray-500 text-xs sm:text-sm">Libres</div>
+                        <div className="font-medium text-sm sm:text-base">{parking.plazas_libres || 0}</div>
                       </div>
-                      <div className="col-span-2">
-                        <span className="text-gray-500">Total:</span>
-                        <span className="ml-1 font-medium">{parking.total_plazas || 0} plazas</span>
+                      <div className="col-span-2 text-center sm:text-left">
+                        <div className="text-gray-500 text-xs sm:text-sm">Total</div>
+                        <div className="font-medium text-sm sm:text-base">{parking.total_plazas || 0} plazas</div>
                       </div>
                     </div>
                   </div>
@@ -252,10 +253,11 @@ const Parkings = () => {
                   <div className="mt-4 flex space-x-2">
                     <Link
                       to={`/parking/${parking.id}`}
-                      className="flex-1 bg-primary-600 text-white text-center py-2 px-4 rounded-md hover:bg-primary-700 transition-colors duration-200"
+                      className="flex-1 bg-primary-600 text-white text-center py-2 px-3 sm:px-4 rounded-md hover:bg-primary-700 transition-colors duration-200 text-sm font-medium"
                     >
                       <Eye className="h-4 w-4 inline mr-1" />
-                      Ver detalles
+                      <span className="hidden sm:inline">Ver detalles</span>
+                      <span className="sm:hidden">Detalles</span>
                     </Link>
                   </div>
                 </div>

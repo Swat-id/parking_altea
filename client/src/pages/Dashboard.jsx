@@ -94,13 +94,13 @@ const Dashboard = () => {
       </div>
 
       {/* Estadísticas principales */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <div className="card">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <Car className="h-8 w-8 text-primary-600" />
+              <Car className="h-6 w-6 sm:h-8 sm:w-8 text-primary-600" />
             </div>
-            <div className="ml-5 w-0 flex-1">
+            <div className="ml-3 sm:ml-5 w-0 flex-1 min-w-0">
               <dl>
                 <dt className="text-sm font-medium text-gray-500 truncate">
                   Total Parkings
@@ -116,9 +116,9 @@ const Dashboard = () => {
         <div className="card">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <TrendingUp className="h-8 w-8 text-green-600" />
+              <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
             </div>
-            <div className="ml-5 w-0 flex-1">
+            <div className="ml-3 sm:ml-5 w-0 flex-1 min-w-0">
               <dl>
                 <dt className="text-sm font-medium text-gray-500 truncate">
                   Ocupación Total
@@ -134,9 +134,9 @@ const Dashboard = () => {
         <div className="card">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <Monitor className="h-8 w-8 text-blue-600" />
+              <Monitor className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
             </div>
-            <div className="ml-5 w-0 flex-1">
+            <div className="ml-3 sm:ml-5 w-0 flex-1 min-w-0">
               <dl>
                 <dt className="text-sm font-medium text-gray-500 truncate">
                   Plazas Ocupadas
@@ -152,9 +152,9 @@ const Dashboard = () => {
         <div className="card">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <MapPin className="h-8 w-8 text-purple-600" />
+              <MapPin className="h-6 w-6 sm:h-8 sm:w-8 text-purple-600" />
             </div>
-            <div className="ml-5 w-0 flex-1">
+            <div className="ml-3 sm:ml-5 w-0 flex-1 min-w-0">
               <dl>
                 <dt className="text-sm font-medium text-gray-500 truncate">
                   Estado General
@@ -169,14 +169,14 @@ const Dashboard = () => {
       </div>
 
       {/* Estado por categorías */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:gap-5 sm:grid-cols-3">
         <div className="card">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Libres</p>
-              <p className="text-2xl font-bold text-green-600">{parkingsLibres}</p>
+              <p className="text-xl sm:text-2xl font-bold text-green-600">{parkingsLibres}</p>
             </div>
-            <CheckCircle className="h-8 w-8 text-green-600" />
+            <CheckCircle className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
           </div>
         </div>
 
@@ -184,9 +184,9 @@ const Dashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Densos</p>
-              <p className="text-2xl font-bold text-yellow-600">{parkingsDensos}</p>
+              <p className="text-xl sm:text-2xl font-bold text-yellow-600">{parkingsDensos}</p>
             </div>
-            <Clock className="h-8 w-8 text-yellow-600" />
+            <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-600" />
           </div>
         </div>
 
@@ -194,9 +194,9 @@ const Dashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Completos</p>
-              <p className="text-2xl font-bold text-red-600">{parkingsCompletos}</p>
+              <p className="text-xl sm:text-2xl font-bold text-red-600">{parkingsCompletos}</p>
             </div>
-            <AlertCircle className="h-8 w-8 text-red-600" />
+            <AlertCircle className="h-6 w-6 sm:h-8 sm:w-8 text-red-600" />
           </div>
         </div>
       </div>
