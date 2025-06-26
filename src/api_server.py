@@ -53,28 +53,31 @@ def register_user():
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/auth/login', methods=['POST'])
-def login_user():
-    """Autenticar usuario y obtener token"""
+def login():
     try:
-        req = request.get_json(force=True)
+        req = request.get_json()
         email = req.get('email')
         password = req.get('password')
-        
         if not all([email, password]):
             return jsonify({'error': 'Faltan campos requeridos: email, password'}), 400
         
+        # LOG: Imprimir email recibido
+        print(f"[DEBUG] Intentando login para: {email}")
+        
         session = Session()
         result = authenticate_user(session, email, password)
-        session.close()
         
-        if result['success']:
-            logger.info(f"Usuario autenticado: {email}")
-            return jsonify(result)
-        else:
+        # LOG: Imprimir resultado de autenticación
+        print(f"[DEBUG] Resultado autenticación: {result}")
+        
+        if not result['success']:
             return jsonify({'error': result['error']}), 401
-            
+        return jsonify({'token': result['token'], 'user': result['user']})
     except Exception as e:
-        logger.error(f"Error en autenticación: {e}")
+        # LOG: Imprimir excepción completa
+        import traceback
+        print(f"[ERROR] Excepción en /auth/login: {e}")
+        traceback.print_exc()
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/auth/user', methods=['DELETE'])
