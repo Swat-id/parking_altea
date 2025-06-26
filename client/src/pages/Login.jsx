@@ -10,9 +10,13 @@ const Login = () => {
   const navigate = useNavigate()
   const { login, isAuthenticated } = useAuth()
 
+  console.log('Login: Componente renderizado, estado actual:', { isAuthenticated, email, loading })
+
   // Efecto para navegar cuando el usuario esté autenticado
   useEffect(() => {
+    console.log('Login: useEffect detectando cambio en isAuthenticated:', isAuthenticated)
     if (isAuthenticated) {
+      console.log('Login: Usuario autenticado, navegando a dashboard')
       navigate('/dashboard')
     }
   }, [isAuthenticated, navigate])
@@ -26,6 +30,7 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    console.log('Login: handleSubmit ejecutado')
     setLoading(true)
     setError('')
 
@@ -38,12 +43,14 @@ const Login = () => {
         token: 'local-token-' + Date.now()
       }
       
-      console.log('Intentando login con:', userData)
+      console.log('Login: Intentando login con:', userData)
       login(userData)
+      
+      console.log('Login: Login ejecutado, esperando actualización de estado...')
       
       // No navegar aquí, el useEffect se encargará cuando isAuthenticated cambie
     } catch (err) {
-      console.error('Error de conexión:', err)
+      console.error('Login: Error de conexión:', err)
       setError('Error interno del sistema')
       setLoading(false)
     }
