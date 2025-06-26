@@ -24,21 +24,12 @@ function App() {
     )
   }
 
-  // Si no está autenticado, mostrar solo la página de login
-  if (!isAuthenticated) {
-    return (
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    )
-  }
-
-  // Si está autenticado, mostrar las rutas protegidas
+  // Siempre mostrar las rutas protegidas (sin login)
   return (
     <Layout>
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/login" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/parkings" element={<Parkings />} />
         <Route path="/parking/:id" element={<ParkingDetail />} />

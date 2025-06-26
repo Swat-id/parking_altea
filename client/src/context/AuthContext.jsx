@@ -11,65 +11,43 @@ export const useAuth = () => {
 }
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  // Usuario por defecto: Toni Alos
+  const defaultUser = {
+    id: 1,
+    name: 'Toni Alos',
+    email: 'atea.dti@altea.es',
+    token: 'default-token-toni-alos'
+  }
+
+  const [user, setUser] = useState(defaultUser)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    console.log('AuthProvider: useEffect inicial ejecutándose')
-    // Verificar si hay un usuario guardado en localStorage al cargar
-    const savedUser = localStorage.getItem('user')
-    const token = localStorage.getItem('token')
-    
-    console.log('AuthProvider: Datos del localStorage:', { savedUser, token })
-    
-    if (savedUser && token) {
-      try {
-        const userData = JSON.parse(savedUser)
-        console.log('AuthProvider: Usuario parseado del localStorage:', userData)
-        setUser(userData)
-        console.log('AuthProvider: Usuario cargado desde localStorage:', userData)
-      } catch (error) {
-        console.error('AuthProvider: Error parsing saved user:', error)
-        localStorage.removeItem('user')
-        localStorage.removeItem('token')
-      }
-    } else {
-      console.log('AuthProvider: No hay datos de usuario en localStorage')
-    }
+    console.log('AuthProvider: Inicializando con usuario por defecto:', defaultUser)
+    // Guardar usuario por defecto en localStorage
+    localStorage.setItem('user', JSON.stringify(defaultUser))
+    localStorage.setItem('token', defaultUser.token)
     setLoading(false)
-    console.log('AuthProvider: Loading establecido en false')
   }, [])
 
   const login = (userData) => {
     console.log('AuthProvider: Login llamado con:', userData)
-    
-    // Asegurar que userData es válido
-    if (!userData || !userData.token) {
-      console.error('AuthProvider: userData inválido:', userData)
-      return
-    }
-    
-    console.log('AuthProvider: Antes de setUser, estado actual:', { user, isAuthenticated: !!user })
-    
-    // Actualizar estado inmediatamente
-    setUser(userData)
-    
-    // Guardar en localStorage
-    localStorage.setItem('user', JSON.stringify(userData))
-    localStorage.setItem('token', userData.token)
-    
-    console.log('AuthProvider: Después de setUser, nuevo estado:', { userData, isAuthenticated: !!userData })
-    console.log('AuthProvider: Estado actualizado, usuario guardado en localStorage')
+    // Mantener siempre el usuario por defecto
+    setUser(defaultUser)
+    localStorage.setItem('user', JSON.stringify(defaultUser))
+    localStorage.setItem('token', defaultUser.token)
+    console.log('AuthProvider: Usuario establecido como Toni Alos')
   }
 
   const logout = () => {
-    console.log('AuthProvider: Logout llamado')
-    setUser(null)
-    localStorage.removeItem('user')
-    localStorage.removeItem('token')
+    console.log('AuthProvider: Logout llamado - pero manteniendo usuario por defecto')
+    // No hacer logout, mantener siempre autenticado
+    setUser(defaultUser)
+    localStorage.setItem('user', JSON.stringify(defaultUser))
+    localStorage.setItem('token', defaultUser.token)
   }
 
-  const isAuthenticated = !!user
+  const isAuthenticated = true // Siempre autenticado
 
   console.log('AuthProvider: Estado actual de autenticación:', { 
     user, 
