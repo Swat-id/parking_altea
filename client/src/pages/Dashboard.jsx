@@ -1,4 +1,6 @@
+import { useQuery } from 'react-query'
 import { Link } from 'react-router-dom'
+import { parkingService } from '../services/parkingService'
 import { 
   Car, 
   Monitor, 
@@ -10,33 +12,16 @@ import {
 } from 'lucide-react'
 
 const Dashboard = () => {
-  // Datos mock para evitar errores de API
-  const parkings = [
+  // Usar la API real para obtener parkings
+  const { data: parkings = [], isLoading: parkingsLoading, error: parkingsError } = useQuery(
+    'allParkings',
+    parkingService.getAllParkings,
     {
-      id: 1,
-      name: "P. Poble antic/Belles Arts 1",
-      estado: "LIBRE",
-      plazas_ocupadas: 5,
-      plazas_libres: 40,
-      total_plazas: 45
-    },
-    {
-      id: 2,
-      name: "P. Poble antic/Belles Arts 2",
-      estado: "DENSO",
-      plazas_ocupadas: 35,
-      plazas_libres: 10,
-      total_plazas: 45
-    },
-    {
-      id: 3,
-      name: "P. Centre Comercial",
-      estado: "COMPLETO",
-      plazas_ocupadas: 50,
-      plazas_libres: 0,
-      total_plazas: 50
+      retry: 2,
+      refetchOnWindowFocus: false,
+      staleTime: 30000, // 30 segundos
     }
-  ]
+  )
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -64,9 +49,34 @@ const Dashboard = () => {
     }
   }
 
+  // Mostrar loading mientras se cargan los datos
+  if (parkingsLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando datos de parkings...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Mostrar error si falla la carga
+  if (parkingsError) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600">Error al cargar los datos de parkings</p>
+          <p className="text-sm text-gray-500 mt-2">Por favor, inténtalo de nuevo más tarde</p>
+        </div>
+      </div>
+    )
+  }
+
   const totalParkings = parkings.length
-  const totalPlazas = parkings.reduce((sum, parking) => sum + parking.total_plazas, 0)
-  const plazasOcupadas = parkings.reduce((sum, parking) => sum + parking.plazas_ocupadas, 0)
+  const totalPlazas = parkings.reduce((sum, parking) => sum + (parking.total_plazas || 0), 0)
+  const plazasOcupadas = parkings.reduce((sum, parking) => sum + (parking.plazas_ocupadas || 0), 0)
   const porcentajeOcupacion = totalPlazas > 0 ? Math.round((plazasOcupadas / totalPlazas) * 100) : 0
 
   const parkingsLibres = parkings.filter(p => p.estado === 'LIBRE').length
@@ -221,9 +231,9 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <div className="text-sm text-gray-500">
-                  <p>{parking.plazas_ocupadas} / {parking.total_plazas} plazas</p>
+                  <p>{parking.plazas_ocupadas || 0} / {parking.total_plazas || 0} plazas</p>
                   <p className="mt-1">
-                    {parking.plazas_libres} plazas libres
+                    {parking.plazas_libres || 0} plazas libres
                   </p>
                 </div>
               </Link>

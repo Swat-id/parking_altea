@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useQuery } from 'react-query'
-import { authService } from '../services/authService'
 import { parkingService } from '../services/parkingService'
 import { 
   BarChart3, 
@@ -21,10 +20,15 @@ const Statistics = () => {
   const [dateRange, setDateRange] = useState('7d') // 7d, 30d, 90d
   const [selectedDate, setSelectedDate] = useState(new Date())
 
-  // Obtener parkings del usuario
-  const { data: parkings = [] } = useQuery(
-    'userParkings',
-    authService.getUserParkings
+  // Obtener todos los parkings
+  const { data: parkings = [], isLoading: parkingsLoading, error: parkingsError } = useQuery(
+    'allParkings',
+    parkingService.getAllParkings,
+    {
+      retry: 2,
+      refetchOnWindowFocus: false,
+      staleTime: 30000, // 30 segundos
+    }
   )
 
   // Obtener datos de ocupación (simulado por ahora)
@@ -52,10 +56,35 @@ const Statistics = () => {
     }
   )
 
+  // Mostrar loading mientras se cargan los datos
+  if (parkingsLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando estadísticas...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Mostrar error si falla la carga
+  if (parkingsError) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600">Error al cargar las estadísticas</p>
+          <p className="text-sm text-gray-500 mt-2">Por favor, inténtalo de nuevo más tarde</p>
+        </div>
+      </div>
+    )
+  }
+
   // Calcular estadísticas
   const totalParkings = parkings.length
-  const totalPlazas = parkings.reduce((sum, p) => sum + p.total_plazas, 0)
-  const plazasOcupadas = parkings.reduce((sum, p) => sum + p.plazas_ocupadas, 0)
+  const totalPlazas = parkings.reduce((sum, p) => sum + (p.total_plazas || 0), 0)
+  const plazasOcupadas = parkings.reduce((sum, p) => sum + (p.plazas_ocupadas || 0), 0)
   const porcentajeOcupacion = totalPlazas > 0 ? Math.round((plazasOcupadas / totalPlazas) * 100) : 0
 
   const parkingsLibres = parkings.filter(p => p.estado === 'LIBRE').length
@@ -201,8 +230,8 @@ const Statistics = () => {
           <div className="flex items-center">
             <Car className="h-8 w-8 text-purple-600" />
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Ocupación Actual</p>
-              <p className="text-lg font-semibold text-gray-900">{porcentajeOcupacion}%</p>
+              <p className="text-sm font-medium text-gray-500">Total Parkings</p>
+              <p className="text-lg font-semibold text-gray-900">{totalParkings}</p>
             </div>
           </div>
         </div>
@@ -243,135 +272,26 @@ const Statistics = () => {
 
       {/* Gráfico de ocupación */}
       <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-medium text-gray-900">Tendencia de Ocupación</h2>
-          <div className="text-sm text-gray-500">
-            {selectedParking === 'all' ? 'Todos los parkings' : 
-             parkings.find(p => p.id === parseInt(selectedParking))?.name}
-          </div>
-        </div>
-        
-        <div className="h-64 flex items-end justify-between space-x-2">
-          {occupancyData.map((data, index) => (
-            <div key={index} className="flex-1 flex flex-col items-center">
-              <div className="w-full bg-gray-200 rounded-t" style={{ height: '200px' }}>
-                <div
-                  className="bg-primary-600 rounded-t transition-all duration-300"
-                  style={{ 
-                    height: `${(data.occupancy / 100) * 200}px`,
-                    minHeight: '4px'
-                  }}
-                />
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Tendencia de Ocupación</h3>
+        <div className="space-y-4">
+          {occupancyData.map((day) => (
+            <div key={day.date} className="flex items-center space-x-4">
+              <div className="w-24 text-sm text-gray-500">
+                {format(new Date(day.date), 'dd/MM', { locale: es })}
               </div>
-              <div className="text-xs text-gray-500 mt-2 text-center">
-                {format(new Date(data.date), 'dd/MM', { locale: es })}
-              </div>
-              <div className="text-xs font-medium text-gray-700 mt-1">
-                {data.occupancy}%
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Tabla de datos */}
-      <div className="card">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Datos Detallados</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Fecha
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Parking
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ocupación
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Porcentaje
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {occupancyData.slice(0, 10).map((data, index) => (
-                <tr key={index} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {format(new Date(data.date), 'dd/MM/yyyy', { locale: es })}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {parkings.find(p => p.id === data.parking_id)?.name || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {data.occupancy}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {data.total}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      data.occupancy < 50 ? 'bg-green-100 text-green-800' :
-                      data.occupancy < 80 ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {Math.round((data.occupancy / data.total) * 100)}%
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Resumen por parking */}
-      <div className="card">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Resumen por Parking</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {parkings.map((parking) => (
-            <div key={parking.id} className="border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-medium text-gray-900 truncate">
-                  {parking.name}
-                </h3>
-                <div className={`flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(parking.estado)}`}>
-                  {parking.estado}
+              <div className="flex-1">
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-500">Ocupación</span>
+                  <span className="font-medium">{day.occupancy}%</span>
                 </div>
-              </div>
-              <div className="space-y-1 text-sm text-gray-500">
-                <div className="flex justify-between">
-                  <span>Ocupadas:</span>
-                  <span className="font-medium">{parking.plazas_ocupadas}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Libres:</span>
-                  <span className="font-medium">{parking.plazas_libres}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Total:</span>
-                  <span className="font-medium">{parking.total_plazas}</span>
-                </div>
-                <div className="pt-2">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span>Ocupación</span>
-                    <span>{Math.round((parking.plazas_ocupadas / parking.total_plazas) * 100)}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-1">
-                    <div
-                      className={`h-1 rounded-full ${
-                        parking.estado === 'LIBRE' ? 'bg-green-500' :
-                        parking.estado === 'DENSO' ? 'bg-yellow-500' : 'bg-red-500'
-                      }`}
-                      style={{
-                        width: `${Math.round((parking.plazas_ocupadas / parking.total_plazas) * 100)}%`
-                      }}
-                    />
-                  </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full ${
+                      day.occupancy < 50 ? 'bg-green-500' :
+                      day.occupancy < 80 ? 'bg-yellow-500' : 'bg-red-500'
+                    }`}
+                    style={{ width: `${day.occupancy}%` }}
+                  />
                 </div>
               </div>
             </div>

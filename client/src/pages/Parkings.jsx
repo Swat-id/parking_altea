@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from 'react-query'
 import { Link } from 'react-router-dom'
-import { authService } from '../services/authService'
+import { parkingService } from '../services/parkingService'
 import { 
   Car, 
   Search, 
@@ -18,9 +18,14 @@ const Parkings = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
 
-  const { data: parkings = [], isLoading } = useQuery(
-    'userParkings',
-    authService.getUserParkings
+  const { data: parkings = [], isLoading, error } = useQuery(
+    'allParkings',
+    parkingService.getAllParkings,
+    {
+      retry: 2,
+      refetchOnWindowFocus: false,
+      staleTime: 30000, // 30 segundos
+    }
   )
 
   const getStatusColor = (status) => {
@@ -59,10 +64,27 @@ const Parkings = () => {
     return total > 0 ? Math.round((ocupadas / total) * 100) : 0
   }
 
+  // Mostrar loading mientras se cargan los datos
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando parkings...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Mostrar error si falla la carga
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600">Error al cargar los parkings</p>
+          <p className="text-sm text-gray-500 mt-2">Por favor, inténtalo de nuevo más tarde</p>
+        </div>
       </div>
     )
   }
@@ -192,17 +214,20 @@ const Parkings = () => {
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-gray-500">Ocupación</span>
                         <span className="font-medium">
-                          {getOcupationPercentage(parking.plazas_ocupadas, parking.total_plazas)}%
+                          {getOcupationPercentage(parking.plazas_ocupadas || 0, parking.total_plazas || 0)}%
                         </span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                           className={`h-2 rounded-full ${
-                            parking.estado === 'LIBRE' ? 'bg-green-500' :
-                            parking.estado === 'DENSO' ? 'bg-yellow-500' : 'bg-red-500'
+                            getOcupationPercentage(parking.plazas_ocupadas || 0, parking.total_plazas || 0) < 50
+                              ? 'bg-green-500'
+                              : getOcupationPercentage(parking.plazas_ocupadas || 0, parking.total_plazas || 0) < 80
+                              ? 'bg-yellow-500'
+                              : 'bg-red-500'
                           }`}
                           style={{
-                            width: `${getOcupationPercentage(parking.plazas_ocupadas, parking.total_plazas)}%`
+                            width: `${getOcupationPercentage(parking.plazas_ocupadas || 0, parking.total_plazas || 0)}%`
                           }}
                         />
                       </div>
@@ -210,38 +235,28 @@ const Parkings = () => {
 
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <p className="text-gray-500">Ocupadas</p>
-                        <p className="font-medium text-gray-900">{parking.plazas_ocupadas}</p>
+                        <span className="text-gray-500">Ocupadas:</span>
+                        <span className="ml-1 font-medium">{parking.plazas_ocupadas || 0}</span>
                       </div>
                       <div>
-                        <p className="text-gray-500">Libres</p>
-                        <p className="font-medium text-gray-900">{parking.plazas_libres}</p>
+                        <span className="text-gray-500">Libres:</span>
+                        <span className="ml-1 font-medium">{parking.plazas_libres || 0}</span>
                       </div>
-                      <div>
-                        <p className="text-gray-500">Total</p>
-                        <p className="font-medium text-gray-900">{parking.total_plazas}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">Umbral Denso</p>
-                        <p className="font-medium text-gray-900">{parking.threshold_dense}</p>
+                      <div className="col-span-2">
+                        <span className="text-gray-500">Total:</span>
+                        <span className="ml-1 font-medium">{parking.total_plazas || 0} plazas</span>
                       </div>
                     </div>
+                  </div>
 
-                    <div className="flex space-x-2 pt-2">
-                      <Link
-                        to={`/parking/${parking.id}`}
-                        className="flex-1 btn-primary text-center py-2"
-                      >
-                        <Eye className="h-4 w-4 inline mr-1" />
-                        Ver detalles
-                      </Link>
-                      <Link
-                        to={`/parking/${parking.id}`}
-                        className="btn-secondary py-2 px-3"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Link>
-                    </div>
+                  <div className="mt-4 flex space-x-2">
+                    <Link
+                      to={`/parking/${parking.id}`}
+                      className="flex-1 bg-primary-600 text-white text-center py-2 px-4 rounded-md hover:bg-primary-700 transition-colors duration-200"
+                    >
+                      <Eye className="h-4 w-4 inline mr-1" />
+                      Ver detalles
+                    </Link>
                   </div>
                 </div>
               ))}
