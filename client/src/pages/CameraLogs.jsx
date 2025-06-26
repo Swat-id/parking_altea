@@ -369,22 +369,91 @@ const CameraLogs = () => {
                     </td>
                     
                     <td className="px-6 py-4 text-sm text-gray-900">
-                      <div className="max-w-xs truncate" title={log.message || log.error_message}>
-                        {log.message || log.error_message || 'Sin mensaje'}
+                      <div className="max-w-xs">
+                        {/* Mostrar mensaje principal */}
+                        <div className="font-medium mb-1">
+                          {log.status === 'processed' ? '✅ Procesado' : 
+                           log.status === 'error' ? '❌ Error' : 
+                           log.status === 'duplicate' ? '🔄 Duplicado' : 
+                           log.status || '📝 Info'}
+                        </div>
+                        
+                        {/* Mostrar contadores si están disponibles */}
+                        {log.vehicle_in !== undefined && log.vehicle_out !== undefined && (
+                          <div className="text-xs text-gray-600 mb-1">
+                            <span className="font-medium">Contadores:</span> 
+                            <span className="text-green-600"> In: {log.vehicle_in}</span> | 
+                            <span className="text-red-600"> Out: {log.vehicle_out}</span>
+                          </div>
+                        )}
+                        
+                        {/* Mostrar deltas si están disponibles */}
+                        {log.delta_in !== undefined && log.delta_out !== undefined && (
+                          <div className="text-xs text-gray-600 mb-1">
+                            <span className="font-medium">Cambios:</span> 
+                            {log.delta_in > 0 && <span className="text-green-600"> +{log.delta_in} entradas</span>}
+                            {log.delta_out > 0 && <span className="text-red-600"> +{log.delta_out} salidas</span>}
+                            {log.delta_in === 0 && log.delta_out === 0 && <span className="text-gray-500"> Sin cambios</span>}
+                          </div>
+                        )}
+                        
+                        {/* Mostrar ocupación si está disponible */}
+                        {log.new_occupancy !== undefined && (
+                          <div className="text-xs text-gray-600">
+                            <span className="font-medium">Ocupación:</span> {log.new_occupancy}
+                            {log.occupancy_change !== undefined && log.occupancy_change !== 0 && (
+                              <span className={log.occupancy_change > 0 ? 'text-green-600' : 'text-red-600'}>
+                                {log.occupancy_change > 0 ? ' (+' : ' ('}{log.occupancy_change})
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Mostrar mensaje de error si existe */}
+                        {log.error_message && (
+                          <div className="text-xs text-red-600 mt-1">
+                            {log.error_message}
+                          </div>
+                        )}
                       </div>
                     </td>
                     
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {(log.raw_message || log.details) && (
-                        <details className="text-xs">
-                          <summary className="cursor-pointer hover:text-gray-700">
-                            Ver detalles
-                          </summary>
-                          <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-x-auto">
-                            {JSON.stringify(log.raw_message || log.details, null, 2)}
-                          </pre>
-                        </details>
-                      )}
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      <div className="space-y-2">
+                        {/* Información de procesamiento */}
+                        {log.processing_time !== undefined && (
+                          <div className="text-xs">
+                            <span className="font-medium">Tiempo:</span> {log.processing_time}ms
+                          </div>
+                        )}
+                        
+                        {/* Estado del parking */}
+                        {log.parking_status && (
+                          <div className="text-xs">
+                            <span className="font-medium">Estado:</span> {log.parking_status}
+                          </div>
+                        )}
+                        
+                        {/* Mensaje raw si está disponible */}
+                        {(log.raw_message || log.details) && (
+                          <details className="text-xs">
+                            <summary className="cursor-pointer hover:text-gray-700 font-medium">
+                              📄 Ver mensaje completo
+                            </summary>
+                            <div className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-x-auto max-h-32 overflow-y-auto">
+                              <pre className="whitespace-pre-wrap">
+                                {typeof log.raw_message === 'string' ? log.raw_message : 
+                                 JSON.stringify(log.raw_message || log.details, null, 2)}
+                              </pre>
+                            </div>
+                          </details>
+                        )}
+                        
+                        {/* Información adicional */}
+                        <div className="text-xs text-gray-400">
+                          Línea: {log.camera_line || 'N/A'}
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 ))}

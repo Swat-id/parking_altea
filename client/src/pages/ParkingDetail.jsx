@@ -20,7 +20,9 @@ import {
   TrendingUp,
   MapPin,
   Calendar,
-  Send
+  Send,
+  Wifi,
+  WifiOff
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -60,15 +62,6 @@ const ParkingDetail = () => {
     }
   )
 
-  // Obtener datos públicos del parking (redundante ahora, pero mantener por compatibilidad)
-  const { data: publicParking } = useQuery(
-    ['publicParking', id],
-    () => parkingService.getParking(id),
-    {
-      enabled: !!parking
-    }
-  )
-
   // Estados de edición
   const [editForm, setEditForm] = useState({
     plazas_ocupadas: 0,
@@ -95,7 +88,6 @@ const ParkingDetail = () => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['parking', id])
-        queryClient.invalidateQueries(['publicParking', id])
         queryClient.invalidateQueries('userParkings')
         toast.success('Ocupación actualizada correctamente')
       },
@@ -111,7 +103,6 @@ const ParkingDetail = () => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['parking', id])
-        queryClient.invalidateQueries(['publicParking', id])
         queryClient.invalidateQueries('userParkings')
         toast.success('Configuración actualizada correctamente')
       },
@@ -241,6 +232,17 @@ const ParkingDetail = () => {
     }
   }
 
+  const getCameraStatusIcon = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'online':
+        return <Wifi className="h-4 w-4 text-green-600" />
+      case 'offline':
+        return <WifiOff className="h-4 w-4 text-red-600" />
+      default:
+        return <AlertCircle className="h-4 w-4 text-gray-400" />
+    }
+  }
+
   useEffect(() => {
     loadParkingData()
   }, [id])
@@ -263,10 +265,10 @@ const ParkingDetail = () => {
         setCameras([])
       }
       
-      // Cargar paneles del parking
+      // Cargar paneles del parking - corregir endpoint
       try {
         const panelsData = await panelService.getParkingPanels(id)
-        setPanels(panelsData.panels || [])
+        setPanels(panelsData || [])
       } catch (err) {
         console.error('Error cargando paneles:', err)
         setPanels([])
@@ -334,8 +336,8 @@ const ParkingDetail = () => {
       return
     }
 
-    if (occupancy > parking.capacity) {
-      setOccupancyError(`La ocupación no puede exceder la capacidad (${parking.capacity})`)
+    if (parking && occupancy > parking.total_plazas) {
+      setOccupancyError(`La ocupación no puede exceder la capacidad (${parking.total_plazas})`)
       return
     }
 
@@ -368,6 +370,20 @@ const ParkingDetail = () => {
     if (!timestamp) return 'N/A'
     const date = new Date(timestamp)
     return date.toLocaleString('es-ES')
+  }
+
+  const getRelativeTime = (timestamp) => {
+    if (!timestamp) return ''
+    const date = new Date(timestamp)
+    const now = new Date()
+    const diffMs = now - date
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    
+    if (diffMins < 1) return 'Ahora mismo'
+    if (diffMins < 60) return `Hace ${diffMins} min`
+    if (diffHours < 24) return `Hace ${diffHours}h ${diffMins % 60}min`
+    return `Hace ${Math.floor(diffHours / 24)} días`
   }
 
   if (loading && !parking) {
@@ -418,7 +434,7 @@ const ParkingDetail = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">🏢 {parking.name}</h1>
-            <p className="text-gray-600">{parking.address}</p>
+            <p className="text-gray-600">{parking.location}</p>
             {lastUpdate && (
               <p className="text-sm text-gray-500 mt-2">
                 Última actualización: {formatLastUpdate()}
@@ -438,24 +454,28 @@ const ParkingDetail = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-6 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500">Capacidad</h3>
-          <p className="text-2xl font-bold text-gray-900">{parking.capacity}</p>
+          <p className="text-2xl font-bold text-gray-900">{parking.total_plazas}</p>
         </div>
         
         <div className="bg-white p-6 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500">Ocupación Actual</h3>
-          <p className="text-2xl font-bold text-blue-600">{parking.occupancy || 0}</p>
+          <p className="text-2xl font-bold text-blue-600">{parking.plazas_ocupadas || 0}</p>
         </div>
         
         <div className="bg-white p-6 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500">Ocupación %</h3>
           <p className="text-2xl font-bold text-green-600">
-            {parking.capacity > 0 ? Math.round(((parking.occupancy || 0) / parking.capacity) * 100) : 0}%
+            {parking.total_plazas > 0 ? Math.round(((parking.plazas_ocupadas || 0) / parking.total_plazas) * 100) : 0}%
           </p>
         </div>
         
         <div className="bg-white p-6 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500">Estado</h3>
-          <p className="text-2xl font-bold text-gray-900">{parking.status || 'Activo'}</p>
+          <div className="flex items-center space-x-2">
+            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(parking.estado)}`}>
+              {getStatusIcon(parking.estado)} {parking.estado || 'UNKNOWN'}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -473,7 +493,7 @@ const ParkingDetail = () => {
                 placeholder="Nueva ocupación"
                 className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 min="0"
-                max={parking.capacity}
+                max={parking.total_plazas}
               />
               <button
                 onClick={handleOccupancyUpdate}
@@ -495,7 +515,7 @@ const ParkingDetail = () => {
             </>
           ) : (
             <>
-              <span className="text-lg">Ocupación actual: <strong>{parking.occupancy || 0}</strong></span>
+              <span className="text-lg">Ocupación actual: <strong>{parking.plazas_ocupadas || 0}</strong></span>
               <button
                 onClick={() => setEditingOccupancy(true)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
@@ -538,7 +558,10 @@ const ParkingDetail = () => {
                     Estado
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Última Actividad
+                    Último Mensaje
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Contadores
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Acciones
@@ -551,7 +574,7 @@ const ParkingDetail = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <div>
                         <div className="font-medium">{camera.name}</div>
-                        <div className="text-xs text-gray-500">ID: {camera.id}</div>
+                        <div className="text-xs text-gray-500">Línea: {camera.line}</div>
                       </div>
                     </td>
                     
@@ -560,13 +583,31 @@ const ParkingDetail = () => {
                     </td>
                     
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(camera.status)}`}>
-                        {getStatusIcon(camera.status)} {camera.status || 'UNKNOWN'}
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        {getCameraStatusIcon(camera.status)}
+                        <span className="text-sm text-gray-900">
+                          {camera.status || 'UNKNOWN'}
+                        </span>
+                      </div>
+                      {camera.ping_status && camera.ping_status !== 'UNKNOWN' && (
+                        <div className="text-xs text-gray-500">
+                          Ping: {camera.ping_status}
+                        </div>
+                      )}
                     </td>
                     
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatTimestamp(camera.last_activity)}
+                      <div>
+                        <div>{formatTimestamp(camera.last_message_received)}</div>
+                        <div className="text-xs">{getRelativeTime(camera.last_message_received)}</div>
+                      </div>
+                    </td>
+                    
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <div>
+                        <div className="text-green-600">In: {camera.last_vehicle_in || 0}</div>
+                        <div className="text-red-600">Out: {camera.last_vehicle_out || 0}</div>
+                      </div>
                     </td>
                     
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -627,17 +668,23 @@ const ParkingDetail = () => {
                     </td>
                     
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {panel.ip}
+                      {panel.ip_address || panel.ip}
                     </td>
                     
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(panel.status)}`}>
-                        {getStatusIcon(panel.status)} {panel.status || 'UNKNOWN'}
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        {getCameraStatusIcon(panel.status)}
+                        <span className="text-sm text-gray-900">
+                          {panel.status || 'UNKNOWN'}
+                        </span>
+                      </div>
                     </td>
                     
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatTimestamp(panel.last_activity)}
+                      <div>
+                        <div>{formatTimestamp(panel.last_update)}</div>
+                        <div className="text-xs">{getRelativeTime(panel.last_update)}</div>
+                      </div>
                     </td>
                   </tr>
                 ))}

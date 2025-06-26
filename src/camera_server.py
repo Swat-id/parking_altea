@@ -1,13 +1,15 @@
 from flask import Flask, request, jsonify
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
-from datetime import datetime
+from datetime import datetime, timedelta
 import config
 import json
 import logging
 import time
 from models import Base, Parking, Access, OccupancyHistory, CameraLog
 from panel_client import broadcast
+import threading
+import subprocess
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -40,6 +42,24 @@ def is_duplicate_message(camera_ip, camera_line, vehicle_in, vehicle_out, timest
     # Registrar este mensaje
     recent_messages[key] = current_time
     return False
+
+def apply_duplicate_correction(session, access, delta_in, delta_out):
+    """Aplicar corrección por duplicados en los conteos"""
+    try:
+        # Si hay duplicados, reducir el impacto del delta
+        # Esto evita que los duplicados afecten significativamente la ocupación
+        correction_factor = 0.5  # Reducir el impacto a la mitad
+        
+        corrected_delta_in = int(delta_in * correction_factor) if delta_in > 0 else 0
+        corrected_delta_out = int(delta_out * correction_factor) if delta_out > 0 else 0
+        
+        logger.info(f"Applying duplicate correction - Original: In={delta_in}, Out={delta_out} -> Corrected: In={corrected_delta_in}, Out={corrected_delta_out}")
+        
+        return corrected_delta_in, corrected_delta_out
+        
+    except Exception as e:
+        logger.error(f"Error applying duplicate correction: {e}")
+        return delta_in, delta_out
 
 def log_camera_message(session, camera_ip, camera_line, camera_name, raw_message, 
                       vehicle_in, vehicle_out, status, error_message=None, 
@@ -326,6 +346,14 @@ def handle_camera():
         
         logger.info(f"Deltas calculated - Delta In: {delta_in}, Delta Out: {delta_out}")
         
+        # Aplicar corrección por duplicados si es necesario
+        is_duplicate = is_duplicate_message(ip, line, veh_in, veh_out, time.time())
+        if is_duplicate:
+            corrected_delta_in, corrected_delta_out = apply_duplicate_correction(session, access, delta_in, delta_out)
+            logger.info(f"Duplicate detected - Applying correction: In={delta_in}->{corrected_delta_in}, Out={delta_out}->{corrected_delta_out}")
+            delta_in = corrected_delta_in
+            delta_out = corrected_delta_out
+        
         # Actualizar contadores de acceso
         access.last_vehicle_in = veh_in
         access.last_vehicle_out = veh_out
@@ -468,5 +496,116 @@ def camera_status():
     """Endpoint para verificar el estado del servidor de cámaras"""
     return jsonify({'status': 'ok', 'service': 'camera_server'})
 
+class CameraMonitor:
+    """Monitor para verificar el estado de las cámaras periódicamente"""
+    
+    def __init__(self, session_factory):
+        self.session_factory = session_factory
+        self.running = False
+        self.monitor_thread = None
+        self.check_interval = 300  # 5 minutos
+        
+    def start(self):
+        """Iniciar el monitor de cámaras"""
+        if self.running:
+            return
+            
+        self.running = True
+        self.monitor_thread = threading.Thread(target=self._monitor_loop, daemon=True)
+        self.monitor_thread.start()
+        logger.info("Monitor de cámaras iniciado")
+        
+    def stop(self):
+        """Detener el monitor de cámaras"""
+        self.running = False
+        if self.monitor_thread:
+            self.monitor_thread.join(timeout=5)
+        logger.info("Monitor de cámaras detenido")
+        
+    def _monitor_loop(self):
+        """Bucle principal del monitor"""
+        while self.running:
+            try:
+                self._check_all_cameras()
+                time.sleep(self.check_interval)
+            except Exception as e:
+                logger.error(f"Error en monitor de cámaras: {e}")
+                time.sleep(60)  # Esperar 1 minuto antes de reintentar
+                
+    def _check_all_cameras(self):
+        """Verificar el estado de todas las cámaras"""
+        session = self.session_factory()
+        try:
+            # Obtener todas las cámaras
+            cameras = session.query(Access).all()
+            
+            for camera in cameras:
+                try:
+                    self._check_camera_status(camera, session)
+                except Exception as e:
+                    logger.error(f"Error verificando cámara {camera.ip}: {e}")
+                    
+        finally:
+            session.close()
+            
+    def _check_camera_status(self, camera, session):
+        """Verificar el estado de una cámara específica"""
+        # Verificar por ping
+        ping_status = self._ping_camera(camera.ip)
+        
+        # Verificar por último mensaje
+        message_status = self._check_message_status(camera)
+        
+        # Determinar estado final
+        if ping_status == 'ONLINE' or message_status == 'ONLINE':
+            final_status = 'ONLINE'
+        else:
+            final_status = 'OFFLINE'
+            
+        # Actualizar estado en la base de datos
+        camera.ping_status = ping_status
+        camera.status = final_status
+        camera.last_ping_check = datetime.now()
+        
+        session.commit()
+        
+        logger.info(f"Cámara {camera.ip} ({camera.name}): Ping={ping_status}, Mensaje={message_status}, Estado={final_status}")
+        
+    def _ping_camera(self, ip):
+        """Realizar ping a una cámara"""
+        try:
+            result = subprocess.run(
+                ['ping', '-c', '1', '-W', '3', ip],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            return 'ONLINE' if result.returncode == 0 else 'OFFLINE'
+        except Exception as e:
+            logger.debug(f"Error haciendo ping a {ip}: {e}")
+            return 'UNKNOWN'
+            
+    def _check_message_status(self, camera):
+        """Verificar estado basado en último mensaje"""
+        if not camera.last_message_received:
+            return 'OFFLINE'
+            
+        # Si el último mensaje es de hace más de 10 minutos, considerar offline
+        time_since_last = datetime.now() - camera.last_message_received
+        if time_since_last > timedelta(minutes=10):
+            return 'OFFLINE'
+        else:
+            return 'ONLINE'
+
+# Crear instancia del monitor
+camera_monitor = CameraMonitor(Session)
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=config.CAMERA_PORT, debug=False)
+    # Iniciar el monitor de cámaras
+    camera_monitor.start()
+    
+    try:
+        app.run(host='0.0.0.0', port=config.CAMERA_PORT, debug=False)
+    finally:
+        # Detener el monitor al salir
+        camera_monitor.stop()

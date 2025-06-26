@@ -640,8 +640,18 @@ def delete_scheduled_message(pid):
 def get_all_panels():
     """Obtener todos los paneles con su estado actual"""
     try:
+        parking_id = request.args.get('parking_id', type=int)
+        
         session = Session()
-        panels = session.query(Panel).all()
+        
+        # Construir query
+        query = session.query(Panel)
+        
+        # Filtrar por parking si se especifica
+        if parking_id:
+            query = query.filter(Panel.parking_id == parking_id)
+        
+        panels = query.all()
         data = []
         
         for panel in panels:
@@ -976,6 +986,8 @@ def get_camera_logs():
                 'parking_name': log.parking.name if log.parking else None,
                 'vehicle_in': log.vehicle_in,
                 'vehicle_out': log.vehicle_out,
+                'previous_vehicle_in': log.previous_vehicle_in,
+                'previous_vehicle_out': log.previous_vehicle_out,
                 'delta_in': log.delta_in,
                 'delta_out': log.delta_out,
                 'status': log.status,
@@ -984,6 +996,7 @@ def get_camera_logs():
                 'new_occupancy': log.new_occupancy,
                 'occupancy_change': log.occupancy_change,
                 'parking_status': log.parking_status,
+                'raw_message': log.raw_message,
                 'received_at': log.received_at.isoformat() if log.received_at else None,
                 'processed_at': log.processed_at.isoformat() if log.processed_at else None
             }
@@ -1199,6 +1212,132 @@ def get_all_cameras_status():
         
     except Exception as e:
         logger.error(f"Error obteniendo estado de cámaras: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/parking/<int:pid>/hourly-statistics', methods=['GET'])
+def get_parking_hourly_statistics(pid):
+    """Obtener estadísticas por horas de un parking"""
+    try:
+        # Parámetros
+        date = request.args.get('date')  # YYYY-MM-DD
+        days = request.args.get('days', 7, type=int)
+        
+        session = Session()
+        
+        # Verificar que el parking existe
+        parking = session.query(Parking).get(pid)
+        if not parking:
+            session.close()
+            return jsonify({'error': 'Parking not found'}), 404
+        
+        # Calcular fechas
+        from datetime import datetime, timedelta
+        if date:
+            start_date = datetime.strptime(date, '%Y-%m-%d')
+            end_date = start_date + timedelta(days=1)
+        else:
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=days)
+        
+        # Obtener estadísticas por horas
+        hourly_stats = []
+        for hour in range(24):
+            hour_start = start_date.replace(hour=hour, minute=0, second=0, microsecond=0)
+            hour_end = hour_start + timedelta(hours=1)
+            
+            # Obtener logs de cámaras para esta hora
+            camera_logs = session.query(CameraLog).filter(
+                CameraLog.parking_id == pid,
+                CameraLog.received_at >= hour_start,
+                CameraLog.received_at < hour_end,
+                CameraLog.status == 'processed'
+            ).all()
+            
+            # Calcular métricas
+            total_vehicles_in = sum(log.delta_in or 0 for log in camera_logs)
+            total_vehicles_out = sum(log.delta_out or 0 for log in camera_logs)
+            message_count = len(camera_logs)
+            
+            # Obtener ocupación promedio de la hora (si hay datos)
+            occupancy_data = session.query(OccupancyHistory).filter(
+                OccupancyHistory.parking_id == pid,
+                OccupancyHistory.timestamp >= hour_start,
+                OccupancyHistory.timestamp < hour_end
+            ).all()
+            
+            avg_occupancy = 0
+            max_occupancy = 0
+            min_occupancy = 0
+            
+            if occupancy_data:
+                occupancies = [data.occupancy for data in occupancy_data]
+                avg_occupancy = sum(occupancies) / len(occupancies)
+                max_occupancy = max(occupancies)
+                min_occupancy = min(occupancies)
+            
+            hourly_stats.append({
+                'hour': hour,
+                'hour_label': f'{hour:02d}:00',
+                'total_vehicles_in': total_vehicles_in,
+                'total_vehicles_out': total_vehicles_out,
+                'net_change': total_vehicles_in - total_vehicles_out,
+                'message_count': message_count,
+                'avg_occupancy': round(avg_occupancy, 1),
+                'max_occupancy': max_occupancy,
+                'min_occupancy': min_occupancy
+            })
+        
+        # Obtener estadísticas de cámaras para el período
+        camera_stats = []
+        cameras = session.query(Access).filter(Access.parking_id == pid).all()
+        
+        for camera in cameras:
+            camera_logs = session.query(CameraLog).filter(
+                CameraLog.access_id == camera.id,
+                CameraLog.received_at >= start_date,
+                CameraLog.received_at < end_date
+            ).all()
+            
+            total_messages = len(camera_logs)
+            processed_messages = len([log for log in camera_logs if log.status == 'processed'])
+            error_messages = len([log for log in camera_logs if log.status == 'error'])
+            duplicate_messages = len([log for log in camera_logs if log.status == 'duplicate'])
+            
+            total_vehicles_in = sum(log.delta_in or 0 for log in camera_logs if log.status == 'processed')
+            total_vehicles_out = sum(log.delta_out or 0 for log in camera_logs if log.status == 'processed')
+            
+            camera_stats.append({
+                'camera_id': camera.id,
+                'camera_name': camera.name,
+                'camera_ip': camera.ip,
+                'camera_line': camera.line,
+                'status': camera.status,
+                'total_messages': total_messages,
+                'processed_messages': processed_messages,
+                'error_messages': error_messages,
+                'duplicate_messages': duplicate_messages,
+                'success_rate': round((processed_messages / total_messages * 100) if total_messages > 0 else 0, 1),
+                'total_vehicles_in': total_vehicles_in,
+                'total_vehicles_out': total_vehicles_out,
+                'last_message': camera.last_message_received.isoformat() if camera.last_message_received else None
+            })
+        
+        session.close()
+        
+        return jsonify({
+            'parking_id': pid,
+            'parking_name': parking.name,
+            'period': {
+                'start_date': start_date.isoformat(),
+                'end_date': end_date.isoformat(),
+                'days': days
+            },
+            'hourly_statistics': hourly_stats,
+            'camera_statistics': camera_stats
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo estadísticas por horas del parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':

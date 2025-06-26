@@ -90,5 +90,26 @@ export const statisticsService = {
       console.error('Error exportando datos:', error)
       throw error
     }
-  }
+  },
+
+  /**
+   * Obtener estadísticas por horas de un parking
+   * @param {number} parkingId - ID del parking
+   * @param {Object} options - Opciones de filtrado
+   * @returns {Promise<Object>} Estadísticas por horas
+   */
+  async getHourlyStatistics(parkingId, options = {}) {
+    try {
+      const params = new URLSearchParams()
+      
+      if (options.date) params.append('date', options.date)
+      if (options.days) params.append('days', options.days)
+      
+      const response = await api.get(`/parking/${parkingId}/hourly-statistics?${params.toString()}`)
+      return response.data
+    } catch (error) {
+      console.error('Error obteniendo estadísticas por horas:', error)
+      throw error
+    }
+  },
 } 
