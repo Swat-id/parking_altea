@@ -2,7 +2,11 @@ from flask import Flask, request, jsonify
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import config
-from models import Base, Parking, ScheduledMessage, OccupancyHistory, Panel
+from models import Base, Parking, ScheduledMessage, OccupancyHistory, Panel, User, UserParking, UserPanel, UserAccess, Access
+from auth import (
+    create_user, authenticate_user, delete_user, change_password, 
+    get_user_permissions, assign_user_to_resources, require_auth
+)
 from datetime import datetime
 import logging
 
@@ -14,6 +18,246 @@ app = Flask(__name__)
 engine = create_engine(config.DB_URL, echo=False)
 Session = sessionmaker(bind=engine)
 Base.metadata.create_all(engine)
+
+# ============================================================================
+# ENDPOINTS DE AUTENTICACIÓN Y USUARIOS
+# ============================================================================
+
+@app.route('/auth/register', methods=['POST'])
+def register_user():
+    """Crear un nuevo usuario"""
+    try:
+        req = request.get_json(force=True)
+        name = req.get('name')
+        email = req.get('email')
+        password = req.get('password')
+        
+        if not all([name, email, password]):
+            return jsonify({'error': 'Faltan campos requeridos: name, email, password'}), 400
+        
+        session = Session()
+        result = create_user(session, name, email, password)
+        session.close()
+        
+        if result['success']:
+            logger.info(f"Usuario creado: {email}")
+            return jsonify(result), 201
+        else:
+            return jsonify({'error': result['error']}), 400
+            
+    except Exception as e:
+        logger.error(f"Error creando usuario: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/auth/login', methods=['POST'])
+def login_user():
+    """Autenticar usuario y obtener token"""
+    try:
+        req = request.get_json(force=True)
+        email = req.get('email')
+        password = req.get('password')
+        
+        if not all([email, password]):
+            return jsonify({'error': 'Faltan campos requeridos: email, password'}), 400
+        
+        session = Session()
+        result = authenticate_user(session, email, password)
+        session.close()
+        
+        if result['success']:
+            logger.info(f"Usuario autenticado: {email}")
+            return jsonify(result)
+        else:
+            return jsonify({'error': result['error']}), 401
+            
+    except Exception as e:
+        logger.error(f"Error en autenticación: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/auth/user', methods=['DELETE'])
+@require_auth
+def delete_user_endpoint():
+    """Eliminar usuario (requiere autenticación)"""
+    try:
+        user_id = request.user_data['user_id']
+        
+        session = Session()
+        result = delete_user(session, user_id)
+        session.close()
+        
+        if result['success']:
+            logger.info(f"Usuario eliminado: {user_id}")
+            return jsonify(result)
+        else:
+            return jsonify({'error': result['error']}), 400
+            
+    except Exception as e:
+        logger.error(f"Error eliminando usuario: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/auth/password', methods=['PUT'])
+@require_auth
+def change_password_endpoint():
+    """Cambiar contraseña (requiere autenticación)"""
+    try:
+        req = request.get_json(force=True)
+        current_password = req.get('current_password')
+        new_password = req.get('new_password')
+        
+        if not all([current_password, new_password]):
+            return jsonify({'error': 'Faltan campos requeridos: current_password, new_password'}), 400
+        
+        user_id = request.user_data['user_id']
+        
+        session = Session()
+        result = change_password(session, user_id, current_password, new_password)
+        session.close()
+        
+        if result['success']:
+            logger.info(f"Contraseña cambiada para usuario: {user_id}")
+            return jsonify(result)
+        else:
+            return jsonify({'error': result['error']}), 400
+            
+    except Exception as e:
+        logger.error(f"Error cambiando contraseña: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/auth/permissions', methods=['GET'])
+@require_auth
+def get_user_permissions_endpoint():
+    """Obtener permisos del usuario autenticado"""
+    try:
+        user_id = request.user_data['user_id']
+        
+        session = Session()
+        result = get_user_permissions(session, user_id)
+        session.close()
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify({'error': result['error']}), 400
+            
+    except Exception as e:
+        logger.error(f"Error obteniendo permisos: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/auth/assign', methods=['POST'])
+@require_auth
+def assign_resources_endpoint():
+    """Asignar recursos a un usuario (requiere autenticación)"""
+    try:
+        req = request.get_json(force=True)
+        target_user_id = req.get('user_id')
+        parking_ids = req.get('parking_ids', [])
+        panel_ids = req.get('panel_ids', [])
+        access_ids = req.get('access_ids', [])
+        
+        if not target_user_id:
+            return jsonify({'error': 'Falta user_id'}), 400
+        
+        session = Session()
+        result = assign_user_to_resources(
+            session, target_user_id, parking_ids, panel_ids, access_ids
+        )
+        session.close()
+        
+        if result['success']:
+            logger.info(f"Recursos asignados a usuario: {target_user_id}")
+            return jsonify(result)
+        else:
+            return jsonify({'error': result['error']}), 400
+            
+    except Exception as e:
+        logger.error(f"Error asignando recursos: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+# ============================================================================
+# ENDPOINTS PROTEGIDOS DE PARKINGS (requieren autenticación)
+# ============================================================================
+
+@app.route('/user/parkings', methods=['GET'])
+@require_auth
+def get_user_parkings():
+    """Obtener parkings a los que tiene acceso el usuario autenticado"""
+    try:
+        user_id = request.user_data['user_id']
+        
+        session = Session()
+        # Obtener parkings del usuario
+        user_parkings = session.query(UserParking).filter(UserParking.user_id == user_id).all()
+        parking_ids = [up.parking_id for up in user_parkings]
+        
+        # Obtener datos de los parkings
+        parks = session.query(Parking).filter(Parking.id.in_(parking_ids)).all()
+        data = [
+            {
+                'id': p.id,
+                'name': p.name,
+                'location': p.location,
+                'total_plazas': p.max_capacity,
+                'plazas_ocupadas': p.current_occupancy,
+                'plazas_libres': p.max_capacity - p.current_occupancy,
+                'estado': p.status,
+                'threshold_dense': p.threshold_dense,
+                'threshold_full': p.threshold_full
+            }
+            for p in parks
+        ]
+        session.close()
+        
+        return jsonify(data)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo parkings del usuario: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/user/parking/<int:pid>', methods=['GET'])
+@require_auth
+def get_user_parking(pid):
+    """Obtener datos de un parking específico (si el usuario tiene acceso)"""
+    try:
+        user_id = request.user_data['user_id']
+        
+        session = Session()
+        # Verificar que el usuario tiene acceso al parking
+        user_parking = session.query(UserParking).filter(
+            UserParking.user_id == user_id,
+            UserParking.parking_id == pid
+        ).first()
+        
+        if not user_parking:
+            session.close()
+            return jsonify({'error': 'Acceso denegado al parking'}), 403
+        
+        # Obtener datos del parking
+        p = session.query(Parking).get(pid)
+        if not p:
+            session.close()
+            return jsonify({'error': 'Parking no encontrado'}), 404
+        
+        data = {
+            'id': p.id,
+            'name': p.name,
+            'location': p.location,
+            'total_plazas': p.max_capacity,
+            'plazas_ocupadas': p.current_occupancy,
+            'plazas_libres': p.max_capacity - p.current_occupancy,
+            'estado': p.status,
+            'threshold_dense': p.threshold_dense,
+            'threshold_full': p.threshold_full
+        }
+        session.close()
+        return jsonify(data)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo parking del usuario: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+# ============================================================================
+# ENDPOINTS PÚBLICOS (mantienen compatibilidad)
+# ============================================================================
 
 @app.route('/parkings', methods=['GET'])
 def list_parkings():
