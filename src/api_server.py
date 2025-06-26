@@ -13,7 +13,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from config import DB_URL, API_PORT
 from models import Base, User, Parking, Access, Panel, OccupancyHistory, ScheduledMessage, ActivityLog, PanelMessageLog, VehicleCount, CameraLog, UserParking, UserPanel, UserAccess
-from panel_client import send_to_panel
+from panel_client import send_to_panel, ping_panel
 from auth import (
     create_user, authenticate_user, delete_user, change_password, 
     get_user_permissions, assign_user_to_resources, require_auth
@@ -1355,18 +1355,20 @@ def verify_all_panels():
         results = []
         updated_count = 0
         
+        # Importar la función de ping
+        from panel_client import ping_panel
+        
         for panel in panels:
             try:
-                # Hacer ping al panel
-                test_message = "PING|VERDE|CENTER"
-                
+                # Hacer ping real al panel
                 start_time = datetime.now()
-                success = send_to_panel(panel.ip, test_message)
+                success = ping_panel(panel.ip)
                 response_time = (datetime.now() - start_time).total_seconds() * 1000
                 
                 # Determinar estado
                 new_status = 'ONLINE' if success else 'OFFLINE'
-                status_changed = panel.status != new_status
+                previous_status = panel.status
+                status_changed = previous_status != new_status
                 
                 # Actualizar estado del panel
                 panel.status = new_status
@@ -1379,10 +1381,11 @@ def verify_all_panels():
                     'panel_id': panel.id,
                     'panel_name': panel.name,
                     'ip': panel.ip,
-                    'previous_status': panel.status if status_changed else None,
+                    'previous_status': previous_status,
                     'new_status': new_status,
-                    'response_time': response_time,
-                    'status_changed': status_changed
+                    'response_time': response_time if success else None,
+                    'status_changed': status_changed,
+                    'ping_success': success
                 })
                 
             except Exception as e:
@@ -1392,7 +1395,8 @@ def verify_all_panels():
                     'panel_name': panel.name,
                     'ip': panel.ip,
                     'error': str(e),
-                    'status_changed': False
+                    'status_changed': False,
+                    'ping_success': False
                 })
         
         session.commit()
