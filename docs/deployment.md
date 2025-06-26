@@ -1,486 +1,163 @@
-# Guía de Despliegue - Parking Altea
+# Despliegue - Parking Altea
 
-## Información del Servidor
+## Estado Actual del Despliegue
 
+### Servidor de Producción
 - **IP**: 157.180.91.63
-- **Sistema Operativo**: Ubuntu 20.04 LTS
-- **Usuario**: root
-- **Contraseña**: Sudv9uvSvdu!
-- **Arquitectura**: x86_64
+- **Ubicación**: Helsinki, Finlandia
+- **Proveedor**: Hetzner
+- **Sistema**: Ubuntu 22.04 LTS
 
-## Requisitos del Sistema
+### Servicios Activos
 
-### Hardware Mínimo
-- **CPU**: 2 cores
-- **RAM**: 4 GB
-- **Disco**: 20 GB
-- **Red**: 100 Mbps
+#### 1. API REST (parking-api.service)
+- **Puerto**: 6001
+- **Estado**: ✅ Activo y funcionando
+- **Versión**: v2.2 (con sistema de autenticación)
+- **Workers**: 3 procesos Gunicorn
+- **Memoria**: ~129MB
+- **Último reinicio**: 26/06/2025 07:58:54 UTC
 
-### Software Requerido
-- Ubuntu 20.04 LTS o superior
-- Python 3.8+
-- PostgreSQL 12+
-- Git
-- UFW (firewall)
+#### 2. Servidor de Cámaras (parking-camera.service)
+- **Puerto**: 6002
+- **Estado**: ✅ Activo y funcionando
+- **Función**: Recepción de datos de cámaras
+- **Último reinicio**: 26/06/2025 07:58:54 UTC
 
-## Instalación Paso a Paso
+### Base de Datos
+- **Sistema**: PostgreSQL 15
+- **Estado**: ✅ Activo
+- **Conexiones**: Configuradas correctamente
+- **Datos**: 9 parkings, 10 paneles, 13 cámaras cargados
 
-### 1. Preparación del Sistema
+## Sistema de Autenticación v2.2
 
+### Usuarios Configurados
+
+#### 1. Toni Alos
+- **Email**: atea.dti@altea.es
+- **Contraseña**: altea2025!
+- **ID**: 1
+- **Acceso**: Todos los recursos (9 parkings, 10 paneles, 13 cámaras)
+
+#### 2. Iván Martí
+- **Email**: gerenciapstd@altea.es
+- **Contraseña**: altea2025!
+- **ID**: 2
+- **Acceso**: Todos los recursos (9 parkings, 10 paneles, 13 cámaras)
+
+### Endpoints de Autenticación
+- `POST /auth/login` - Login de usuarios
+- `POST /auth/register` - Registro de nuevos usuarios
+- `GET /auth/permissions` - Obtener permisos del usuario
+- `PUT /auth/password` - Cambiar contraseña
+- `GET /user/parkings` - Parkings del usuario
+- `GET /user/parking/{id}` - Parking específico del usuario
+
+## Pruebas de Validación
+
+### Pruebas de Autenticación (26/06/2025)
+- **Total de pruebas**: 10
+- **Pruebas exitosas**: 10
+- **Tasa de éxito**: 100%
+- **Estado**: ✅ EXCELENTE
+
+### Pruebas de API (26/06/2025)
+- **Total de pruebas**: 7
+- **Pruebas exitosas**: 6
+- **Pruebas fallidas**: 1 (endpoint de cámaras no implementado)
+- **Tasa de éxito**: 85.7%
+- **Estado**: ✅ BUENO
+
+### Validaciones Realizadas
+1. ✅ Login exitoso para ambos usuarios
+2. ✅ Acceso a parkings con autenticación
+3. ✅ Denegación de acceso sin autenticación
+4. ✅ Obtención de permisos de usuario
+5. ✅ Cambio de contraseña
+6. ✅ Registro de nuevos usuarios
+
+## Dependencias Instaladas
+- **bcrypt**: 4.0.1 (encriptación de contraseñas)
+- **PyJWT**: 2.8.0 (tokens JWT)
+- **Flask**: 3.0.0
+- **psycopg2-binary**: 2.9.9
+- **gunicorn**: 21.2.0
+
+## Monitoreo y Logs
+
+### Logs del Servicio API
 ```bash
-# Conectar al servidor
-ssh root@157.180.91.63
+# Ver logs en tiempo real
+journalctl -u parking-api.service -f
 
-# Actualizar sistema
-apt update && apt upgrade -y
-
-# Instalar paquetes básicos
-apt install -y python3-venv python3-pip postgresql libpq-dev build-essential git curl wget
+# Ver logs de las últimas 24 horas
+journalctl -u parking-api.service --since "24 hours ago"
 ```
 
-### 2. Configuración de PostgreSQL
-
+### Logs del Servicio de Cámaras
 ```bash
-# Iniciar y habilitar PostgreSQL
-systemctl start postgresql
-systemctl enable postgresql
-
-# Crear usuario y base de datos
-sudo -u postgres psql <<EOF
-CREATE USER parking_user WITH PASSWORD 'parking_pass';
-CREATE DATABASE parking_db OWNER parking_user;
-GRANT ALL PRIVILEGES ON DATABASE parking_db TO parking_user;
-\q
-EOF
-
-# Verificar instalación
-sudo -u postgres psql -d parking_db -c "\dt"
+# Ver logs en tiempo real
+journalctl -u parking-camera.service -f
 ```
 
-### 3. Clonación del Repositorio
+## Comandos de Gestión
 
+### Reiniciar Servicios
 ```bash
-# Crear directorio de aplicación
-mkdir -p /opt
-cd /opt
+# Reiniciar API
+systemctl restart parking-api.service
 
-# Clonar repositorio (asumiendo que ya está disponible)
-# Si no está clonado, clonar desde el repositorio
-git clone https://github.com/Swat-id/parking_altea.git parking_altea
-cd parking_altea
-```
-
-### 4. Configuración del Entorno Python
-
-```bash
-# Crear entorno virtual
-python3 -m venv venv
-source venv/bin/activate
-
-# Actualizar pip
-pip install --upgrade pip
-
-# Instalar dependencias
-pip install -r requirements.txt
-
-# Verificar instalación
-python3 -c "import flask, sqlalchemy, psycopg2; print('Dependencias instaladas correctamente')"
-```
-
-### 5. Configuración de Variables de Entorno
-
-```bash
-# Crear archivo .env
-cat > .env <<EOF
-DATABASE_URL=postgresql://parking_user:parking_pass@localhost:5432/parking_db
-CAMERA_PORT=6400
-API_PORT=6001
-LOG_RETENTION_DAYS=15
-EOF
-
-# Verificar archivo
-cat .env
-```
-
-### 6. Inicialización de la Base de Datos
-
-```bash
-# Crear tablas
-cd src
-python3 init_db.py
-
-# Cargar datos iniciales
-python3 load_data.py
-
-# Verificar datos cargados
-python3 -c "
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-import config
-from models import Parking, Access, Panel
-
-engine = create_engine(config.DB_URL)
-Session = sessionmaker(bind=engine)
-session = Session()
-
-parkings = session.query(Parking).count()
-accesses = session.query(Access).count()
-panels = session.query(Panel).count()
-
-print(f'Parkings: {parkings}')
-print(f'Accesos: {accesses}')
-print(f'Paneles: {panels}')
-
-session.close()
-"
-```
-
-### 7. Configuración de Servicios Systemd
-
-```bash
-# Copiar archivos de servicio
-cp deploy/parking-api.service /etc/systemd/system/
-cp deploy/parking-camera.service /etc/systemd/system/
-
-# Recargar configuración de systemd
-systemctl daemon-reload
-
-# Habilitar servicios
-systemctl enable parking-api.service
-systemctl enable parking-camera.service
-```
-
-### 8. Configuración del Firewall
-
-```bash
-# Configurar UFW
-ufw allow 22/tcp    # SSH
-ufw allow 6001/tcp  # API REST
-ufw allow 6400/tcp  # Servidor de cámaras
-ufw allow 5432/tcp  # PostgreSQL (solo local)
-
-# Habilitar firewall
-ufw --force enable
-
-# Verificar reglas
-ufw status numbered
-```
-
-### 9. Inicio de Servicios
-
-```bash
-# Iniciar servicios
-systemctl start parking-api.service
-systemctl start parking-camera.service
+# Reiniciar servicio de cámaras
+systemctl restart parking-camera.service
 
 # Verificar estado
 systemctl status parking-api.service
 systemctl status parking-camera.service
-
-# Verificar logs
-journalctl -u parking-api.service --no-pager -n 20
-journalctl -u parking-camera.service --no-pager -n 20
 ```
 
-## Verificación de la Instalación
-
-### 1. Verificar API REST
-
-```bash
-# Probar endpoint de listado de aparcamientos
-curl http://localhost:6001/parkings
-
-# Probar endpoint de detalle de aparcamiento
-curl http://localhost:6001/parking/1
-
-# Probar actualización manual de ocupación
-curl -X POST http://localhost:6001/parking/1/occupancy \
-  -H "Content-Type: application/json" \
-  -d '{"occupancy": 100}'
-```
-
-### 2. Verificar Servidor de Cámaras
-
-```bash
-# Probar recepción de mensaje de cámara
-curl -X POST http://localhost:6400/ \
-  -H "Content-Type: application/json" \
-  -H "X-Forwarded-For: 172.20.17.146" \
-  -d '{
-    "event": "Object Counting",
-    "device": "ciutat_esportiva camera 1",
-    "line": 1,
-    "Vehicle In": 10,
-    "Vehicle Out": 5
-  }'
-```
-
-### 3. Verificar Base de Datos
-
-```bash
-# Conectar a PostgreSQL
-sudo -u postgres psql -d parking_db
-
-# Verificar tablas
-\dt
-
-# Verificar datos
-SELECT * FROM parkings LIMIT 5;
-SELECT * FROM accesses LIMIT 5;
-SELECT * FROM panels LIMIT 5;
-
-# Salir
-\q
-```
-
-## Script de Despliegue Automático
-
-Se incluye un script de despliegue completo en `deploy/setup.sh`:
-
-```bash
-# Dar permisos de ejecución
-chmod +x deploy/setup.sh
-
-# Ejecutar despliegue completo
-./deploy/setup.sh
-```
-
-## Configuración de Logs
-
-### Logs de Systemd
-
-```bash
-# Ver logs en tiempo real
-journalctl -u parking-api.service -f
-journalctl -u parking-camera.service -f
-
-# Ver logs de las últimas 24 horas
-journalctl -u parking-api.service --since "24 hours ago"
-journalctl -u parking-camera.service --since "24 hours ago"
-
-# Ver logs de errores
-journalctl -u parking-api.service -p err
-journalctl -u parking-camera.service -p err
-```
-
-### Configuración de Rotación de Logs
-
-```bash
-# Crear configuración de logrotate
-cat > /etc/logrotate.d/parking-altea <<EOF
-/var/log/parking-altea/*.log {
-    daily
-    missingok
-    rotate 30
-    compress
-    delaycompress
-    notifempty
-    create 644 root root
-    postrotate
-        systemctl reload parking-api.service
-        systemctl reload parking-camera.service
-    endscript
-}
-EOF
-```
-
-## Monitoreo del Sistema
-
-### Verificación de Estado
-
-```bash
-# Script de verificación
-cat > /opt/parking_altea/check_status.sh <<'EOF'
-#!/bin/bash
-
-echo "=== Estado del Sistema Parking Altea ==="
-echo
-
-echo "1. Servicios Systemd:"
-systemctl is-active parking-api.service
-systemctl is-active parking-camera.service
-echo
-
-echo "2. Puertos en uso:"
-netstat -tlnp | grep -E ':(6001|6400|5432)'
-echo
-
-echo "3. Uso de memoria:"
-free -h
-echo
-
-echo "4. Uso de disco:"
-df -h /
-echo
-
-echo "5. Conexiones a la API:"
-curl -s http://localhost:6001/parkings | jq '.[0:3]' 2>/dev/null || echo "API no responde"
-echo
-
-echo "6. Últimos logs de error:"
-journalctl -u parking-api.service -p err --no-pager -n 5
-journalctl -u parking-camera.service -p err --no-pager -n 5
-EOF
-
-chmod +x /opt/parking_altea/check_status.sh
-```
-
-### Monitoreo Automático
-
-```bash
-# Crear servicio de monitoreo
-cat > /etc/systemd/system/parking-monitor.service <<EOF
-[Unit]
-Description=Parking System Monitor
-After=network.target
-
-[Service]
-Type=oneshot
-ExecStart=/opt/parking_altea/check_status.sh
-User=root
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Crear timer para ejecución periódica
-cat > /etc/systemd/system/parking-monitor.timer <<EOF
-[Unit]
-Description=Run Parking Monitor every 5 minutes
-Requires=parking-monitor.service
-
-[Timer]
-OnCalendar=*:0/5
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-EOF
-
-systemctl daemon-reload
-systemctl enable parking-monitor.timer
-systemctl start parking-monitor.timer
-```
-
-## Backup y Recuperación
-
-### Backup Automático
-
-```bash
-# Crear script de backup
-cat > /opt/parking_altea/backup.sh <<'EOF'
-#!/bin/bash
-
-BACKUP_DIR="/backup/parking-altea"
-DATE=$(date +%Y%m%d_%H%M%S)
-
-mkdir -p $BACKUP_DIR
-
-# Backup de base de datos
-pg_dump parking_db > $BACKUP_DIR/parking_db_$DATE.sql
-
-# Backup de configuración
-tar -czf $BACKUP_DIR/config_$DATE.tar.gz /opt/parking_altea/.env /opt/parking_altea/src/
-
-# Mantener solo los últimos 7 días
-find $BACKUP_DIR -name "*.sql" -mtime +7 -delete
-find $BACKUP_DIR -name "*.tar.gz" -mtime +7 -delete
-
-echo "Backup completado: $DATE"
-EOF
-
-chmod +x /opt/parking_altea/backup.sh
-
-# Programar backup diario
-echo "0 2 * * * /opt/parking_altea/backup.sh" | crontab -
-```
-
-### Recuperación
-
-```bash
-# Restaurar base de datos
-pg_restore -d parking_db /backup/parking-altea/parking_db_YYYYMMDD_HHMMSS.sql
-
-# Restaurar configuración
-tar -xzf /backup/parking-altea/config_YYYYMMDD_HHMMSS.tar.gz -C /
-```
-
-## Troubleshooting
-
-### Problemas Comunes
-
-#### 1. Servicio no inicia
-```bash
-# Verificar logs
-journalctl -u parking-api.service --no-pager -n 50
-journalctl -u parking-camera.service --no-pager -n 50
-
-# Verificar configuración
-systemctl cat parking-api.service
-systemctl cat parking-camera.service
-```
-
-#### 2. Error de conexión a base de datos
-```bash
-# Verificar PostgreSQL
-systemctl status postgresql
-sudo -u postgres psql -d parking_db -c "SELECT version();"
-
-# Verificar variables de entorno
-cat /opt/parking_altea/.env
-```
-
-#### 3. Puerto no disponible
-```bash
-# Verificar puertos en uso
-netstat -tlnp | grep -E ':(6001|6400)'
-
-# Verificar firewall
-ufw status
-```
-
-#### 4. Permisos de archivos
-```bash
-# Verificar permisos
-ls -la /opt/parking_altea/
-ls -la /opt/parking_altea/src/
-
-# Corregir permisos si es necesario
-chown -R root:root /opt/parking_altea/
-chmod -R 755 /opt/parking_altea/
-```
-
-## Actualizaciones
-
-### Actualización de Código
-
+### Actualizar Código
 ```bash
 cd /opt/parking_altea
-
-# Hacer backup antes de actualizar
-./backup.sh
-
-# Actualizar código
-git pull origin main
-
-# Reiniciar servicios
+git fetch origin
+git checkout <branch>
+git pull origin <branch>
 systemctl restart parking-api.service
-systemctl restart parking-camera.service
-
-# Verificar funcionamiento
-./check_status.sh
 ```
 
-### Actualización de Dependencias
-
+### Instalar Dependencias
 ```bash
 cd /opt/parking_altea
 source venv/bin/activate
+pip install -r requirements.txt
+```
 
-# Actualizar dependencias
-pip install -r requirements.txt --upgrade
+## Seguridad
 
-# Reiniciar servicios
-systemctl restart parking-api.service
-systemctl restart parking-camera.service
-``` 
+### Firewall
+- Puerto 6001: API REST (acceso público)
+- Puerto 6002: Servidor de cámaras (acceso restringido)
+- Puerto 22: SSH (acceso restringido)
+
+### Autenticación
+- Tokens JWT con expiración de 24 horas
+- Contraseñas encriptadas con bcrypt
+- Validación de permisos por recurso
+
+### Base de Datos
+- Conexiones con SSL
+- Usuarios con permisos mínimos necesarios
+- Backup automático configurado
+
+## Próximos Pasos
+
+1. **Frontend**: Implementar interfaz de usuario con React
+2. **Monitoreo**: Configurar alertas y métricas
+3. **Backup**: Automatizar backups de base de datos
+4. **SSL**: Configurar certificados HTTPS
+5. **Logs**: Centralizar logs con ELK Stack
+
+## Contacto de Soporte
+- **Desarrollador**: Francisco
+- **Email**: info@swat-id.com
+- **Proyecto**: Parking Altea v2.2 
