@@ -4,6 +4,39 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship, declarative_base
 Base = declarative_base()
 
+class User(Base):
+    __tablename__ = 'users'
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    email = Column(String, unique=True, nullable=False)
+    password_hash = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relaciones con tablas intermedias
+    user_parkings = relationship('UserParking', back_populates='user')
+    user_panels = relationship('UserPanel', back_populates='user')
+
+class UserParking(Base):
+    __tablename__ = 'user_parkings'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    parking_id = Column(Integer, ForeignKey('parkings.id'), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    user = relationship('User', back_populates='user_parkings')
+    parking = relationship('Parking')
+
+class UserPanel(Base):
+    __tablename__ = 'user_panels'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    panel_id = Column(Integer, ForeignKey('panels.id'), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    user = relationship('User', back_populates='user_panels')
+    panel = relationship('Panel')
+
 class Parking(Base):
     __tablename__ = 'parkings'
     id = Column(Integer, primary_key=True)
