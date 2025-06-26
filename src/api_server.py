@@ -1,15 +1,16 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
 import config
-from models import Base, Parking, ScheduledMessage, OccupancyHistory, Panel, User, UserParking, UserPanel, UserAccess, Access
+from models import Base, Parking, ScheduledMessage, OccupancyHistory, Panel, User, UserParking, UserPanel, UserAccess, Access, CameraLog
 from auth import (
     create_user, authenticate_user, delete_user, change_password, 
     get_user_permissions, assign_user_to_resources, require_auth
 )
 from datetime import datetime
 import logging
+from panel_client import broadcast
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -340,19 +341,29 @@ def set_occupancy(pid):
         previous_occupancy = p.current_occupancy
         change_amount = occupancy - previous_occupancy
         
+        # Validaciones adicionales
+        if occupancy > p.max_capacity * 2:
+            session.close()
+            return jsonify({'error': f'Occupancy cannot exceed {p.max_capacity * 2} (double capacity)'}), 400
+        
         # Actualizar ocupación
         p.current_occupancy = occupancy
         
-        # Recalcular estado
+        # Recalcular estado con nueva lógica: descuadre negativo = COMPLETO
         free = p.max_capacity - p.current_occupancy
-        if free <= p.threshold_full:
+        
+        if free < 0:
+            # Descuadre negativo - mostrar como COMPLETO
+            p.status = 'COMPLETO'
+            logger.warning(f"Manual adjustment: Descuadre negativo - Parking: {p.name}, Free spaces: {free}, Status set to COMPLETO")
+        elif free <= p.threshold_full:
             p.status = 'COMPLETO'
         elif free <= p.threshold_dense:
             p.status = 'DENSO'
         else:
             p.status = 'LIBRE'
         
-        # Guardar en historial
+        # Guardar en historial con marca de ajuste manual
         history = OccupancyHistory(
             parking_id=pid,
             occupancy=occupancy,
@@ -366,17 +377,22 @@ def set_occupancy(pid):
         parking_name = p.name
         final_occupancy = p.current_occupancy
         final_status = p.status
+        final_free_spaces = p.max_capacity - final_occupancy
         
         session.commit()
         session.close()
         
-        logger.info(f"Parking occupancy updated - Parking: {parking_name}, Occupancy: {final_occupancy}, Status: {final_status}")
+        logger.info(f"Manual occupancy update - Parking: {parking_name}, Previous: {previous_occupancy}, New: {final_occupancy}, Change: {change_amount}, Status: {final_status}")
+        
         return jsonify({
             'status': 'ok',
             'parking': parking_name,
             'occupancy': final_occupancy,
-            'free_spaces': p.max_capacity - final_occupancy,
-            'status': final_status
+            'free_spaces': final_free_spaces,
+            'status': final_status,
+            'previous_occupancy': previous_occupancy,
+            'change_amount': change_amount,
+            'adjustment_type': 'manual'
         })
         
     except Exception as e:
@@ -918,5 +934,134 @@ def get_panel_logs():
         logger.error(f"Error obteniendo logs de paneles: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@app.route('/camera/logs', methods=['GET'])
+def get_camera_logs():
+    """Obtener logs de cámaras con filtros"""
+    try:
+        # Parámetros de filtrado
+        parking_id = request.args.get('parking_id', type=int)
+        access_id = request.args.get('access_id', type=int)
+        status = request.args.get('status')  # 'processed', 'discarded', 'error'
+        limit = request.args.get('limit', 100, type=int)
+        offset = request.args.get('offset', 0, type=int)
+        
+        session = Session()
+        
+        # Construir query
+        query = session.query(CameraLog)
+        
+        if parking_id:
+            query = query.filter(CameraLog.parking_id == parking_id)
+        if access_id:
+            query = query.filter(CameraLog.access_id == access_id)
+        if status:
+            query = query.filter(CameraLog.status == status)
+        
+        # Ordenar por fecha de recepción (más reciente primero)
+        query = query.order_by(CameraLog.received_at.desc())
+        
+        # Aplicar límite y offset
+        total_count = query.count()
+        logs = query.offset(offset).limit(limit).all()
+        
+        # Formatear respuesta
+        data = []
+        for log in logs:
+            log_data = {
+                'id': log.id,
+                'camera_ip': log.camera_ip,
+                'camera_line': log.camera_line,
+                'camera_name': log.camera_name,
+                'parking_id': log.parking_id,
+                'parking_name': log.parking.name if log.parking else None,
+                'vehicle_in': log.vehicle_in,
+                'vehicle_out': log.vehicle_out,
+                'delta_in': log.delta_in,
+                'delta_out': log.delta_out,
+                'status': log.status,
+                'error_message': log.error_message,
+                'processing_time': log.processing_time,
+                'new_occupancy': log.new_occupancy,
+                'occupancy_change': log.occupancy_change,
+                'parking_status': log.parking_status,
+                'received_at': log.received_at.isoformat() if log.received_at else None,
+                'processed_at': log.processed_at.isoformat() if log.processed_at else None
+            }
+            data.append(log_data)
+        
+        session.close()
+        
+        return jsonify({
+            'logs': data,
+            'total_count': total_count,
+            'limit': limit,
+            'offset': offset
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo logs de cámaras: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/camera/logs/stats', methods=['GET'])
+def get_camera_logs_stats():
+    """Obtener estadísticas de logs de cámaras"""
+    try:
+        parking_id = request.args.get('parking_id', type=int)
+        days = request.args.get('days', 7, type=int)
+        
+        session = Session()
+        
+        # Calcular fecha límite
+        from datetime import datetime, timedelta
+        limit_date = datetime.now() - timedelta(days=days)
+        
+        # Construir query
+        query = session.query(CameraLog).filter(CameraLog.received_at >= limit_date)
+        
+        if parking_id:
+            query = query.filter(CameraLog.parking_id == parking_id)
+        
+        # Obtener estadísticas
+        total_logs = query.count()
+        processed_logs = query.filter(CameraLog.status == 'processed').count()
+        error_logs = query.filter(CameraLog.status == 'error').count()
+        discarded_logs = query.filter(CameraLog.status == 'discarded').count()
+        
+        # Obtener logs por parking
+        parking_stats = []
+        if not parking_id:
+            parking_stats_query = session.query(
+                CameraLog.parking_id,
+                func.count(CameraLog.id).label('total'),
+                func.count(CameraLog.id).filter(CameraLog.status == 'processed').label('processed'),
+                func.count(CameraLog.id).filter(CameraLog.status == 'error').label('errors')
+            ).filter(CameraLog.received_at >= limit_date).group_by(CameraLog.parking_id)
+            
+            for stat in parking_stats_query.all():
+                parking = session.query(Parking).get(stat.parking_id)
+                parking_stats.append({
+                    'parking_id': stat.parking_id,
+                    'parking_name': parking.name if parking else 'Unknown',
+                    'total_logs': stat.total,
+                    'processed_logs': stat.processed,
+                    'error_logs': stat.errors
+                })
+        
+        session.close()
+        
+        return jsonify({
+            'period_days': days,
+            'total_logs': total_logs,
+            'processed_logs': processed_logs,
+            'error_logs': error_logs,
+            'discarded_logs': discarded_logs,
+            'success_rate': (processed_logs / total_logs * 100) if total_logs > 0 else 0,
+            'parking_stats': parking_stats
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo estadísticas de logs de cámaras: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=config.API_PORT)
+    app.run(host='0.0.0.0', port=config.API_PORT, debug=False)

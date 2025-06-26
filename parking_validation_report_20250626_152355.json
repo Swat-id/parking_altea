@@ -1,0 +1,281 @@
+{
+  "timestamp": "2025-06-26T15:23:32.231564",
+  "summary": {
+    "total_parkings": 9,
+    "parkings_with_cameras": 8,
+    "parkings_with_panels": 8,
+    "online_cameras": 0,
+    "offline_cameras": 13,
+    "online_panels": 0,
+    "offline_panels": 10,
+    "total_users": 2
+  },
+  "parkings": [
+    {
+      "id": 4,
+      "name": "4 - P. Poble antic/Belles Arts 2",
+      "capacity": 45,
+      "threshold_dense": 5,
+      "threshold_full": 5,
+      "current_occupancy": 0,
+      "status": "LIBRE",
+      "cameras": [
+        {
+          "name": "INSTITUT camera 1",
+          "ip": "172.20.4.148",
+          "line": 1,
+          "online": false
+        }
+      ],
+      "panels": [
+        {
+          "name": "BELLES ARTS 2",
+          "ip": "172.20.4.52",
+          "status": "OFFLINE",
+          "online": false
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "7 - P. Port Altea",
+      "capacity": 166,
+      "threshold_dense": 10,
+      "threshold_full": 4,
+      "current_occupancy": 0,
+      "status": "LIBRE",
+      "cameras": [],
+      "panels": []
+    },
+    {
+      "id": 8,
+      "name": "8 - P. Estació Altea",
+      "capacity": 80,
+      "threshold_dense": 10,
+      "threshold_full": 4,
+      "current_occupancy": 0,
+      "status": "LIBRE",
+      "cameras": [
+        {
+          "name": "RENFE1 camera 1",
+          "ip": "172.20.2.181",
+          "line": 1,
+          "online": false
+        }
+      ],
+      "panels": [
+        {
+          "name": "PANEL RENFE",
+          "ip": "172.20.2.50",
+          "status": "OFFLINE",
+          "online": false
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "6 - P. Poble antic/Conservatori",
+      "capacity": 120,
+      "threshold_dense": 10,
+      "threshold_full": 4,
+      "current_occupancy": -23,
+      "status": "LIBRE",
+      "cameras": [
+        {
+          "name": "Piteres_2 camera 2",
+          "ip": "172.20.3.182",
+          "line": 1,
+          "online": false
+        },
+        {
+          "name": "Piteres_1 camera 1",
+          "ip": "172.20.3.185",
+          "line": 1,
+          "online": false
+        }
+      ],
+      "panels": [
+        {
+          "name": "PANEL PITERES",
+          "ip": "172.20.8.50",
+          "status": "OFFLINE",
+          "online": false
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "5 - P. Poble antic/Palau Altea",
+      "capacity": 90,
+      "threshold_dense": 10,
+      "threshold_full": 4,
+      "current_occupancy": 89,
+      "status": "COMPLETO",
+      "cameras": [
+        {
+          "name": "Cocoliso1 camera 1",
+          "ip": "172.20.4.140",
+          "line": 1,
+          "online": false
+        },
+        {
+          "name": "Cocoliso3 camera 3",
+          "ip": "172.20.4.157",
+          "line": 1,
+          "online": false
+        },
+        {
+          "name": "cocoliso2 camera 2",
+          "ip": "172.20.4.139",
+          "line": 1,
+          "online": false
+        }
+      ],
+      "panels": [
+        {
+          "name": "PANEL PALAU",
+          "ip": "172.20.4.50",
+          "status": "OFFLINE",
+          "online": false
+        },
+        {
+          "name": "PANEL COCOLISO",
+          "ip": "172.20.4.51",
+          "status": "OFFLINE",
+          "online": false
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "2 - P. Basseta Centre",
+      "capacity": 500,
+      "threshold_dense": 25,
+      "threshold_full": 5,
+      "current_occupancy": 303,
+      "status": "LIBRE",
+      "cameras": [
+        {
+          "name": "Basseta_Asup camera 1",
+          "ip": "172.20.5.144",
+          "line": 1,
+          "online": false
+        },
+        {
+          "name": "Basseta_Rastro camera 2",
+          "ip": "172.20.5.133",
+          "line": 1,
+          "online": false
+        }
+      ],
+      "panels": [
+        {
+          "name": "PANEL BASSETA 1",
+          "ip": "172.20.5.50",
+          "status": "OFFLINE",
+          "online": false
+        },
+        {
+          "name": "PANEL BASSETA 2",
+          "ip": "172.20.5.51",
+          "status": "OFFLINE",
+          "online": false
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "name": "9 - P. Altea la Vella",
+      "capacity": 60,
+      "threshold_dense": 10,
+      "threshold_full": 4,
+      "current_occupancy": 47,
+      "status": "LIBRE",
+      "cameras": [
+        {
+          "name": "Vella_AI camera 2",
+          "ip": "172.20.1.154",
+          "line": 1,
+          "online": false
+        },
+        {
+          "name": "VELLA1 camera 1",
+          "ip": "172.20.1.162",
+          "line": 1,
+          "online": false
+        }
+      ],
+      "panels": [
+        {
+          "name": "PANEL ALTEA VELLA",
+          "ip": "172.20.1.50",
+          "status": "OFFLINE",
+          "online": false
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "3 - P. Poble antic/Belles Arts 1",
+      "capacity": 200,
+      "threshold_dense": 25,
+      "threshold_full": 5,
+      "current_occupancy": 42,
+      "status": "LIBRE",
+      "cameras": [
+        {
+          "name": "palau1 camera 1",
+          "ip": "172.20.4.138",
+          "line": 1,
+          "online": false
+        }
+      ],
+      "panels": [
+        {
+          "name": "BELLES ARTS",
+          "ip": "172.20.4.53",
+          "status": "OFFLINE",
+          "online": false
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "name": "1 - P. Ciutat Esportiva",
+      "capacity": 500,
+      "threshold_dense": 5,
+      "threshold_full": 2,
+      "current_occupancy": 411,
+      "status": "LIBRE",
+      "cameras": [
+        {
+          "name": "ciutat_esportiva camera 1",
+          "ip": "172.20.17.146",
+          "line": 1,
+          "online": false
+        }
+      ],
+      "panels": [
+        {
+          "name": "PANEL C. ESPORTIVA",
+          "ip": "172.20.17.50",
+          "status": "OFFLINE",
+          "online": false
+        }
+      ]
+    }
+  ],
+  "csv_comparison": {
+    "missing_in_db": [],
+    "extra_in_db": [],
+    "csv_total": 13,
+    "db_total": 13
+  },
+  "issues": [],
+  "recommendations": [
+    "Hay 13 cámaras offline. Verificar conectividad de red y estado de los dispositivos.",
+    "Hay 10 paneles offline. Verificar conectividad de red y estado de los dispositivos.",
+    "TODAS las cámaras están offline. Verificar configuración de red o firewall.",
+    "TODOS los paneles están offline. Verificar configuración de red o firewall."
+  ]
+}

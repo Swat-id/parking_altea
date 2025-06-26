@@ -9,7 +9,8 @@ import {
   User, 
   Menu, 
   X,
-  Building2
+  Building2,
+  Camera
 } from 'lucide-react'
 
 const Layout = ({ children }) => {
@@ -22,6 +23,7 @@ const Layout = ({ children }) => {
     { name: 'Parkings', href: '/parkings', current: location.pathname === '/parkings', icon: Car },
     { name: 'Paneles', href: '/panels', current: location.pathname === '/panels', icon: Monitor },
     { name: 'Estadísticas', href: '/statistics', current: location.pathname === '/statistics', icon: BarChart3 },
+    { name: 'Camera Logs', href: '/camera-logs', current: location.pathname === '/camera-logs', icon: Camera },
     { name: 'Perfil', href: '/profile', current: location.pathname === '/profile', icon: User },
   ]
 

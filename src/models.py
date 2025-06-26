@@ -212,3 +212,41 @@ class VehicleCount(Base):
     # Relaciones
     access = relationship('Access')
     parking = relationship('Parking')
+
+class CameraLog(Base):
+    __tablename__ = 'camera_logs'
+    id = Column(Integer, primary_key=True)
+    
+    # Información de la cámara
+    access_id = Column(Integer, ForeignKey('accesses.id'), nullable=True)
+    parking_id = Column(Integer, ForeignKey('parkings.id'), nullable=False)
+    camera_ip = Column(String, nullable=False)
+    camera_line = Column(Integer, nullable=False)
+    camera_name = Column(String)
+    
+    # Datos del mensaje
+    raw_message = Column(Text)  # Mensaje JSON completo recibido
+    vehicle_in = Column(Integer)
+    vehicle_out = Column(Integer)
+    previous_vehicle_in = Column(Integer)
+    previous_vehicle_out = Column(Integer)
+    delta_in = Column(Integer)
+    delta_out = Column(Integer)
+    
+    # Estado del procesamiento
+    status = Column(String, nullable=False)  # 'processed', 'discarded', 'error'
+    error_message = Column(Text)  # Mensaje de error si aplica
+    processing_time = Column(Float)  # Tiempo de procesamiento en ms
+    
+    # Resultado
+    new_occupancy = Column(Integer)
+    occupancy_change = Column(Integer)
+    parking_status = Column(String)  # Estado final del parking
+    
+    # Timestamps
+    received_at = Column(DateTime(timezone=True), server_default=func.now())
+    processed_at = Column(DateTime(timezone=True))
+    
+    # Relaciones
+    access = relationship('Access')
+    parking = relationship('Parking')

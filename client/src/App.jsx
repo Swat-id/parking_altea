@@ -5,6 +5,7 @@ import Parkings from './pages/Parkings'
 import ParkingDetail from './pages/ParkingDetail'
 import Panels from './pages/Panels'
 import Statistics from './pages/Statistics'
+import CameraLogs from './pages/CameraLogs'
 import Profile from './pages/Profile'
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
         <Route path="/parking/:id" element={<ParkingDetail />} />
         <Route path="/panels" element={<Panels />} />
         <Route path="/statistics" element={<Statistics />} />
+        <Route path="/camera-logs" element={<CameraLogs />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

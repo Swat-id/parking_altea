@@ -5,7 +5,8 @@ from datetime import datetime
 import config
 import json
 import logging
-from models import Base, Parking, Access, OccupancyHistory
+import time
+from models import Base, Parking, Access, OccupancyHistory, CameraLog
 from panel_client import broadcast
 
 # Configurar logging
@@ -17,8 +18,47 @@ engine = create_engine(config.DB_URL, echo=False)
 Session = sessionmaker(bind=engine)
 Base.metadata.create_all(engine)
 
+def log_camera_message(session, camera_ip, camera_line, camera_name, raw_message, 
+                      vehicle_in, vehicle_out, status, error_message=None, 
+                      access_id=None, parking_id=None, processing_time=None,
+                      previous_vehicle_in=None, previous_vehicle_out=None,
+                      delta_in=None, delta_out=None, new_occupancy=None,
+                      occupancy_change=None, parking_status=None):
+    """Registrar mensaje de cámara en la base de datos"""
+    try:
+        camera_log = CameraLog(
+            access_id=access_id,
+            parking_id=parking_id,
+            camera_ip=camera_ip,
+            camera_line=camera_line,
+            camera_name=camera_name,
+            raw_message=raw_message,
+            vehicle_in=vehicle_in,
+            vehicle_out=vehicle_out,
+            previous_vehicle_in=previous_vehicle_in,
+            previous_vehicle_out=previous_vehicle_out,
+            delta_in=delta_in,
+            delta_out=delta_out,
+            status=status,
+            error_message=error_message,
+            processing_time=processing_time,
+            new_occupancy=new_occupancy,
+            occupancy_change=occupancy_change,
+            parking_status=parking_status,
+            processed_at=datetime.now()
+        )
+        session.add(camera_log)
+        session.commit()
+        return True
+    except Exception as e:
+        logger.error(f"Error registrando log de cámara: {e}")
+        session.rollback()
+        return False
+
 @app.route('/camera', methods=['POST'])
 def handle_camera():
+    start_time = time.time()
+    
     # Obtener IP del cliente al inicio para logging
     ip = request.headers.get('X-Forwarded-For') or request.remote_addr
     
@@ -35,6 +75,8 @@ def handle_camera():
         logger.error(f"Error reading raw body from {ip}: {e}")
         raw_data = "Unable to read raw body"
     
+    session = Session()
+    
     try:
         # Intentar parsear JSON de forma robusta
         try:
@@ -43,11 +85,41 @@ def handle_camera():
         except Exception as e:
             logger.error(f"JSON mal formado descartado from {ip}: {e}")
             logger.error(f"Raw data that caused error: {raw_data}")
+            
+            # Registrar log de error
+            log_camera_message(
+                session=session,
+                camera_ip=ip,
+                camera_line=0,
+                camera_name="",
+                raw_message=raw_data,
+                vehicle_in=0,
+                vehicle_out=0,
+                status="error",
+                error_message=f"Invalid JSON format: {e}",
+                processing_time=(time.time() - start_time) * 1000
+            )
+            
             return jsonify({'error': 'Invalid JSON format'}), 400
         
         if not data:
             logger.error(f"Mensaje vacío descartado from {ip}")
             logger.error(f"Raw data was empty or null")
+            
+            # Registrar log de error
+            log_camera_message(
+                session=session,
+                camera_ip=ip,
+                camera_line=0,
+                camera_name="",
+                raw_message=raw_data,
+                vehicle_in=0,
+                vehicle_out=0,
+                status="error",
+                error_message="Empty JSON data",
+                processing_time=(time.time() - start_time) * 1000
+            )
+            
             return jsonify({'error': 'Empty JSON data'}), 400
         
         # Extraer campos del nuevo formato
@@ -64,8 +136,24 @@ def handle_camera():
         
         # Validar campos requeridos
         if line is None or veh_in is None or veh_out is None:
-            logger.error(f"Campos requeridos faltantes from {ip}: line={line}, veh_in={veh_in}, veh_out={veh_out}")
+            error_msg = f"Campos requeridos faltantes: line={line}, veh_in={veh_in}, veh_out={veh_out}"
+            logger.error(f"{error_msg} from {ip}")
             logger.error(f"JSON completo que causó el error: {json.dumps(data, indent=2)}")
+            
+            # Registrar log de error
+            log_camera_message(
+                session=session,
+                camera_ip=ip,
+                camera_line=line or 0,
+                camera_name=device,
+                raw_message=raw_data,
+                vehicle_in=veh_in or 0,
+                vehicle_out=veh_out or 0,
+                status="error",
+                error_message=error_msg,
+                processing_time=(time.time() - start_time) * 1000
+            )
+            
             return jsonify({'error': 'Missing required fields: line, Vehicle In, Vehicle Out'}), 400
         
         # Convertir a enteros de forma segura
@@ -74,16 +162,30 @@ def handle_camera():
             veh_in = int(veh_in)
             veh_out = int(veh_out)
         except (ValueError, TypeError) as e:
-            logger.error(f"Valores numéricos inválidos from {ip}: {e}")
+            error_msg = f"Valores numéricos inválidos: {e}"
+            logger.error(f"{error_msg} from {ip}")
             logger.error(f"Valores problemáticos: line='{line}', veh_in='{veh_in}', veh_out='{veh_out}'")
+            
+            # Registrar log de error
+            log_camera_message(
+                session=session,
+                camera_ip=ip,
+                camera_line=line if isinstance(line, int) else 0,
+                camera_name=device,
+                raw_message=raw_data,
+                vehicle_in=veh_in if isinstance(veh_in, int) else 0,
+                vehicle_out=veh_out if isinstance(veh_out, int) else 0,
+                status="error",
+                error_message=error_msg,
+                processing_time=(time.time() - start_time) * 1000
+            )
+            
             return jsonify({'error': 'Invalid numeric values'}), 400
         
         # Ajustar numeración de línea: cámara envía 0,1,2,3... pero BD usa 1,2,3,4...
         original_line = line
         line = line + 1
         logger.info(f"Line number adjusted - Received: {original_line}, Adjusted for DB: {line}")
-        
-        session = Session()
         
         # Buscar acceso por IP y línea (método principal)
         access = session.query(Access).filter_by(ip=ip, line=line).first()
@@ -104,21 +206,66 @@ def handle_camera():
                     func.lower(Access.name) == func.lower(device)
                 ).first()
                 if device_access:
-                    logger.warning(f"Device found (case-insensitive) but line mismatch - Device: {device}, DB Device: {device_access.name}, Expected line: {device_access.line}, Received line: {original_line} (adjusted: {line})")
+                    error_msg = f"Device found but line mismatch - Expected: {device_access.line}, Received: {original_line}"
+                    logger.warning(f"{error_msg} - Device: {device}, DB Device: {device_access.name}")
                     logger.warning(f"Message logged but not processed - line validation failed")
-                    session.close()
+                    
+                    # Registrar log de error
+                    log_camera_message(
+                        session=session,
+                        camera_ip=ip,
+                        camera_line=original_line,
+                        camera_name=device,
+                        raw_message=raw_data,
+                        vehicle_in=veh_in,
+                        vehicle_out=veh_out,
+                        status="error",
+                        error_message=error_msg,
+                        processing_time=(time.time() - start_time) * 1000
+                    )
+                    
                     return jsonify({'error': 'Line mismatch for device'}), 400
                 else:
-                    logger.warning(f"Device not found in database (case-insensitive search): {device}")
+                    error_msg = f"Device not found in database: {device}"
+                    logger.warning(f"{error_msg}")
                     # Log adicional para debugging - mostrar todos los dispositivos disponibles
                     all_devices = session.query(Access.name).distinct().all()
                     device_names = [d[0] for d in all_devices]
                     logger.warning(f"Available devices in database: {device_names}")
+                    
+                    # Registrar log de error
+                    log_camera_message(
+                        session=session,
+                        camera_ip=ip,
+                        camera_line=original_line,
+                        camera_name=device,
+                        raw_message=raw_data,
+                        vehicle_in=veh_in,
+                        vehicle_out=veh_out,
+                        status="error",
+                        error_message=error_msg,
+                        processing_time=(time.time() - start_time) * 1000
+                    )
         
         if not access:
-            session.close()
-            logger.warning(f"Access not found for IP: {ip}, Line: {original_line} (adjusted: {line}), Device: {device}")
+            error_msg = f"Access not found for IP: {ip}, Line: {original_line} (adjusted: {line}), Device: {device}"
+            logger.warning(f"{error_msg}")
             logger.warning(f"JSON completo que no pudo ser procesado: {json.dumps(data, indent=2)}")
+            
+            # Registrar log de error
+            log_camera_message(
+                session=session,
+                camera_ip=ip,
+                camera_line=original_line,
+                camera_name=device,
+                raw_message=raw_data,
+                vehicle_in=veh_in,
+                vehicle_out=veh_out,
+                status="error",
+                error_message=error_msg,
+                processing_time=(time.time() - start_time) * 1000
+            )
+            
             return jsonify({'error': 'Access not found'}), 404
         
         # Log de información del acceso encontrado
@@ -175,19 +322,20 @@ def handle_camera():
         
         if parking.fixed_message_flag:
             message = None
+            parking_status = parking.status  # Mantener estado actual
             logger.info(f"Fixed message flag is active - no status update")
         else:
-            # Evaluar estado considerando descuadres
+            # NUEVA LÓGICA: Descuadre negativo = COMPLETO
             if free < 0:
-                # Estado especial para descuadres negativos
-                parking.status = 'DESCUADRE_NEGATIVO'
-                message = f"{parking_name}: ERROR - {abs(free)} vehículos de más"
-                logger.warning(f"Status set to DESCUADRE_NEGATIVO - Free spaces: {free}")
+                # Estado especial para descuadres negativos - MOSTRAR COMO COMPLETO
+                parking.status = 'COMPLETO'
+                message = f"{parking_name}: COMPLETO"
+                logger.warning(f"Status set to COMPLETO (descuadre negativo) - Free spaces: {free}")
             elif occ > parking.max_capacity:
                 # Estado para exceso de ocupación
-                parking.status = 'COMPLETO_EXCESO'
-                message = f"{parking_name}: COMPLETO + {occ - parking.max_capacity} extra"
-                logger.warning(f"Status set to COMPLETO_EXCESO - Occupancy: {occ}, Capacity: {parking.max_capacity}")
+                parking.status = 'COMPLETO'
+                message = f"{parking_name}: COMPLETO"
+                logger.warning(f"Status set to COMPLETO (exceso) - Occupancy: {occ}, Capacity: {parking.max_capacity}")
             elif free <= parking.threshold_full:
                 parking.status = 'COMPLETO'
                 message = f"{parking_name}: {free} libres ({parking.status})"
@@ -198,6 +346,7 @@ def handle_camera():
                 parking.status = 'LIBRE'
                 message = f"{parking_name}: {free} libres ({parking.status})"
             
+            parking_status = parking.status
             logger.info(f"Status updated - Previous: {previous_status}, New: {parking.status}, Free spaces: {free}")
             logger.info(f"Thresholds evaluation - Free spaces: {free}, Dense threshold: {parking.threshold_dense}, Full threshold: {parking.threshold_full}")
             
@@ -207,6 +356,28 @@ def handle_camera():
                 logger.info(f"Message broadcasted to panels: {message}")
             except Exception as e:
                 logger.error(f"Error broadcasting to panels: {e}")
+        
+        # Registrar log de cámara exitoso
+        log_camera_message(
+            session=session,
+            camera_ip=ip,
+            camera_line=original_line,
+            camera_name=device,
+            raw_message=raw_data,
+            vehicle_in=veh_in,
+            vehicle_out=veh_out,
+            status="processed",
+            access_id=access.id,
+            parking_id=parking.id,
+            processing_time=(time.time() - start_time) * 1000,
+            previous_vehicle_in=access.last_vehicle_in - delta_in if access.last_vehicle_in is not None else None,
+            previous_vehicle_out=access.last_vehicle_out - delta_out if access.last_vehicle_out is not None else None,
+            delta_in=delta_in,
+            delta_out=delta_out,
+            new_occupancy=occ,
+            occupancy_change=occ - previous_occupancy,
+            parking_status=parking_status
+        )
         
         session.commit()
         session.close()
@@ -218,6 +389,24 @@ def handle_camera():
     except Exception as e:
         logger.error(f"Error inesperado procesando datos de cámara from {ip}: {e}")
         logger.error(f"Raw data that caused unexpected error: {raw_data}")
+        
+        # Registrar log de error
+        try:
+            log_camera_message(
+                session=session,
+                camera_ip=ip,
+                camera_line=0,
+                camera_name="",
+                raw_message=raw_data,
+                vehicle_in=0,
+                vehicle_out=0,
+                status="error",
+                error_message=f"Unexpected error: {e}",
+                processing_time=(time.time() - start_time) * 1000
+            )
+        except:
+            pass
+        
         # Asegurar que la sesión se cierre en caso de error
         try:
             session.close()
@@ -232,4 +421,4 @@ def camera_status():
     return jsonify({'status': 'ok', 'service': 'camera_server'})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=config.CAMERA_PORT)
+    app.run(host='0.0.0.0', port=config.CAMERA_PORT, debug=False)
