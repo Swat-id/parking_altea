@@ -117,16 +117,17 @@ def set_occupancy(pid):
         # Registrar histórico
         hist = OccupancyHistory(parking_id=pid, occupancy=p.current_occupancy, source='manual')
         session.add(hist)
+        final_status = p.status  # Guardar el estado antes de cerrar la sesión
         session.commit()
         session.close()
         
-        logger.info(f"Manual occupancy update - Parking: {parking_name}, Previous: {previous_occupancy}, New: {new_occ}, Status: {p.status}")
+        logger.info(f"Manual occupancy update - Parking: {parking_name}, Previous: {previous_occupancy}, New: {new_occ}, Status: {final_status}")
         return jsonify({
             'status': 'ok',
             'parking': parking_name,
             'previous_occupancy': previous_occupancy,
             'new_occupancy': new_occ,
-            'status': p.status
+            'status': final_status
         })
         
     except Exception as e:
