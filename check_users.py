@@ -5,34 +5,27 @@ import os
 sys.path.append('src')
 
 from models import User
-from config import DB_URL
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+import config
 
 def check_users():
-    engine = create_engine(DB_URL, echo=False)
-    Session = sessionmaker(bind=engine)
-    session = Session()
-    
     try:
+        engine = create_engine(config.DB_URL)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
         users = session.query(User).all()
-        print("Usuarios en la base de datos:")
-        print("=" * 50)
+        print(f"Total usuarios en BD: {len(users)}")
         
         for user in users:
-            print(f"ID: {user.id}")
-            print(f"Email: {user.email}")
-            print(f"Nombre: {user.name}")
-            print(f"Activo: {user.is_active}")
-            print("-" * 30)
-            
-        if not users:
-            print("No hay usuarios en la base de datos")
-            
-    except Exception as e:
-        print(f"Error al consultar usuarios: {e}")
-    finally:
+            print(f"ID: {user.id}, Email: {user.email}, Name: {user.name}")
+        
         session.close()
+        return True
+    except Exception as e:
+        print(f"Error: {e}")
+        return False
 
 if __name__ == "__main__":
     check_users() 

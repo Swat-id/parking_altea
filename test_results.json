@@ -1,0 +1,60 @@
+{
+  "timestamp": "2025-06-26T09:56:14.402484",
+  "api_url": "http://157.180.91.63:6001",
+  "frontend_url": "http://157.180.91.63:5789",
+  "results": [
+    {
+      "test": "Conectividad API",
+      "success": true,
+      "details": "API responde correctamente. 9 parkings encontrados",
+      "timestamp": "2025-06-26T09:56:13.302324"
+    },
+    {
+      "test": "Conectividad Frontend",
+      "success": true,
+      "details": "Frontend responde correctamente",
+      "timestamp": "2025-06-26T09:56:13.303782"
+    },
+    {
+      "test": "Datos de Parkings",
+      "success": true,
+      "details": "Datos de parkings válidos. 9 parkings disponibles",
+      "timestamp": "2025-06-26T09:56:13.306592"
+    },
+    {
+      "test": "Endpoints de Estadísticas",
+      "success": true,
+      "details": "Endpoints de estadísticas funcionan",
+      "timestamp": "2025-06-26T09:56:13.332477"
+    },
+    {
+      "test": "Login Toni",
+      "success": true,
+      "details": "Login exitoso para toni",
+      "timestamp": "2025-06-26T09:56:13.597850"
+    },
+    {
+      "test": "Endpoints Protegidos Toni",
+      "success": true,
+      "details": "Endpoints protegidos funcionan para toni. 9 parkings asignados",
+      "timestamp": "2025-06-26T09:56:13.868558"
+    },
+    {
+      "test": "Login Ivan",
+      "success": true,
+      "details": "Login exitoso para ivan",
+      "timestamp": "2025-06-26T09:56:14.132808"
+    },
+    {
+      "test": "Endpoints Protegidos Ivan",
+      "success": true,
+      "details": "Endpoints protegidos funcionan para ivan. 9 parkings asignados",
+      "timestamp": "2025-06-26T09:56:14.402319"
+    }
+  ],
+  "summary": {
+    "total": 8,
+    "passed": 8,
+    "failed": 0
+  }
+}
