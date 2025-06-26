@@ -73,7 +73,11 @@ const Panels = () => {
       onSuccess: (data) => {
         setVerificationResults(data)
         toast.success(`Verificación completada: ${data.updated_count} paneles actualizados`)
-        queryClient.invalidateQueries('panels')
+        
+        // Forzar refetch después de un pequeño delay para asegurar que el backend haya terminado
+        setTimeout(() => {
+          refetch()
+        }, 500)
         
         // Ocultar resultados después de 5 segundos
         setTimeout(() => {
