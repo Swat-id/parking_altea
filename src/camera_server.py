@@ -346,6 +346,10 @@ def handle_camera():
         
         logger.info(f"Deltas calculated - Delta In: {delta_in}, Delta Out: {delta_out}")
         
+        # Guardar contadores anteriores para el log
+        previous_vehicle_in = access.last_vehicle_in
+        previous_vehicle_out = access.last_vehicle_out
+        
         # Actualizar contadores de acceso
         access.last_vehicle_in = veh_in
         access.last_vehicle_out = veh_out
@@ -438,8 +442,8 @@ def handle_camera():
             access_id=access.id,
             parking_id=parking.id,
             processing_time=(time.time() - start_time) * 1000,
-            previous_vehicle_in=access.last_vehicle_in - delta_in if access.last_vehicle_in is not None else None,
-            previous_vehicle_out=access.last_vehicle_out - delta_out if access.last_vehicle_out is not None else None,
+            previous_vehicle_in=previous_vehicle_in - delta_in if previous_vehicle_in is not None else None,
+            previous_vehicle_out=previous_vehicle_out - delta_out if previous_vehicle_out is not None else None,
             delta_in=delta_in,
             delta_out=delta_out,
             new_occupancy=occ,
