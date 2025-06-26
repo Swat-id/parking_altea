@@ -33,6 +33,8 @@ const CameraLogs = () => {
   const [selectedCamera, setSelectedCamera] = useState('')
   const [dateFilter, setDateFilter] = useState('today')
   const [logLevel, setLogLevel] = useState('all')
+  const [lastUpdate, setLastUpdate] = useState(null)
+  const [stats, setStats] = useState({})
 
   useEffect(() => {
     loadData()
@@ -41,25 +43,49 @@ const CameraLogs = () => {
   const loadData = async () => {
     try {
       setLoading(true)
+      setError(null)
       
-      // Cargar parkings y cámaras
-      const [parkingsData, camerasData] = await Promise.all([
-        parkingService.getParkings(),
-        selectedParking ? cameraService.getParkingCameras(selectedParking) : Promise.resolve({ cameras: [] })
-      ])
+      // Cargar parkings
+      const parkingsData = await parkingService.getParkings()
+      setParkings(parkingsData || [])
       
-      setParkings(parkingsData)
-      setCameras(camerasData.cameras || [])
+      // Cargar cámaras si hay parking seleccionado
+      if (selectedParking) {
+        try {
+          const camerasData = await cameraService.getParkingCameras(selectedParking)
+          setCameras(camerasData.cameras || [])
+        } catch (err) {
+          console.error('Error cargando cámaras:', err)
+          setCameras([])
+        }
+      } else {
+        setCameras([])
+      }
       
       // Cargar logs con filtros
       const logsData = await cameraLogService.getCameraLogs({
         parking_id: selectedParking || undefined,
         camera_id: selectedCamera || undefined,
         date_filter: dateFilter,
-        level: logLevel === 'all' ? undefined : logLevel
+        level: logLevel === 'all' ? undefined : logLevel,
+        limit: 100
       })
       
       setLogs(logsData.logs || [])
+      
+      // Cargar estadísticas
+      try {
+        const statsData = await cameraLogService.getCameraLogsStats({
+          parking_id: selectedParking || undefined,
+          days: 7
+        })
+        setStats(statsData || {})
+      } catch (err) {
+        console.error('Error cargando estadísticas:', err)
+        setStats({})
+      }
+      
+      setLastUpdate(new Date())
     } catch (err) {
       setError('Error cargando datos')
       console.error('Error:', err)
@@ -69,7 +95,7 @@ const CameraLogs = () => {
   }
 
   const getLogLevelColor = (level) => {
-    switch (level.toLowerCase()) {
+    switch (level?.toLowerCase()) {
       case 'error':
         return 'text-red-600 bg-red-100'
       case 'warning':
@@ -82,7 +108,7 @@ const CameraLogs = () => {
   }
 
   const getLogLevelIcon = (level) => {
-    switch (level.toLowerCase()) {
+    switch (level?.toLowerCase()) {
       case 'error':
         return '❌'
       case 'warning':
@@ -121,7 +147,12 @@ const CameraLogs = () => {
     return `Hace ${Math.floor(diffHours / 24)} días`
   }
 
-  if (loading) {
+  const formatLastUpdate = () => {
+    if (!lastUpdate) return 'Nunca'
+    return lastUpdate.toLocaleString('es-ES')
+  }
+
+  if (loading && !lastUpdate) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -135,6 +166,11 @@ const CameraLogs = () => {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">📋 Logs de Cámaras</h1>
         <p className="text-gray-600">Registro de actividad y eventos de las cámaras</p>
+        {lastUpdate && (
+          <p className="text-sm text-gray-500 mt-2">
+            Última actualización: {formatLastUpdate()}
+          </p>
+        )}
       </div>
 
       {/* Filtros */}
@@ -218,13 +254,18 @@ const CameraLogs = () => {
         </div>
 
         {/* Botón de actualizar */}
-        <div className="mt-4">
+        <div className="mt-4 flex items-center space-x-4">
           <button
             onClick={loadData}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            disabled={loading}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
           >
-            🔄 Actualizar
+            {loading ? '🔄 Actualizando...' : '🔄 Actualizar'}
           </button>
+          
+          {error && (
+            <span className="text-red-600 text-sm">{error}</span>
+          )}
         </div>
       </div>
 
@@ -269,6 +310,12 @@ const CameraLogs = () => {
           {logs.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-500">No hay logs para mostrar con los filtros actuales</p>
+              <button
+                onClick={loadData}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                🔄 Recargar datos
+              </button>
             </div>
           ) : (
             <table className="min-w-full divide-y divide-gray-200">
@@ -299,14 +346,14 @@ const CameraLogs = () => {
                   <tr key={log.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <div>
-                        <div className="font-medium">{formatTimestamp(log.timestamp)}</div>
-                        <div className="text-xs text-gray-500">{getRelativeTime(log.timestamp)}</div>
+                        <div className="font-medium">{formatTimestamp(log.received_at || log.timestamp)}</div>
+                        <div className="text-xs text-gray-500">{getRelativeTime(log.received_at || log.timestamp)}</div>
                       </div>
                     </td>
                     
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getLogLevelColor(log.level)}`}>
-                        {getLogLevelIcon(log.level)} {log.level}
+                        {getLogLevelIcon(log.level)} {log.level || 'INFO'}
                       </span>
                     </td>
                     
@@ -322,19 +369,19 @@ const CameraLogs = () => {
                     </td>
                     
                     <td className="px-6 py-4 text-sm text-gray-900">
-                      <div className="max-w-xs truncate" title={log.message}>
-                        {log.message}
+                      <div className="max-w-xs truncate" title={log.message || log.error_message}>
+                        {log.message || log.error_message || 'Sin mensaje'}
                       </div>
                     </td>
                     
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {log.details && (
+                      {(log.raw_message || log.details) && (
                         <details className="text-xs">
                           <summary className="cursor-pointer hover:text-gray-700">
                             Ver detalles
                           </summary>
                           <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-x-auto">
-                            {JSON.stringify(log.details, null, 2)}
+                            {JSON.stringify(log.raw_message || log.details, null, 2)}
                           </pre>
                         </details>
                       )}

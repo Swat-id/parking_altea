@@ -4,7 +4,7 @@ export const parkingService = {
   /**
    * Obtener todos los parkings
    */
-  getAllParkings: async () => {
+  async getAllParkings() {
     try {
       const response = await api.get('/parkings')
       return response.data
@@ -17,7 +17,7 @@ export const parkingService = {
   /**
    * Obtener un parking específico
    */
-  getParking: async (parkingId) => {
+  async getParking(parkingId) {
     try {
       const response = await api.get(`/parking/${parkingId}`)
       return response.data
@@ -28,9 +28,16 @@ export const parkingService = {
   },
 
   /**
+   * Obtener parkings (alias para getAllParkings)
+   */
+  async getParkings() {
+    return this.getAllParkings()
+  },
+
+  /**
    * Actualizar ocupación de un parking
    */
-  updateOccupancy: async (parkingId, occupancy) => {
+  async updateOccupancy(parkingId, occupancy) {
     try {
       const response = await api.post(`/parking/${parkingId}/occupancy`, { occupancy })
       return response.data
@@ -43,7 +50,7 @@ export const parkingService = {
   /**
    * Actualizar configuración de un parking
    */
-  updateConfig: async (parkingId, config) => {
+  async updateConfig(parkingId, config) {
     try {
       const response = await api.post(`/parking/${parkingId}/config`, config)
       return response.data
@@ -54,11 +61,11 @@ export const parkingService = {
   },
 
   /**
-   * Enviar mensaje a todos los paneles de un parking
+   * Enviar mensaje a un parking
    */
-  sendMessage: async (parkingId, messageData) => {
+  async sendMessage(parkingId, message) {
     try {
-      const response = await api.post(`/parking/${parkingId}/message`, messageData)
+      const response = await api.post(`/parking/${parkingId}/message`, message)
       return response.data
     } catch (error) {
       console.error('Error enviando mensaje:', error)
@@ -69,9 +76,9 @@ export const parkingService = {
   /**
    * Obtener estadísticas de un parking
    */
-  getStatistics: async (parkingId, days = 7) => {
+  async getStatistics(parkingId) {
     try {
-      const response = await api.get(`/parking/${parkingId}/statistics?days=${days}`)
+      const response = await api.get(`/parking/${parkingId}/statistics`)
       return response.data
     } catch (error) {
       console.error('Error obteniendo estadísticas:', error)
@@ -82,9 +89,9 @@ export const parkingService = {
   /**
    * Obtener historial de ocupación de un parking
    */
-  getHistory: async (parkingId, limit = 100) => {
+  async getHistory(parkingId) {
     try {
-      const response = await api.get(`/parking/${parkingId}/history?limit=${limit}`)
+      const response = await api.get(`/parking/${parkingId}/history`)
       return response.data
     } catch (error) {
       console.error('Error obteniendo historial:', error)

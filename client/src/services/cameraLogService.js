@@ -3,16 +3,18 @@ import api from './api'
 export const cameraLogService = {
   /**
    * Obtener logs de cámaras con filtros
+   * @param {Object} filters - Filtros de búsqueda
+   * @returns {Promise<Object>} Logs de cámaras
    */
-  getCameraLogs: async (filters = {}) => {
+  async getCameraLogs(filters = {}) {
     try {
       const params = new URLSearchParams()
       
       if (filters.parking_id) params.append('parking_id', filters.parking_id)
-      if (filters.access_id) params.append('access_id', filters.access_id)
-      if (filters.status) params.append('status', filters.status)
+      if (filters.camera_id) params.append('camera_id', filters.camera_id)
+      if (filters.date_filter) params.append('date_filter', filters.date_filter)
+      if (filters.level) params.append('level', filters.level)
       if (filters.limit) params.append('limit', filters.limit)
-      if (filters.offset) params.append('offset', filters.offset)
       
       const response = await api.get(`/camera/logs?${params.toString()}`)
       return response.data
@@ -24,8 +26,10 @@ export const cameraLogService = {
 
   /**
    * Obtener estadísticas de logs de cámaras
+   * @param {Object} filters - Filtros de búsqueda
+   * @returns {Promise<Object>} Estadísticas de logs
    */
-  getCameraLogsStats: async (filters = {}) => {
+  async getCameraLogsStats(filters = {}) {
     try {
       const params = new URLSearchParams()
       
@@ -35,7 +39,47 @@ export const cameraLogService = {
       const response = await api.get(`/camera/logs/stats?${params.toString()}`)
       return response.data
     } catch (error) {
-      console.error('Error obteniendo estadísticas de logs de cámaras:', error)
+      console.error('Error obteniendo estadísticas de logs:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Obtener logs de actividad
+   * @param {Object} filters - Filtros de búsqueda
+   * @returns {Promise<Object>} Logs de actividad
+   */
+  async getActivityLogs(filters = {}) {
+    try {
+      const params = new URLSearchParams()
+      
+      if (filters.parking_id) params.append('parking_id', filters.parking_id)
+      if (filters.limit) params.append('limit', filters.limit)
+      
+      const response = await api.get(`/logs/activity?${params.toString()}`)
+      return response.data
+    } catch (error) {
+      console.error('Error obteniendo logs de actividad:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Obtener logs de paneles
+   * @param {Object} filters - Filtros de búsqueda
+   * @returns {Promise<Object>} Logs de paneles
+   */
+  async getPanelLogs(filters = {}) {
+    try {
+      const params = new URLSearchParams()
+      
+      if (filters.panel_id) params.append('panel_id', filters.panel_id)
+      if (filters.limit) params.append('limit', filters.limit)
+      
+      const response = await api.get(`/logs/panels?${params.toString()}`)
+      return response.data
+    } catch (error) {
+      console.error('Error obteniendo logs de paneles:', error)
       throw error
     }
   },

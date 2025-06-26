@@ -5,6 +5,7 @@ import { authService } from '../services/authService'
 import { parkingService } from '../services/parkingService'
 import { cameraService } from '../services/cameraService'
 import { cameraLogService } from '../services/cameraLogService'
+import { panelService } from '../services/panelService'
 import { 
   ArrowLeft, 
   Edit, 
@@ -34,11 +35,17 @@ const ParkingDetail = () => {
   const [messageDuration, setMessageDuration] = useState(30)
   const [parking, setParking] = useState(null)
   const [cameras, setCameras] = useState([])
+  const [panels, setPanels] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [editingLine, setEditingLine] = useState(null)
   const [newLine, setNewLine] = useState('')
   const [updating, setUpdating] = useState(false)
+  const [lastUpdate, setLastUpdate] = useState(null)
+  const [editingOccupancy, setEditingOccupancy] = useState(false)
+  const [newOccupancy, setNewOccupancy] = useState('')
+  const [occupancyError, setOccupancyError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   // Obtener datos del parking
   const { data: parkingData, isLoading, error: parkingError } = useQuery(
@@ -241,13 +248,31 @@ const ParkingDetail = () => {
   const loadParkingData = async () => {
     try {
       setLoading(true)
-      const [parkingData, camerasData] = await Promise.all([
-        parkingService.getParking(id),
-        cameraService.getParkingCameras(id)
-      ])
+      setError(null)
       
+      // Cargar datos del parking
+      const parkingData = await parkingService.getParking(id)
       setParking(parkingData)
-      setCameras(camerasData.cameras || [])
+      
+      // Cargar cámaras del parking
+      try {
+        const camerasData = await cameraService.getParkingCameras(id)
+        setCameras(camerasData.cameras || [])
+      } catch (err) {
+        console.error('Error cargando cámaras:', err)
+        setCameras([])
+      }
+      
+      // Cargar paneles del parking
+      try {
+        const panelsData = await panelService.getParkingPanels(id)
+        setPanels(panelsData.panels || [])
+      } catch (err) {
+        console.error('Error cargando paneles:', err)
+        setPanels([])
+      }
+      
+      setLastUpdate(new Date())
     } catch (err) {
       setError('Error cargando datos del parking')
       console.error('Error:', err)
@@ -297,7 +322,55 @@ const ParkingDetail = () => {
     setNewLine('')
   }
 
-  if (loading) {
+  const handleOccupancyUpdate = async () => {
+    if (!newOccupancy || isNaN(newOccupancy)) {
+      setOccupancyError('Por favor ingrese un número válido')
+      return
+    }
+
+    const occupancy = parseInt(newOccupancy)
+    if (occupancy < 0) {
+      setOccupancyError('La ocupación no puede ser negativa')
+      return
+    }
+
+    if (occupancy > parking.capacity) {
+      setOccupancyError(`La ocupación no puede exceder la capacidad (${parking.capacity})`)
+      return
+    }
+
+    try {
+      setSaving(true)
+      setOccupancyError('')
+      
+      await parkingService.updateOccupancy(id, occupancy)
+      
+      // Recargar datos del parking
+      const updatedParking = await parkingService.getParking(id)
+      setParking(updatedParking)
+      
+      setEditingOccupancy(false)
+      setNewOccupancy('')
+    } catch (err) {
+      setOccupancyError('Error actualizando ocupación')
+      console.error('Error:', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const formatLastUpdate = () => {
+    if (!lastUpdate) return 'Nunca'
+    return lastUpdate.toLocaleString('es-ES')
+  }
+
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) return 'N/A'
+    const date = new Date(timestamp)
+    return date.toLocaleString('es-ES')
+  }
+
+  if (loading && !parking) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -305,187 +378,273 @@ const ParkingDetail = () => {
     )
   }
 
-  if (error || !parking) {
+  if (error && !parking) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <p className="text-red-800">{error || 'Parking no encontrado'}</p>
-        <button
-          onClick={() => navigate('/parkings')}
-          className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-        >
-          Volver a Parkings
-        </button>
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h2 className="text-lg font-semibold text-red-800">Error</h2>
+          <p className="text-red-600">{error}</p>
+          <button
+            onClick={() => navigate('/parkings')}
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+          >
+            Volver a Parkings
+          </button>
+        </div>
       </div>
     )
   }
 
-  const ocupationPercentage = parking.total_plazas > 0 
-    ? Math.round((parking.plazas_ocupadas / parking.total_plazas) * 100) 
-    : 0
+  if (!parking) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="text-center">
+          <h2 className="text-lg font-semibold text-gray-800">Parking no encontrado</h2>
+          <button
+            onClick={() => navigate('/parkings')}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Volver a Parkings
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <div className="max-w-7xl mx-auto p-6">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">{parking.name}</h1>
-          <p className="text-gray-600">ID: {parking.id}</p>
+      <div className="mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">🏢 {parking.name}</h1>
+            <p className="text-gray-600">{parking.address}</p>
+            {lastUpdate && (
+              <p className="text-sm text-gray-500 mt-2">
+                Última actualización: {formatLastUpdate()}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={() => navigate('/parkings')}
+            className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+          >
+            ← Volver
+          </button>
         </div>
-        <button
-          onClick={() => navigate('/parkings')}
-          className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-        >
-          ← Volver
-        </button>
       </div>
 
-      {/* Información del Parking */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      {/* Información General */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Ocupación Actual</h3>
-          <p className="text-3xl font-bold text-blue-600">{parking.current_occupancy || 0}</p>
-          <p className="text-sm text-gray-600">vehículos</p>
+          <h3 className="text-sm font-medium text-gray-500">Capacidad</h3>
+          <p className="text-2xl font-bold text-gray-900">{parking.capacity}</p>
         </div>
         
         <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Capacidad Total</h3>
-          <p className="text-3xl font-bold text-green-600">{parking.capacity || 0}</p>
-          <p className="text-sm text-gray-600">plazas</p>
+          <h3 className="text-sm font-medium text-gray-500">Ocupación Actual</h3>
+          <p className="text-2xl font-bold text-blue-600">{parking.occupancy || 0}</p>
         </div>
         
         <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Porcentaje</h3>
-          <p className="text-3xl font-bold text-orange-600">
-            {parking.capacity ? Math.round(((parking.current_occupancy || 0) / parking.capacity) * 100) : 0}%
+          <h3 className="text-sm font-medium text-gray-500">Ocupación %</h3>
+          <p className="text-2xl font-bold text-green-600">
+            {parking.capacity > 0 ? Math.round(((parking.occupancy || 0) / parking.capacity) * 100) : 0}%
           </p>
-          <p className="text-sm text-gray-600">ocupación</p>
         </div>
         
         <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Cámaras</h3>
-          <p className="text-3xl font-bold text-purple-600">{cameras.length}</p>
-          <p className="text-sm text-gray-600">configuradas</p>
+          <h3 className="text-sm font-medium text-gray-500">Estado</h3>
+          <p className="text-2xl font-bold text-gray-900">{parking.status || 'Activo'}</p>
         </div>
       </div>
 
-      {/* Sección de Cámaras */}
-      <div className="bg-white rounded-lg shadow mb-8">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">📷 Cámaras del Parking</h2>
-          <p className="text-sm text-gray-600">Estado y configuración de las cámaras</p>
+      {/* Control de Ocupación */}
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">📊 Control de Ocupación</h2>
+        
+        <div className="flex items-center space-x-4">
+          {editingOccupancy ? (
+            <>
+              <input
+                type="number"
+                value={newOccupancy}
+                onChange={(e) => setNewOccupancy(e.target.value)}
+                placeholder="Nueva ocupación"
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                min="0"
+                max={parking.capacity}
+              />
+              <button
+                onClick={handleOccupancyUpdate}
+                disabled={saving}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+              >
+                {saving ? '💾 Guardando...' : '💾 Guardar'}
+              </button>
+              <button
+                onClick={() => {
+                  setEditingOccupancy(false)
+                  setNewOccupancy('')
+                  setOccupancyError('')
+                }}
+                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+              >
+                ❌ Cancelar
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="text-lg">Ocupación actual: <strong>{parking.occupancy || 0}</strong></span>
+              <button
+                onClick={() => setEditingOccupancy(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                ✏️ Editar
+              </button>
+            </>
+          )}
         </div>
         
-        <div className="p-6">
+        {occupancyError && (
+          <p className="text-red-600 text-sm mt-2">{occupancyError}</p>
+        )}
+      </div>
+
+      {/* Cámaras */}
+      <div className="bg-white rounded-lg shadow mb-6">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">
+            📹 Cámaras ({cameras.length})
+          </h2>
+        </div>
+        
+        <div className="overflow-x-auto">
           {cameras.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-500">No hay cámaras configuradas para este parking</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {cameras.map((camera) => (
-                <div key={camera.id} className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{camera.name}</h3>
-                      <p className="text-sm text-gray-600">{camera.ip}</p>
-                    </div>
-                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${cameraService.getStatusColor(camera.status)}`}>
-                      {cameraService.getStatusIcon(camera.status)} {camera.status}
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Línea:</span>
-                      {editingLine === camera.id ? (
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="number"
-                            value={newLine}
-                            onChange={(e) => setNewLine(e.target.value)}
-                            className="w-16 px-2 py-1 border border-gray-300 rounded text-sm"
-                            min="1"
-                          />
-                          <button
-                            onClick={() => handleUpdateLine(camera.id, camera.line)}
-                            disabled={updating}
-                            className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 disabled:opacity-50"
-                          >
-                            ✓
-                          </button>
-                          <button
-                            onClick={cancelEditLine}
-                            className="px-2 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center space-x-2">
-                          <span className="font-medium">{camera.line}</span>
-                          <button
-                            onClick={() => startEditLine(camera.id, camera.line)}
-                            className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
-                          >
-                            ✏️
-                          </button>
-                        </div>
-                      )}
-                    </div>
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Cámara
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    IP
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Estado
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Última Actividad
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {cameras.map((camera) => (
+                  <tr key={camera.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <div>
+                        <div className="font-medium">{camera.name}</div>
+                        <div className="text-xs text-gray-500">ID: {camera.id}</div>
+                      </div>
+                    </td>
                     
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Ping:</span>
-                      <span className={`font-medium ${camera.ping_status === 'ONLINE' ? 'text-green-600' : 'text-red-600'}`}>
-                        {camera.ping_status}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {camera.ip}
+                    </td>
+                    
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(camera.status)}`}>
+                        {getStatusIcon(camera.status)} {camera.status || 'UNKNOWN'}
                       </span>
-                    </div>
+                    </td>
                     
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Último mensaje:</span>
-                      <span className="text-xs text-gray-500">
-                        {cameraService.formatTimestamp(camera.last_message_received)}
-                      </span>
-                    </div>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatTimestamp(camera.last_activity)}
+                    </td>
                     
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Último ping:</span>
-                      <span className="text-xs text-gray-500">
-                        {cameraService.formatTimestamp(camera.last_ping_check)}
-                      </span>
-                    </div>
-                    
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Vehículos IN:</span>
-                      <span className="font-medium">{camera.last_vehicle_in || 0}</span>
-                    </div>
-                    
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Vehículos OUT:</span>
-                      <span className="font-medium">{camera.last_vehicle_out || 0}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <button
+                        onClick={() => navigate(`/camera-logs?parking=${id}&camera=${camera.id}`)}
+                        className="text-blue-600 hover:text-blue-900"
+                      >
+                        Ver logs
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       </div>
 
-      {/* Botones de Acción */}
-      <div className="flex space-x-4">
-        <button
-          onClick={() => navigate(`/camera-logs?parking=${id}`)}
-          className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-        >
-          📋 Ver Logs de Cámaras
-        </button>
+      {/* Paneles */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">
+            🖥️ Paneles ({panels.length})
+          </h2>
+        </div>
         
-        <button
-          onClick={loadParkingData}
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          🔄 Actualizar Datos
-        </button>
+        <div className="overflow-x-auto">
+          {panels.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No hay paneles configurados para este parking</p>
+            </div>
+          ) : (
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Panel
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    IP
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Estado
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Última Actividad
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {panels.map((panel) => (
+                  <tr key={panel.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <div>
+                        <div className="font-medium">{panel.name}</div>
+                        <div className="text-xs text-gray-500">ID: {panel.id}</div>
+                      </div>
+                    </td>
+                    
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {panel.ip}
+                    </td>
+                    
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(panel.status)}`}>
+                        {getStatusIcon(panel.status)} {panel.status || 'UNKNOWN'}
+                      </span>
+                    </td>
+                    
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatTimestamp(panel.last_activity)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
     </div>
   )

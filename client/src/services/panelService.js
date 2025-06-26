@@ -4,7 +4,7 @@ export const panelService = {
   /**
    * Obtener todos los paneles
    */
-  getAllPanels: async () => {
+  async getAllPanels() {
     try {
       const response = await api.get('/panels')
       return response.data
@@ -15,24 +15,24 @@ export const panelService = {
   },
 
   /**
-   * Obtener un panel específico
+   * Obtener paneles de un parking específico
    */
-  getPanel: async (panelId) => {
+  async getParkingPanels(parkingId) {
     try {
-      const response = await api.get(`/panel/${panelId}`)
+      const response = await api.get(`/panels?parking_id=${parkingId}`)
       return response.data
     } catch (error) {
-      console.error('Error obteniendo panel:', error)
+      console.error('Error obteniendo paneles del parking:', error)
       throw error
     }
   },
 
   /**
-   * Enviar mensaje a un panel específico
+   * Enviar mensaje a un panel
    */
-  sendMessageToPanel: async (panelId, messageData) => {
+  async sendMessage(panelId, message) {
     try {
-      const response = await api.post(`/panel/${panelId}/message`, messageData)
+      const response = await api.post(`/panel/${panelId}/message`, message)
       return response.data
     } catch (error) {
       console.error('Error enviando mensaje al panel:', error)
@@ -41,9 +41,9 @@ export const panelService = {
   },
 
   /**
-   * Probar comunicación con un panel
+   * Probar conexión con un panel
    */
-  testPanel: async (panelId) => {
+  async testPanel(panelId) {
     try {
       const response = await api.post(`/panel/${panelId}/test`)
       return response.data
