@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+using System.Net.Sockets;
 using ParkingAltea.PanelService.Models;
 using Microsoft.Extensions.Logging;
 
@@ -23,27 +23,16 @@ namespace ParkingAltea.PanelService.Services
             {
                 _logger.LogInformation("Enviando mensaje a panel {PanelIP}: {Text}", panelIP, message.Text);
 
-                // Inicializar panel si es necesario
-                if (!await InitializePanelAsync(panelIP))
-                {
-                    return new PanelResponse
-                    {
-                        Success = false,
-                        Message = "No se pudo inicializar el panel",
-                        ErrorCode = -1
-                    };
-                }
-
-                // Enviar mensaje usando CP5200
-                var result = SendTextToPanel(panelIP, message);
+                // Enviar mensaje usando TCP simple
+                var result = await SendTextToPanelAsync(panelIP, message.Text);
                 
                 var responseTime = (DateTime.UtcNow - startTime).TotalMilliseconds;
                 
                 return new PanelResponse
                 {
-                    Success = result >= 0,
-                    Message = result >= 0 ? "Mensaje enviado exitosamente" : $"Error al enviar mensaje (código: {result})",
-                    ErrorCode = result,
+                    Success = result,
+                    Message = result ? "Mensaje enviado exitosamente" : "Error al enviar mensaje",
+                    ErrorCode = result ? 0 : -1,
                     ResponseTime = responseTime
                 };
             }
@@ -81,25 +70,15 @@ namespace ParkingAltea.PanelService.Services
             {
                 _logger.LogInformation("Enviando texto estático a panel {PanelIP}: {Text}", panelIP, text);
 
-                if (!await InitializePanelAsync(panelIP))
-                {
-                    return new PanelResponse
-                    {
-                        Success = false,
-                        Message = "No se pudo inicializar el panel",
-                        ErrorCode = -1
-                    };
-                }
-
-                var result = SendStaticTextToPanel(panelIP, text, x, y, width, height);
+                var result = await SendTextToPanelAsync(panelIP, text);
                 
                 var responseTime = (DateTime.UtcNow - startTime).TotalMilliseconds;
                 
                 return new PanelResponse
                 {
-                    Success = result >= 0,
-                    Message = result >= 0 ? "Texto estático enviado exitosamente" : $"Error al enviar texto estático (código: {result})",
-                    ErrorCode = result,
+                    Success = result,
+                    Message = result ? "Texto estático enviado exitosamente" : "Error al enviar texto estático",
+                    ErrorCode = result ? 0 : -1,
                     ResponseTime = responseTime
                 };
             }
@@ -135,7 +114,7 @@ namespace ParkingAltea.PanelService.Services
         {
             try
             {
-                using var client = new System.Net.Sockets.TcpClient();
+                using var client = new TcpClient();
                 var connectTask = client.ConnectAsync(panelIP, 5200);
                 var timeoutTask = Task.Delay(3000);
                 
@@ -219,110 +198,25 @@ namespace ParkingAltea.PanelService.Services
             return statuses;
         }
 
-        private async Task<bool> InitializePanelAsync(string panelIP)
-        {
-            lock (_lock)
-            {
-                if (_initializedPanels.ContainsKey(panelIP))
-                {
-                    return _initializedPanels[panelIP];
-                }
-            }
-
-            try
-            {
-                var config = GetPanelConfig(panelIP);
-                var result = CP5200_Net_Init(config.IP, config.Port, config.IDCode, config.Timeout);
-                
-                var success = result >= 0;
-                
-                lock (_lock)
-                {
-                    _initializedPanels[panelIP] = success;
-                }
-
-                _logger.LogInformation("Inicialización panel {PanelIP}: {Result}", panelIP, success ? "OK" : "FAIL");
-                return success;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error inicializando panel {PanelIP}", panelIP);
-                
-                lock (_lock)
-                {
-                    _initializedPanels[panelIP] = false;
-                }
-                
-                return false;
-            }
-        }
-
-        private int SendTextToPanel(string panelIP, PanelMessage message)
+        private async Task<bool> SendTextToPanelAsync(string panelIP, string text)
         {
             try
             {
-                var config = GetPanelConfig(panelIP);
-                var textPtr = Marshal.StringToHGlobalAnsi(message.Text);
+                using var client = new TcpClient();
+                await client.ConnectAsync(panelIP, 5200);
                 
-                var result = CP5200_Net_SendText(
-                    config.CardId,
-                    message.Window,
-                    textPtr,
-                    message.Color,
-                    message.FontSize,
-                    message.Speed,
-                    message.Effect,
-                    message.StayTime,
-                    message.Alignment
-                );
+                using var stream = client.GetStream();
+                var data = System.Text.Encoding.UTF8.GetBytes(text);
+                await stream.WriteAsync(data, 0, data.Length);
                 
-                Marshal.FreeHGlobal(textPtr);
-                return result;
+                _logger.LogInformation("Mensaje enviado a panel {PanelIP}: {Text}", panelIP, text);
+                return true;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error enviando texto a panel {PanelIP}", panelIP);
-                return -1;
+                return false;
             }
-        }
-
-        private int SendStaticTextToPanel(string panelIP, string text, int x, int y, int width, int height)
-        {
-            try
-            {
-                var config = GetPanelConfig(panelIP);
-                var textPtr = Marshal.StringToHGlobalAnsi(text);
-                
-                var result = CP5200_Net_SendStatic(
-                    config.CardId,
-                    0, // window
-                    textPtr,
-                    0xFF, // color
-                    16, // fontSize
-                    0, // alignment
-                    x, y, width, height
-                );
-                
-                Marshal.FreeHGlobal(textPtr);
-                return result;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error enviando texto estático a panel {PanelIP}", panelIP);
-                return -1;
-            }
-        }
-
-        private PanelConfig GetPanelConfig(string panelIP)
-        {
-            return new PanelConfig
-            {
-                IP = panelIP,
-                Port = 5200,
-                CardId = 1,
-                Timeout = 600,
-                IDCode = "255.255.255.255"
-            };
         }
 
         private List<string> GetAllPanelIPs()
@@ -333,15 +227,5 @@ namespace ParkingAltea.PanelService.Services
                 "172.20.4.51", "172.20.4.52", "172.20.4.53", "172.20.2.50", "172.20.1.50"
             };
         }
-
-        // CP5200 DLL Imports
-        [DllImport("CP5200.dll")]
-        private static extern int CP5200_Net_Init(uint dwIP, int nIPPort, uint dwIDCode, int nTimeOut);
-
-        [DllImport("CP5200.dll")]
-        private static extern int CP5200_Net_SendText(int nCardID, int nWndNo, IntPtr pText, int crColor, int nFontSize, int nSpeed, int nEffect, int nStayTime, int nAlignment);
-
-        [DllImport("CP5200.dll")]
-        private static extern int CP5200_Net_SendStatic(int nCardID, int nWndNo, IntPtr pText, int crColor, int nFontSize, int nAlignment, int x, int y, int cx, int cy);
     }
 } 

@@ -10,16 +10,4 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Reference Include="CP5200">
-      <HintPath>..\docs\Rotuloselectronicos.NET_API+ejemplos\Rotuloselectronicos.NET API\Rotuloselectronicos.NET API SDK\CP5200.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="..\docs\Rotuloselectronicos.NET_API+ejemplos\Rotuloselectronicos.NET API\Rotuloselectronicos.NET API SDK\CP5200.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
 </Project> 
