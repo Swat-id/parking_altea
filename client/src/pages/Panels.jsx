@@ -14,7 +14,10 @@ import {
   RefreshCw,
   Zap,
   X,
-  Loader
+  Loader,
+  Info,
+  Eye,
+  EyeOff
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -25,6 +28,8 @@ const Panels = () => {
   const [messageText, setMessageText] = useState('')
   const [messageDuration, setMessageDuration] = useState(30)
   const [verificationResults, setVerificationResults] = useState(null)
+  const [messageResponse, setMessageResponse] = useState(null)
+  const [showResponseDetails, setShowResponseDetails] = useState(false)
 
   // Obtener paneles
   const { data: panels = [], isLoading, refetch } = useQuery(
@@ -39,15 +44,26 @@ const Panels = () => {
   const sendMessageMutation = useMutation(
     ({ panelId, messageData }) => panelService.sendMessageToPanel(panelId, messageData),
     {
-      onSuccess: () => {
-        toast.success('Mensaje enviado correctamente')
-        setShowMessageForm(false)
-        setMessageText('')
-        setMessageDuration(30)
-        setSelectedPanel(null)
+      onSuccess: (data) => {
+        setMessageResponse(data)
+        setShowResponseDetails(true)
+        
+        if (data.success) {
+          toast.success('Mensaje enviado correctamente')
+        } else {
+          toast.error('Error al enviar el mensaje')
+        }
+        
         queryClient.invalidateQueries('panels')
       },
-      onError: () => {
+      onError: (error) => {
+        setMessageResponse({
+          success: false,
+          message: error.message,
+          errorCode: -1,
+          responseTime: 0
+        })
+        setShowResponseDetails(true)
         toast.error('Error al enviar el mensaje')
       }
     }
@@ -56,11 +72,26 @@ const Panels = () => {
   const testPanelMutation = useMutation(
     (panelId) => panelService.testPanel(panelId),
     {
-      onSuccess: () => {
-        toast.success('Prueba de panel enviada')
+      onSuccess: (data) => {
+        setMessageResponse(data)
+        setShowResponseDetails(true)
+        
+        if (data.success) {
+          toast.success('Prueba de panel exitosa')
+        } else {
+          toast.error('Error en la prueba del panel')
+        }
+        
         queryClient.invalidateQueries('panels')
       },
-      onError: () => {
+      onError: (error) => {
+        setMessageResponse({
+          success: false,
+          message: error.message,
+          errorCode: -1,
+          responseTime: 0
+        })
+        setShowResponseDetails(true)
         toast.error('Error al probar el panel')
       }
     }
@@ -138,6 +169,15 @@ const Panels = () => {
 
   const handleVerifyAllPanels = () => {
     verifyPanelsMutation.mutate()
+  }
+
+  const clearMessageResponse = () => {
+    setMessageResponse(null)
+    setShowResponseDetails(false)
+    setShowMessageForm(false)
+    setSelectedPanel(null)
+    setMessageText('')
+    setMessageDuration(30)
   }
 
   if (isLoading) {
@@ -220,6 +260,94 @@ const Panels = () => {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Respuesta detallada del mensaje */}
+      {messageResponse && showResponseDetails && (
+        <div className={`border rounded-lg p-4 ${messageResponse.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              {messageResponse.success ? (
+                <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+              ) : (
+                <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+              )}
+              <h3 className="text-sm font-medium text-gray-900">
+                Respuesta del Servicio C#
+              </h3>
+            </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setShowResponseDetails(!showResponseDetails)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                {showResponseDetails ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+              <button
+                onClick={clearMessageResponse}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+          
+          {showResponseDetails && (
+            <div className="mt-3 space-y-2 text-sm">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="font-medium text-gray-700">Estado:</span>
+                  <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
+                    messageResponse.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {messageResponse.success ? 'EXITOSO' : 'FALLIDO'}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">Tiempo de respuesta:</span>
+                  <span className="ml-2 text-gray-600">
+                    {messageResponse.responseTime ? `${messageResponse.responseTime.toFixed(2)}ms` : 'N/A'}
+                  </span>
+                </div>
+              </div>
+              
+              {messageResponse.panel_name && (
+                <div>
+                  <span className="font-medium text-gray-700">Panel:</span>
+                  <span className="ml-2 text-gray-600">{messageResponse.panel_name}</span>
+                </div>
+              )}
+              
+              {messageResponse.panel_ip && (
+                <div>
+                  <span className="font-medium text-gray-700">IP:</span>
+                  <span className="ml-2 text-gray-600">{messageResponse.panel_ip}</span>
+                </div>
+              )}
+              
+              {messageResponse.message && (
+                <div>
+                  <span className="font-medium text-gray-700">Mensaje enviado:</span>
+                  <span className="ml-2 text-gray-600">"{messageResponse.message}"</span>
+                </div>
+              )}
+              
+              <div>
+                <span className="font-medium text-gray-700">Respuesta del servicio:</span>
+                <div className="mt-1 p-2 bg-gray-100 rounded text-xs font-mono text-gray-800">
+                  {messageResponse.message || 'Sin respuesta'}
+                </div>
+              </div>
+              
+              {messageResponse.errorCode && messageResponse.errorCode !== 0 && (
+                <div>
+                  <span className="font-medium text-gray-700">Código de error:</span>
+                  <span className="ml-2 text-red-600">{messageResponse.errorCode}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -353,12 +481,7 @@ const Panels = () => {
               {selectedPanel && ` a ${selectedPanel.name}`}
             </h2>
             <button
-              onClick={() => {
-                setShowMessageForm(false)
-                setSelectedPanel(null)
-                setMessageText('')
-                setMessageDuration(30)
-              }}
+              onClick={clearMessageResponse}
               className="text-gray-400 hover:text-gray-600"
             >
               <X className="h-6 w-6" />
@@ -433,6 +556,17 @@ const Panels = () => {
                 </div>
               </div>
             )}
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-center">
+                <Info className="h-4 w-4 text-blue-600 mr-2" />
+                <span className="text-sm font-medium text-blue-900">Información del Proceso</span>
+              </div>
+              <p className="text-xs text-blue-700 mt-1">
+                El mensaje se enviará usando el servicio C# y se mostrará la respuesta completa del panel, 
+                incluyendo tiempo de respuesta y estado de la comunicación.
+              </p>
+            </div>
           </div>
 
           <div className="flex space-x-3 mt-6">
@@ -445,12 +579,7 @@ const Panels = () => {
               {sendMessageMutation.isLoading ? 'Enviando...' : 'Enviar Mensaje'}
             </button>
             <button
-              onClick={() => {
-                setShowMessageForm(false)
-                setSelectedPanel(null)
-                setMessageText('')
-                setMessageDuration(30)
-              }}
+              onClick={clearMessageResponse}
               className="btn-secondary"
             >
               Cancelar
