@@ -56,6 +56,6 @@ var panelManager = app.Services.GetRequiredService<IPanelManager>();
 await panelManager.InitializeAsync();
 
 Console.WriteLine("🚦 Panel Communication Service iniciado");
-Console.WriteLine($"📡 Escuchando en: {app.Urls.FirstOrDefault() ?? "http://localhost:5000"}");
+Console.WriteLine($"📡 Escuchando en: {app.Urls.FirstOrDefault() ?? "http://localhost:5001"}");
 
 app.Run(); 
