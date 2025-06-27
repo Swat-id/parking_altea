@@ -513,8 +513,8 @@ def handle_camera():
             
             # Enviar mensaje a paneles (con manejo de errores)
             try:
-                update_parking_panels(parking.id, parking.occupancy, parking.total_spaces, parking.status)
-                logger.info(f"Message sent to panels: {parking.occupancy}/{parking.total_spaces} ({parking.status})")
+                update_parking_panels(parking.id, parking.current_occupancy, parking.max_capacity, parking.status)
+                logger.info(f"Message sent to panels: {parking.current_occupancy}/{parking.max_capacity} ({parking.status})")
             except Exception as e:
                 logger.error(f"Error sending to panels: {e}")
         
