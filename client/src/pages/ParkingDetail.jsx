@@ -336,11 +336,6 @@ const ParkingDetail = () => {
       return
     }
 
-    if (parking && occupancy > parking.total_plazas) {
-      setOccupancyError(`La ocupación no puede exceder la capacidad (${parking.total_plazas})`)
-      return
-    }
-
     try {
       setSaving(true)
       setOccupancyError('')
@@ -492,8 +487,6 @@ const ParkingDetail = () => {
                 onChange={(e) => setNewOccupancy(e.target.value)}
                 placeholder="Nueva ocupación"
                 className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                min="0"
-                max={parking.total_plazas}
               />
               <button
                 onClick={handleOccupancyUpdate}
