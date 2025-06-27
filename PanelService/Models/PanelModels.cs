@@ -21,12 +21,12 @@ namespace ParkingAltea.PanelService.Models
         public string Text { get; set; } = string.Empty;
         
         public int Window { get; set; } = 0;
-        public int Color { get; set; } = 0xFF;
+        public int Color { get; set; } = 0xFF0000; // Rojo por defecto
         public int FontSize { get; set; } = 16;
-        public int Speed { get; set; } = 3;
-        public int Effect { get; set; } = 0;
-        public int StayTime { get; set; } = 5;
-        public int Alignment { get; set; } = 5;
+        public int Speed { get; set; } = 3; // Velocidad de movimiento
+        public int Effect { get; set; } = 0; // 0 = sin efecto, 1 = efecto especial
+        public int StayTime { get; set; } = 5; // Tiempo en segundos
+        public int Alignment { get; set; } = 5; // 0 = izquierda, 5 = centro, 10 = derecha
     }
 
     public class PanelOccupancy
@@ -38,6 +38,10 @@ namespace ParkingAltea.PanelService.Models
         public int Total { get; set; }
         public string Status { get; set; } = string.Empty; // LLIURE, DENS, COMPLET
         public string ParkingName { get; set; } = string.Empty;
+        public int Color { get; set; } = 0x00FF00; // Verde por defecto
+        public int FontSize { get; set; } = 16;
+        public int Speed { get; set; } = 2; // Movimiento más lento para ocupación
+        public int Alignment { get; set; } = 5; // Centrado
     }
 
     public class PanelResponse
@@ -66,6 +70,10 @@ namespace ParkingAltea.PanelService.Models
         
         public List<string>? PanelIPs { get; set; }
         public bool SendToAll { get; set; } = true;
+        public int Color { get; set; } = 0xFFFF00; // Amarillo por defecto
+        public int FontSize { get; set; } = 16;
+        public int Speed { get; set; } = 3;
+        public int Alignment { get; set; } = 5;
     }
 
     public class BroadcastResponse
@@ -75,5 +83,46 @@ namespace ParkingAltea.PanelService.Models
         public int FailureCount { get; set; }
         public List<PanelResponse> Results { get; set; } = new();
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    }
+
+    // Constantes para colores predefinidos
+    public static class PanelColors
+    {
+        public const int Red = 0xFF0000;
+        public const int Green = 0x00FF00;
+        public const int Blue = 0x0000FF;
+        public const int Yellow = 0xFFFF00;
+        public const int Cyan = 0x00FFFF;
+        public const int Magenta = 0xFF00FF;
+        public const int White = 0xFFFFFF;
+        public const int Orange = 0xFF8000;
+        public const int Purple = 0x8000FF;
+    }
+
+    // Constantes para alineación
+    public static class PanelAlignment
+    {
+        public const int Left = 0;
+        public const int Center = 5;
+        public const int Right = 10;
+    }
+
+    // Constantes para efectos
+    public static class PanelEffects
+    {
+        public const int None = 0;
+        public const int Blink = 1;
+        public const int Scroll = 2;
+        public const int Fade = 3;
+    }
+
+    // Constantes para velocidad
+    public static class PanelSpeed
+    {
+        public const int VerySlow = 1;
+        public const int Slow = 2;
+        public const int Normal = 3;
+        public const int Fast = 4;
+        public const int VeryFast = 5;
     }
 } 
