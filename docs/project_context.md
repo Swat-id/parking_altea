@@ -90,6 +90,18 @@ Cámara → POST /camera → Camera Server → Base de Datos → Paneles
 - Logging de duplicados detectados
 - Corrección de impacto en duplicados (mitad del delta)
 
+### 5. Flujo de Verificación de Paneles
+
+**Verificación por ping:**
+- Comando ping ICMP real a cada panel
+- Rutas completas: `/bin/ping`, `/usr/bin/ping`, `/sbin/ping`
+- Timeout de 5 segundos por panel
+- Actualización automática de estados en base de datos
+
+**Estados de paneles:**
+- **ONLINE**: Ping exitoso (returncode == 0)
+- **OFFLINE**: Ping fallido o timeout
+
 ## 📊 Modelos de Datos
 
 ### Tablas Principales
@@ -121,6 +133,10 @@ Cámara → POST /camera → Camera Server → Base de Datos → Paneles
 
 #### 6. **UserParking**
 - `id`, `user_id`, `parking_id`
+
+#### 7. **Panel**
+- `id`, `parking_id`, `name`, `ip`
+- `status`, `last_message`, `last_update`
 
 ## 🔧 Funcionalidades Implementadas
 
@@ -163,6 +179,14 @@ Cámara → POST /camera → Camera Server → Base de Datos → Paneles
 - Métricas de cámaras por hora
 - Exportación de datos estadísticos
 
+### Fase 6: Verificación de Paneles ✅
+- Ping real ICMP a paneles
+- Actualización automática de estados
+- Logging detallado de verificación
+- Frontend con refetch automático
+- Corrección de rutas de comando ping
+- Estados ONLINE/OFFLINE funcionales
+
 ## 🚨 Problemas Resueltos
 
 ### 1. Mensajes Duplicados ✅
@@ -185,12 +209,22 @@ Cámara → POST /camera → Camera Server → Base de Datos → Paneles
 **Solución**: Modo sin login con usuario superadmin por defecto
 **Impacto**: Acceso completo sin credenciales para desarrollo
 
+### 5. Verificación de Paneles ✅
+**Problema**: Paneles aparecían OFFLINE aunque respondieran al ping
+**Solución**: Corrección de rutas de comando ping y logging detallado
+**Impacto**: Estados de paneles precisos y actualizados
+
 ## 📈 Métricas y Rendimiento
 
 ### Cámaras
 - **Total configuradas**: 13 cámaras
 - **Online**: 8 cámaras (62%)
 - **Offline**: 5 cámaras (38%)
+
+### Paneles
+- **Total configurados**: 10 paneles
+- **Verificación por ping**: Funcional
+- **Tiempo de respuesta**: <100ms por panel
 
 ### Procesamiento
 - **Mensajes/hora**: ~500-1000
@@ -199,7 +233,7 @@ Cámara → POST /camera → Camera Server → Base de Datos → Paneles
 - **Duplicados eliminados**: 100%
 
 ### Base de Datos
-- **Tablas principales**: 6
+- **Tablas principales**: 7
 - **Registros CameraLog**: ~50,000
 - **Registros OccupancyHistory**: ~10,000
 - **Tamaño total**: ~100MB
@@ -235,6 +269,12 @@ Cámara → POST /camera → Camera Server → Base de Datos → Paneles
 - `GET /api/cameras` - Lista todas las cámaras con estado
 - `GET /api/cameras/{id}` - Detalles de cámara específica
 - `GET /api/cameras/{id}/logs` - Logs de cámara específica
+
+### Paneles
+- `GET /api/panels` - Lista todos los paneles con estado
+- `POST /api/panels/verify` - Verificar estado de todos los paneles
+- `POST /api/panel/{id}/message` - Enviar mensaje a panel
+- `POST /api/panel/{id}/test` - Probar panel
 
 ### Logs
 - `GET /api/camera-logs` - Logs de todas las cámaras

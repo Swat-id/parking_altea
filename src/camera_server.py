@@ -98,6 +98,86 @@ def log_camera_message(session, camera_ip, camera_line, camera_name, raw_message
         session.rollback()
         return False
 
+def detect_camera_reset(previous_in, previous_out, new_in, new_out):
+    """
+    Detectar si la cámara se ha reiniciado basándose en los contadores.
+    
+    Args:
+        previous_in: Contador anterior de vehículos entrando
+        previous_out: Contador anterior de vehículos saliendo
+        new_in: Nuevo contador de vehículos entrando
+        new_out: Nuevo contador de vehículos saliendo
+    
+    Returns:
+        tuple: (is_reset, adjusted_previous_in, adjusted_previous_out)
+    """
+    # Si es la primera vez (contadores anteriores son None), no es reinicio
+    if previous_in is None or previous_out is None:
+        return False, 0, 0
+    
+    # Detectar reinicio: nuevos contadores son menores que los anteriores
+    # Esto incluye cuando uno o ambos contadores van a 0
+    is_reset = (new_in < previous_in) or (new_out < previous_out)
+    
+    if is_reset:
+        logger.info(f"CAMERA RESET DETECTED - Previous: In={previous_in}, Out={previous_out} -> New: In={new_in}, Out={new_out}")
+        
+        # En caso de reinicio, ajustar los contadores anteriores
+        # Si el nuevo contador es 0, asumir que el anterior era 0
+        # Si el nuevo contador tiene un valor, asumir que el anterior era 0
+        adjusted_previous_in = 0 if new_in <= previous_in else previous_in
+        adjusted_previous_out = 0 if new_out <= previous_out else previous_out
+        
+        logger.info(f"Reset adjustment - Adjusted previous: In={adjusted_previous_in}, Out={adjusted_previous_out}")
+        return True, adjusted_previous_in, adjusted_previous_out
+    
+    return False, previous_in, previous_out
+
+def calculate_deltas_with_reset_handling(previous_in, previous_out, new_in, new_out):
+    """
+    Calcular deltas considerando posibles reinicios de cámara.
+    
+    Args:
+        previous_in: Contador anterior de vehículos entrando
+        previous_out: Contador anterior de vehículos saliendo
+        new_in: Nuevo contador de vehículos entrando
+        new_out: Nuevo contador de vehículos saliendo
+    
+    Returns:
+        tuple: (delta_in, delta_out, is_reset, reset_info)
+    """
+    # Detectar si hay reinicio
+    is_reset, adjusted_previous_in, adjusted_previous_out = detect_camera_reset(
+        previous_in, previous_out, new_in, new_out
+    )
+    
+    # Calcular deltas usando los contadores ajustados
+    delta_in = new_in - adjusted_previous_in
+    delta_out = new_out - adjusted_previous_out
+    
+    # Validar que los deltas sean positivos (excepto en reinicios)
+    if not is_reset:
+        if delta_in < 0:
+            logger.warning(f"Negative delta_in detected (non-reset): {delta_in}. Setting to 0.")
+            delta_in = 0
+        if delta_out < 0:
+            logger.warning(f"Negative delta_out detected (non-reset): {delta_out}. Setting to 0.")
+            delta_out = 0
+    
+    reset_info = {
+        "is_reset": is_reset,
+        "previous_in": previous_in,
+        "previous_out": previous_out,
+        "adjusted_previous_in": adjusted_previous_in,
+        "adjusted_previous_out": adjusted_previous_out,
+        "new_in": new_in,
+        "new_out": new_out
+    }
+    
+    logger.info(f"Deltas calculated - Delta In: {delta_in}, Delta Out: {delta_out}, Reset: {is_reset}")
+    
+    return delta_in, delta_out, is_reset, reset_info
+
 @app.route('/camera', methods=['POST'])
 def handle_camera():
     start_time = time.time()
@@ -340,15 +420,19 @@ def handle_camera():
         access.last_message_received = datetime.now()
         logger.info(f"Camera status updated to ONLINE - IP: {ip}, Line: {original_line}")
         
-        # Calcular deltas
-        delta_in = veh_in - access.last_vehicle_in if access.last_vehicle_in is not None else 0
-        delta_out = veh_out - access.last_vehicle_out if access.last_vehicle_out is not None else 0
-        
-        logger.info(f"Deltas calculated - Delta In: {delta_in}, Delta Out: {delta_out}")
-        
         # Guardar contadores anteriores para el log
         previous_vehicle_in = access.last_vehicle_in
         previous_vehicle_out = access.last_vehicle_out
+        
+        # Calcular deltas con manejo de reinicios
+        delta_in, delta_out, is_reset, reset_info = calculate_deltas_with_reset_handling(
+            previous_vehicle_in, previous_vehicle_out, veh_in, veh_out
+        )
+        
+        # Si es un reinicio, logear información adicional
+        if is_reset:
+            logger.warning(f"CAMERA RESET PROCESSED - Device: {device}, IP: {ip}, Line: {original_line}")
+            logger.warning(f"Reset details: {reset_info}")
         
         # Actualizar contadores de acceso
         access.last_vehicle_in = veh_in
@@ -364,6 +448,8 @@ def handle_camera():
         # Esto permite reflejar la realidad cuando hay exceso de vehículos
         
         logger.info(f"Parking occupancy updated - Previous: {previous_occupancy}, New: {parking.current_occupancy}, Max Capacity: {parking.max_capacity}")
+        if is_reset:
+            logger.info(f"Reset impact on occupancy: +{delta_in} in, -{delta_out} out, Net change: {delta_in - delta_out}")
         
         # Calcular descuadre para estadísticas
         free_spaces = parking.max_capacity - parking.current_occupancy
@@ -429,6 +515,11 @@ def handle_camera():
             except Exception as e:
                 logger.error(f"Error broadcasting to panels: {e}")
         
+        # Preparar información adicional para el log en caso de reinicio
+        error_message = None
+        if is_reset:
+            error_message = f"Camera reset detected - Previous: In={previous_vehicle_in}, Out={previous_vehicle_out} -> New: In={veh_in}, Out={veh_out}"
+        
         # Registrar log de cámara exitoso
         log_camera_message(
             session=session,
@@ -438,12 +529,13 @@ def handle_camera():
             raw_message=raw_data,
             vehicle_in=veh_in,
             vehicle_out=veh_out,
-            status="processed",
+            status="processed" if not is_reset else "reset_processed",
+            error_message=error_message,
             access_id=access.id,
             parking_id=parking.id,
             processing_time=(time.time() - start_time) * 1000,
-            previous_vehicle_in=previous_vehicle_in - delta_in if previous_vehicle_in is not None else None,
-            previous_vehicle_out=previous_vehicle_out - delta_out if previous_vehicle_out is not None else None,
+            previous_vehicle_in=reset_info["adjusted_previous_in"],
+            previous_vehicle_out=reset_info["adjusted_previous_out"],
             delta_in=delta_in,
             delta_out=delta_out,
             new_occupancy=occ,
