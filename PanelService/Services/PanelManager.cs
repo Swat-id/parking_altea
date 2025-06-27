@@ -40,9 +40,9 @@ namespace ParkingAltea.PanelService.Services
             }
         }
 
-        public async Task<PanelResponse> SendToPanelAsync(string panelIP, string message)
+        public async Task<PanelResponse> SendToPanelAsync(string panelIP, PanelMessage message)
         {
-            return await _communicationService.SendTextAsync(panelIP, message);
+            return await _communicationService.SendMessageAsync(panelIP, message);
         }
 
         public async Task<PanelResponse> SendOccupancyToPanelAsync(string panelIP, int current, int total, string status)
@@ -75,12 +75,21 @@ namespace ParkingAltea.PanelService.Services
 
         public async Task<List<PanelStatus>> GetAllPanelsStatusAsync()
         {
-            return await _communicationService.GetAllPanelsStatusAsync();
+            var statusList = new List<PanelStatus>();
+            
+            foreach (var panel in _panels)
+            {
+                var status = await _communicationService.GetPanelStatusAsync(panel.IP);
+                statusList.Add(status);
+            }
+            
+            return statusList;
         }
 
         public async Task<bool> IsPanelOnlineAsync(string panelIP)
         {
-            return await _communicationService.IsPanelOnlineAsync(panelIP);
+            var status = await _communicationService.GetPanelStatusAsync(panelIP);
+            return status.Online;
         }
     }
 } 
