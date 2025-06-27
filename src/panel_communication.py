@@ -363,7 +363,25 @@ def init_panels_from_config(panel_configs: List[Dict]) -> PanelManager:
     return panel_manager
 
 def update_parking_panels(parking_id: int, current_occupancy: int, total_spaces: int, status: str = ""):
-    """Update all panels for a specific parking"""
-    # This would be called when parking occupancy changes
-    # For now, broadcast to all panels
-    panel_manager.broadcast_occupancy(current_occupancy, total_spaces, status) 
+    """Update all panels for a specific parking with Catalan status text"""
+    # Convertir estado a catalán según especificaciones
+    catalan_status = ""
+    if status == "LIBRE":
+        catalan_status = "LLIURE"
+    elif status == "DENSO":
+        catalan_status = "DENS"
+    elif status == "COMPLETO":
+        catalan_status = "COMPLET"
+    else:
+        catalan_status = status  # Mantener el estado original si no coincide
+    
+    # Construir mensaje para los paneles
+    message = f"{current_occupancy}/{total_spaces} - {catalan_status}"
+    
+    # Broadcast to all panels
+    panel_manager.broadcast_occupancy(current_occupancy, total_spaces, catalan_status)
+    
+    # Log del mensaje enviado
+    logger.info(f"Panel message sent for parking {parking_id}: {message}")
+    
+    return message 
