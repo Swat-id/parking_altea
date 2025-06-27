@@ -1,0 +1,9 @@
+SCC = This is a Source Code Control file
+
+[CPower_VC.dsp]
+SCC_Aux_Path = "\\Lmserver\Public\R&D\Project\CP5200SDK"
+SCC_Project_Name = "$/CPower_VC", XOAAAAAA
+
+[CPower_VC.vcproj]
+SCC_Aux_Path = "\\Lmserver\Public\R&D\Project\CP5200SDK"
+SCC_Project_Name = "$/CPower_VC", XOAAAAAA

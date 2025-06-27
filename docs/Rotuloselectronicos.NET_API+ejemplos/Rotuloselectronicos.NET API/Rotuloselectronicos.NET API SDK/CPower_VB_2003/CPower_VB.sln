@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 8.00
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "CPower_VB", "CPower_VB.vbproj", "{93E6078E-6566-480E-905E-2CB586F337B5}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SourceCodeControl) = preSolution
+		SccNumberOfProjects = 2
+		SccLocalPath0 = .
+		CanCheckoutShared = false
+		SolutionUniqueID = {4030DF91-F6ED-4C09-8143-545C736EBDBB}
+		SccProjectUniqueName1 = CPower_VB.vbproj
+		SccLocalPath1 = .
+		CanCheckoutShared = false
+	EndGlobalSection
+	GlobalSection(SolutionConfiguration) = preSolution
+		Debug = Debug
+		Release = Release
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{93E6078E-6566-480E-905E-2CB586F337B5}.Debug.ActiveCfg = Debug|.NET
+		{93E6078E-6566-480E-905E-2CB586F337B5}.Debug.Build.0 = Debug|.NET
+		{93E6078E-6566-480E-905E-2CB586F337B5}.Release.ActiveCfg = Release|.NET
+		{93E6078E-6566-480E-905E-2CB586F337B5}.Release.Build.0 = Release|.NET
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal
