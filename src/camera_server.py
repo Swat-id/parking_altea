@@ -7,7 +7,10 @@ import json
 import logging
 import time
 from models import Base, Parking, Access, OccupancyHistory, CameraLog
-from panel_client import broadcast
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../backend')))
+from panel_communication import update_parking_panels
 import threading
 import subprocess
 
@@ -510,10 +513,10 @@ def handle_camera():
             
             # Enviar mensaje a paneles (con manejo de errores)
             try:
-                broadcast(parking, message)
-                logger.info(f"Message broadcasted to panels: {message}")
+                update_parking_panels(parking.id, parking.occupancy, parking.total_spaces, parking.status)
+                logger.info(f"Message sent to panels: {parking.occupancy}/{parking.total_spaces} ({parking.status})")
             except Exception as e:
-                logger.error(f"Error broadcasting to panels: {e}")
+                logger.error(f"Error sending to panels: {e}")
         
         # Preparar información adicional para el log en caso de reinicio
         error_message = None
