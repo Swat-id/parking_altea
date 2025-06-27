@@ -351,9 +351,13 @@ def set_occupancy(pid):
         change_amount = occupancy - previous_occupancy
         
         # Validaciones adicionales
-        if occupancy > p.max_capacity * 2:
+        if occupancy > p.max_capacity * 5:
             session.close()
-            return jsonify({'error': f'Occupancy cannot exceed {p.max_capacity * 2} (double capacity)'}), 400
+            return jsonify({'error': f'Occupancy cannot exceed {p.max_capacity * 5} (5x capacity). For higher values, contact administrator.'}), 400
+        
+        # Advertencia si excede la capacidad máxima pero es permitido
+        if occupancy > p.max_capacity:
+            logger.warning(f"Manual adjustment exceeds capacity - Parking: {p.name}, Capacity: {p.max_capacity}, Requested: {occupancy}, Excess: {occupancy - p.max_capacity}")
         
         # Actualizar ocupación
         p.current_occupancy = occupancy
