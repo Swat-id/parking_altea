@@ -393,4 +393,4 @@ if __name__ == '__main__':
     print(f"📁 DLL Path: {panel_service.dll_path}")
     print(f"🍷 Wine Prefix: {panel_service.wine_prefix}")
     
-    app.run(host='0.0.0.0', port=5001, debug=True) 
+    app.run(host='0.0.0.0', port=5003, debug=True) 

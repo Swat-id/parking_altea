@@ -28,7 +28,7 @@ def test_single_panel():
     }
     
     try:
-        response = requests.post("http://localhost:5001/init", json=init_data, timeout=10)
+        response = requests.post("http://localhost:5003/init", json=init_data, timeout=10)
         print(f"   HTTP Status: {response.status_code}")
         print(f"   Response: {json.dumps(response.json(), indent=2)}")
         
@@ -61,7 +61,7 @@ def test_single_panel():
     }
     
     try:
-        response = requests.post("http://localhost:5001/sendtext", json=text_data, timeout=10)
+        response = requests.post("http://localhost:5003/sendtext", json=text_data, timeout=10)
         print(f"   HTTP Status: {response.status_code}")
         print(f"   Response: {json.dumps(response.json(), indent=2)}")
         
