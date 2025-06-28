@@ -340,8 +340,8 @@ namespace ParkingAltea.PanelService.Services
 
                 try
                 {
-                    // 4. Enviar usando parámetros correctos según ejemplo del fabricante
-                    var result = CP5200Wrapper.CP5200_Net_SendTagText(
+                    // 4. Enviar usando CP5200_Net_SendText (función correcta para texto básico)
+                    var result = CP5200Wrapper.CP5200_Net_SendText(
                         CP5200Wrapper.DefaultConfig.CardID,  // CardID = 1
                         CP5200Wrapper.DefaultConfig.WindowNo, // Window = 0
                         textPtr,                              // Texto
@@ -349,11 +349,11 @@ namespace ParkingAltea.PanelService.Services
                         message.FontSize,                     // FontSize = 16
                         message.Speed,                        // Speed = 3
                         message.Effect,                       // Effect = 0
-                        message.StayTime,                     // StayTime = 3
+                        message.StayTime,                     // StayTime = 0 (permanente)
                         message.Alignment                     // Alignment = 0
                     );
 
-                    _logger.LogDebug("Envío a panel {PanelIP}: resultado {Result}", panelIP, result);
+                    _logger.LogDebug("Envío SendText a panel {PanelIP}: resultado {Result}", panelIP, result);
                     return result;
                 }
                 finally

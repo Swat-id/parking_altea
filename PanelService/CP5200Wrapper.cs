@@ -10,6 +10,10 @@ namespace ParkingAltea.PanelService
         [DllImport(DLL_PATH, CharSet = CharSet.Auto)]
         public static extern int CP5200_Net_Init(uint dwIP, int nIPPort, uint dwIDCode, int nTimeOut);
 
+        // Envío de texto simple (función correcta para texto básico)
+        [DllImport(DLL_PATH, CharSet = CharSet.Auto)]
+        public static extern int CP5200_Net_SendText(int nCardID, int nWndNo, IntPtr pText, int crColor, int nFontSize, int nSpeed, int nEffect, int nStayTime, int nAlignment);
+
         // Envío de texto con etiquetas
         [DllImport(DLL_PATH, CharSet = CharSet.Auto)]
         public static extern int CP5200_Net_SendTagText(int nCardID, int nWndNo, IntPtr pText, int crColor, int nFontSize, int nSpeed, int nEffect, int nStayTime, int nAlignment);

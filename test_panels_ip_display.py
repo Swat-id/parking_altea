@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Script de prueba para enviar a cada panel su IP
-Usa el servicio C# actualizado con colores correctos del SDK CP5200
+Script de prueba para enviar a cada panel su IP usando SendStatic
+Usa el servicio C# con función SendStatic para texto permanente
 """
 
 import requests
@@ -40,8 +40,38 @@ def test_panel_service():
         print(f"❌ Error conectando al servicio de paneles: {e}")
         return False
 
+def send_static_text_to_panel(panel_ip, text, x=0, y=0, width=64, height=32):
+    """Envía texto estático a un panel específico usando SendStatic"""
+    try:
+        payload = {
+            "panelIP": panel_ip,
+            "text": text,
+            "x": x,
+            "y": y,
+            "width": width,
+            "height": height
+        }
+        
+        response = requests.post(
+            f"{PANEL_SERVICE_URL}/api/panel/static",
+            json=payload,
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            return result
+        else:
+            print(f"❌ Error enviando texto estático a {panel_ip}: {response.status_code}")
+            print(f"   Respuesta: {response.text}")
+            return None
+            
+    except Exception as e:
+        print(f"❌ Excepción enviando texto estático a {panel_ip}: {e}")
+        return None
+
 def send_message_to_panel(panel_ip, message, color=0x00FF00):
-    """Envía un mensaje a un panel específico"""
+    """Envía un mensaje a un panel específico usando SendTagText"""
     try:
         payload = {
             "panelIP": panel_ip,
@@ -72,9 +102,79 @@ def send_message_to_panel(panel_ip, message, color=0x00FF00):
         print(f"❌ Excepción enviando mensaje a {panel_ip}: {e}")
         return None
 
+def test_all_panels_ip_static():
+    """Envía a cada panel su IP usando SendStatic para texto permanente"""
+    print(f"\n🚀 Iniciando prueba de envío de IPs ESTÁTICAS a paneles - {datetime.now()}")
+    print("=" * 70)
+    
+    # Verificar servicio primero
+    if not test_panel_service():
+        return
+    
+    results = []
+    
+    for i, panel in enumerate(PANELS, 1):
+        panel_ip = panel["ip"]
+        panel_name = panel["name"]
+        parking_name = panel["parking"]
+        
+        print(f"\n📺 Panel {i}: {panel_name} ({panel_ip})")
+        print(f"   Parking: {parking_name}")
+        
+        # Mensaje simple con solo la IP del panel
+        message = panel_ip
+        
+        print(f"   Enviando texto estático: '{message}' (PERMANENTE)")
+        
+        # Enviar texto estático
+        result = send_static_text_to_panel(panel_ip, message)
+        
+        if result:
+            success = result.get("success", False)
+            response_time = result.get("responseTime", 0)
+            error_code = result.get("errorCode", -1)
+            
+            if success:
+                print(f"   ✅ Éxito - Tiempo: {response_time}ms")
+                results.append({"panel": panel_name, "ip": panel_ip, "status": "SUCCESS", "time": response_time})
+            else:
+                print(f"   ❌ Fallo - Código: {error_code} - {result.get('message', 'Sin mensaje')}")
+                results.append({"panel": panel_name, "ip": panel_ip, "status": "FAILED", "error": error_code})
+        else:
+            print(f"   ❌ Sin respuesta del servicio")
+            results.append({"panel": panel_name, "ip": panel_ip, "status": "NO_RESPONSE"})
+        
+        # Pausa entre envíos
+        time.sleep(1)
+    
+    # Resumen de resultados
+    print(f"\n📊 RESUMEN DE RESULTADOS (SENDSTATIC)")
+    print("=" * 70)
+    
+    success_count = sum(1 for r in results if r["status"] == "SUCCESS")
+    failed_count = len(results) - success_count
+    
+    print(f"Total paneles: {len(results)}")
+    print(f"✅ Exitosos: {success_count}")
+    print(f"❌ Fallidos: {failed_count}")
+    print(f"📈 Tasa de éxito: {(success_count/len(results)*100):.1f}%")
+    
+    if success_count > 0:
+        avg_time = sum(r["time"] for r in results if r["status"] == "SUCCESS") / success_count
+        print(f"⏱️  Tiempo promedio: {avg_time:.1f}ms")
+    
+    # Detalles de fallos
+    if failed_count > 0:
+        print(f"\n❌ PANELES CON PROBLEMAS:")
+        for result in results:
+            if result["status"] != "SUCCESS":
+                print(f"   - {result['panel']} ({result['ip']}): {result['status']}")
+    
+    return results
+
 def test_all_panels_ip():
-    """Envía a cada panel su IP para verificar funcionamiento"""
-    print(f"\n🚀 Iniciando prueba de envío de IPs a paneles - {datetime.now()}")
+    """Envía a cada panel su IP usando SendTagText"""
+    print(f"\n🚀 Iniciando prueba de envío de IPs con SendTagText - {datetime.now()}")
     print("=" * 60)
     
     # Verificar servicio primero
@@ -121,7 +221,7 @@ def test_all_panels_ip():
         time.sleep(1)
     
     # Resumen de resultados
-    print(f"\n📊 RESUMEN DE RESULTADOS")
+    print(f"\n📊 RESUMEN DE RESULTADOS (SENDTAGTEXT)")
     print("=" * 60)
     
     success_count = sum(1 for r in results if r["status"] == "SUCCESS")
@@ -145,39 +245,23 @@ def test_all_panels_ip():
     
     return results
 
-def test_specific_panel(panel_ip):
-    """Prueba un panel específico"""
-    print(f"\n🎯 Probando panel específico: {panel_ip}")
-    
-    # Buscar información del panel
-    panel_info = next((p for p in PANELS if p["ip"] == panel_ip), None)
-    if not panel_info:
-        print(f"❌ Panel {panel_ip} no encontrado en la configuración")
-        return
-    
-    message = f"TEST PANEL\n{panel_ip}\n{panel_info['name']}"
-    color = 0x00FFFF  # Amarillo para test
-    
-    print(f"Enviando mensaje de prueba: '{message}'")
-    
-    result = send_message_to_panel(panel_ip, message, color)
-    
-    if result:
-        success = result.get("success", False)
-        if success:
-            print(f"✅ Test exitoso - Tiempo: {result.get('responseTime', 0)}ms")
-        else:
-            print(f"❌ Test fallido - {result.get('message', 'Sin mensaje')}")
-    else:
-        print("❌ Sin respuesta del servicio")
-
 if __name__ == "__main__":
     import sys
     
     if len(sys.argv) > 1:
-        # Si se proporciona una IP específica, probar solo ese panel
-        panel_ip = sys.argv[1]
-        test_specific_panel(panel_ip)
+        if sys.argv[1] == "static":
+            # Probar con SendStatic
+            test_all_panels_ip_static()
+        else:
+            # Probar panel específico
+            panel_ip = sys.argv[1]
+            print(f"🎯 Probando panel específico: {panel_ip}")
+            result = send_static_text_to_panel(panel_ip, panel_ip)
+            if result:
+                print(f"Resultado: {result}")
     else:
-        # Probar todos los paneles
+        # Probar ambos métodos
+        print("🔄 Probando ambos métodos de envío...")
+        test_all_panels_ip_static()
+        print("\n" + "="*80 + "\n")
         test_all_panels_ip() 
