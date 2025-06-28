@@ -299,21 +299,31 @@ namespace ParkingAltea.PanelService.Services
         {
             try
             {
+                _logger.LogDebug("Iniciando SendTextViaDLLAsync para panel {PanelIP}", panelIP);
+                
                 var panelIPUInt = CP5200Wrapper.IPToUInt(panelIP);
                 if (panelIPUInt == 0)
                 {
+                    _logger.LogWarning("IP inválida para panel {PanelIP}", panelIP);
                     return -1;
                 }
 
+                _logger.LogDebug("IP convertida a UInt: {PanelIPUInt}", panelIPUInt);
+
                 // 1. Inicializar panel si no está inicializado
+                _logger.LogDebug("Inicializando panel {PanelIP}", panelIP);
                 if (!await InitializePanelAsync(panelIP))
                 {
+                    _logger.LogError("No se pudo inicializar el panel {PanelIP}", panelIP);
                     return -1;
                 }
+
+                _logger.LogDebug("Panel {PanelIP} inicializado correctamente", panelIP);
 
                 // 2. Configurar SplitScreen UNA VEZ por panel (según ejemplo del fabricante)
                 if (!_splitScreenDone.ContainsKey(panelIP) || !_splitScreenDone[panelIP])
                 {
+                    _logger.LogDebug("Configurando SplitScreen para panel {PanelIP}", panelIP);
                     int[] windowRect = new int[4] { 0, 0, CP5200Wrapper.DefaultConfig.ScreenWidth, CP5200Wrapper.DefaultConfig.ScreenHeight };
                     var splitResult = CP5200Wrapper.CP5200_Net_SplitScreen(
                         CP5200Wrapper.DefaultConfig.CardID,
@@ -326,7 +336,7 @@ namespace ParkingAltea.PanelService.Services
                     if (splitResult >= 0)
                     {
                         _splitScreenDone[panelIP] = true;
-                        _logger.LogDebug("SplitScreen configurado para panel {PanelIP}", panelIP);
+                        _logger.LogDebug("SplitScreen configurado para panel {PanelIP}: {Result}", panelIP, splitResult);
                     }
                     else
                     {
@@ -334,12 +344,18 @@ namespace ParkingAltea.PanelService.Services
                         // Continuar de todas formas, puede que funcione sin SplitScreen
                     }
                 }
+                else
+                {
+                    _logger.LogDebug("SplitScreen ya configurado para panel {PanelIP}", panelIP);
+                }
 
                 // 3. Convertir texto a puntero (según ejemplo del fabricante)
+                _logger.LogDebug("Convirtiendo texto a puntero: '{Text}'", message.Text);
                 var textPtr = Marshal.StringToHGlobalAnsi(message.Text);
 
                 // 4. Enviar usando CP5200_Net_SendText (función completa para colores, alineación y efectos)
                 // Parámetros exactos del ejemplo: (CardID, Window, Text, Color=3000, FontSize=16, Speed=3, Effect=0, StayTime=3, Alignment=0)
+                _logger.LogDebug("Llamando CP5200_Net_SendText para panel {PanelIP}", panelIP);
                 var result = CP5200Wrapper.CP5200_Net_SendText(
                     CP5200Wrapper.DefaultConfig.CardID,  // CardID = 1
                     CP5200Wrapper.DefaultConfig.WindowNo, // Window = 0
