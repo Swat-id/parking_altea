@@ -335,32 +335,29 @@ namespace ParkingAltea.PanelService.Services
                     }
                 }
 
-                // 3. Convertir texto a puntero
+                // 3. Convertir texto a puntero (según ejemplo del fabricante)
                 var textPtr = Marshal.StringToHGlobalAnsi(message.Text);
 
-                try
-                {
-                    // 4. Enviar usando CP5200_Net_SendText (función correcta para texto básico)
-                    var result = CP5200Wrapper.CP5200_Net_SendText(
-                        CP5200Wrapper.DefaultConfig.CardID,  // CardID = 1
-                        CP5200Wrapper.DefaultConfig.WindowNo, // Window = 0
-                        textPtr,                              // Texto
-                        message.Color,                        // Color
-                        message.FontSize,                     // FontSize = 16
-                        message.Speed,                        // Speed = 3
-                        message.Effect,                       // Effect = 0
-                        message.StayTime,                     // StayTime = 0 (permanente)
-                        message.Alignment                     // Alignment = 0
-                    );
+                // 4. Enviar usando CP5200_Net_SendTagText (según ejemplo del fabricante)
+                // Parámetros exactos del ejemplo: (CardID, Window, Text, Color=3000, FontSize=16, Speed=3, Effect=0, StayTime=3, Alignment=0)
+                var result = CP5200Wrapper.CP5200_Net_SendTagText(
+                    CP5200Wrapper.DefaultConfig.CardID,  // CardID = 1
+                    CP5200Wrapper.DefaultConfig.WindowNo, // Window = 0
+                    textPtr,                              // Texto
+                    3000,                                 // Color = 3000 (según ejemplo del fabricante)
+                    16,                                   // FontSize = 16
+                    3,                                    // Speed = 3
+                    0,                                    // Effect = 0
+                    3,                                    // StayTime = 3 (según ejemplo del fabricante)
+                    0                                     // Alignment = 0
+                );
 
-                    _logger.LogDebug("Envío SendText a panel {PanelIP}: resultado {Result}", panelIP, result);
-                    return result;
-                }
-                finally
-                {
-                    // Liberar memoria del puntero
-                    Marshal.FreeHGlobal(textPtr);
-                }
+                _logger.LogDebug("Envío SendTagText a panel {PanelIP}: resultado {Result}", panelIP, result);
+                
+                // NOTA: Según el ejemplo del fabricante, NO liberamos la memoria del puntero
+                // Marshal.FreeHGlobal(textPtr); // COMENTADO - seguir ejemplo del fabricante
+                
+                return result;
             }
             catch (Exception ex)
             {
