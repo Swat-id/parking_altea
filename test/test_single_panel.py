@@ -11,7 +11,7 @@ def test_single_panel():
     """Prueba el envío de mensaje a un panel único"""
     
     # Configuración del panel
-    panel_ip = "172.20.17.50"
+    panel_ip = "172.20.4.52"
     card_id = 1
     
     print("🧪 PROBANDO PANEL ÚNICO")
@@ -50,7 +50,7 @@ def test_single_panel():
     print("\n2️⃣ Enviando texto...")
     text_data = {
         "cardID": card_id,
-        "text": panel_ip,  # Enviar la IP como texto
+        "text": "1",       # Enviar el texto "1"
         "wndNo": 0,
         "color": 3000,     # Color rojo como en el ejemplo
         "fontSize": 16,    # Tamaño de fuente como en el ejemplo
@@ -71,7 +71,7 @@ def test_single_panel():
         
         if result.get('success', False):
             print("   ✅ Texto enviado exitosamente")
-            print(f"   📝 IP '{panel_ip}' enviada al panel")
+            print(f"   📝 Texto '1' enviado al panel")
             return True
         else:
             print("   ❌ Error enviando texto")
