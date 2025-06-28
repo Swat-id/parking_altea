@@ -1,6 +1,5 @@
 using ParkingAltea.PanelService.Models;
-using System.Net.Sockets;
-using System.Text;
+using System.Runtime.InteropServices;
 
 namespace ParkingAltea.PanelService.Services
 {
@@ -8,10 +7,13 @@ namespace ParkingAltea.PanelService.Services
     {
         private readonly ILogger<PanelCommunicationService> _logger;
         private readonly Dictionary<string, PanelConfig> _panelConfigs;
+        private readonly Dictionary<string, bool> _initializedPanels;
 
         public PanelCommunicationService(ILogger<PanelCommunicationService> logger)
         {
             _logger = logger;
+            _initializedPanels = new Dictionary<string, bool>();
+            
             _panelConfigs = new Dictionary<string, PanelConfig>
             {
                 { "192.168.1.101", new PanelConfig { IP = "192.168.1.101", Name = "Panel 1", Parking = "P. Ciutat Esportiva" } },
@@ -35,18 +37,22 @@ namespace ParkingAltea.PanelService.Services
             {
                 _logger.LogInformation("Enviando mensaje a panel {PanelIP}: {Message}", panelIP, message.Text);
 
-                // Construir comando con parámetros avanzados
-                var command = BuildAdvancedTextCommand(message);
-                
-                var response = await SendCommandAsync(panelIP, command);
+                // Inicializar panel si no está inicializado
+                if (!await InitializePanelAsync(panelIP))
+                {
+                    throw new Exception($"No se pudo inicializar el panel {panelIP}");
+                }
+
+                // Enviar mensaje usando la DLL CP5200
+                var result = await SendTextViaDLLAsync(panelIP, message);
                 
                 stopwatch.Stop();
                 
                 return new PanelResponse
                 {
-                    Success = response.Success,
-                    Message = response.Success ? "Mensaje enviado correctamente" : "Error enviando mensaje",
-                    ErrorCode = response.ErrorCode,
+                    Success = result >= 0,
+                    Message = result >= 0 ? "Mensaje enviado correctamente" : $"Error enviando mensaje (código: {result})",
+                    ErrorCode = result,
                     ResponseTime = stopwatch.ElapsedMilliseconds,
                     Timestamp = DateTime.UtcNow
                 };
@@ -211,17 +217,21 @@ namespace ParkingAltea.PanelService.Services
             {
                 _logger.LogInformation("Enviando texto estático a panel {PanelIP}: {Text}", panelIP, text);
 
-                // Construir comando para texto estático
-                var command = BuildStaticTextCommand(text, x, y, width, height);
-                
-                var response = await SendCommandAsync(panelIP, command);
+                // Inicializar panel si no está inicializado
+                if (!await InitializePanelAsync(panelIP))
+                {
+                    throw new Exception($"No se pudo inicializar el panel {panelIP}");
+                }
+
+                // Enviar texto estático usando la DLL CP5200
+                var result = await SendStaticTextViaDLLAsync(panelIP, text, x, y, width, height);
                 
                 return new PanelResponse
                 {
-                    Success = response.Success,
-                    Message = response.Success ? "Texto estático enviado correctamente" : "Error enviando texto estático",
-                    ErrorCode = response.ErrorCode,
-                    ResponseTime = response.ResponseTime,
+                    Success = result >= 0,
+                    Message = result >= 0 ? "Texto estático enviado correctamente" : $"Error enviando texto estático (código: {result})",
+                    ErrorCode = result,
+                    ResponseTime = 0,
                     Timestamp = DateTime.UtcNow
                 };
             }
@@ -240,30 +250,133 @@ namespace ParkingAltea.PanelService.Services
             }
         }
 
-        private string BuildAdvancedTextCommand(PanelMessage message)
+        private async Task<bool> InitializePanelAsync(string panelIP)
         {
-            // Protocolo avanzado con parámetros de color, alineación y efectos
-            // Formato: [STX]TEXT[ETX] con parámetros adicionales
-            var command = $"\x02{message.Text}\x03";
-            
-            // Agregar parámetros de configuración si es necesario
-            // Nota: El protocolo actual del fabricante puede requerir comandos específicos
-            // para colores y efectos. Aquí usamos el protocolo básico STX/ETX
-            
-            _logger.LogDebug("Comando construido: {Command}", BitConverter.ToString(Encoding.ASCII.GetBytes(command)));
-            
-            return command;
+            if (_initializedPanels.ContainsKey(panelIP) && _initializedPanels[panelIP])
+            {
+                return true;
+            }
+
+            try
+            {
+                var panelIPUInt = CP5200Wrapper.IPToUInt(panelIP);
+                if (panelIPUInt == 0)
+                {
+                    _logger.LogError("IP inválida: {PanelIP}", panelIP);
+                    return false;
+                }
+
+                // Inicializar usando la DLL CP5200
+                var result = CP5200Wrapper.CP5200_Net_Init(
+                    panelIPUInt,
+                    CP5200Wrapper.DefaultConfig.Port,
+                    CP5200Wrapper.DefaultConfig.IDCode,
+                    CP5200Wrapper.DefaultConfig.Timeout
+                );
+
+                if (result >= 0)
+                {
+                    _initializedPanels[panelIP] = true;
+                    _logger.LogInformation("Panel {PanelIP} inicializado correctamente", panelIP);
+                    return true;
+                }
+                else
+                {
+                    _logger.LogError("Error inicializando panel {PanelIP}: código {Result}", panelIP, result);
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Excepción inicializando panel {PanelIP}", panelIP);
+                return false;
+            }
         }
 
-        private string BuildStaticTextCommand(string text, int x, int y, int width, int height)
+        private async Task<int> SendTextViaDLLAsync(string panelIP, PanelMessage message)
         {
-            // Comando para texto estático con posicionamiento
-            var command = $"\x02{text}\x03";
-            
-            _logger.LogDebug("Comando estático construido: {Command} en posición ({X},{Y})", 
-                BitConverter.ToString(Encoding.ASCII.GetBytes(command)), x, y);
-            
-            return command;
+            try
+            {
+                var panelIPUInt = CP5200Wrapper.IPToUInt(panelIP);
+                if (panelIPUInt == 0)
+                {
+                    return -1;
+                }
+
+                // Convertir texto a puntero
+                var textPtr = Marshal.StringToHGlobalAnsi(message.Text);
+
+                try
+                {
+                    // Enviar usando la DLL CP5200
+                    var result = CP5200Wrapper.CP5200_Net_SendTagText(
+                        CP5200Wrapper.DefaultConfig.CardID,
+                        CP5200Wrapper.DefaultConfig.WindowNo,
+                        textPtr,
+                        message.Color,
+                        message.FontSize,
+                        message.Speed,
+                        message.Effect,
+                        message.StayTime,
+                        message.Alignment
+                    );
+
+                    _logger.LogDebug("Envío a panel {PanelIP}: resultado {Result}", panelIP, result);
+                    return result;
+                }
+                finally
+                {
+                    // Liberar memoria del puntero
+                    Marshal.FreeHGlobal(textPtr);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error enviando texto via DLL a panel {PanelIP}", panelIP);
+                return -1;
+            }
+        }
+
+        private async Task<int> SendStaticTextViaDLLAsync(string panelIP, string text, int x, int y, int width, int height)
+        {
+            try
+            {
+                var panelIPUInt = CP5200Wrapper.IPToUInt(panelIP);
+                if (panelIPUInt == 0)
+                {
+                    return -1;
+                }
+
+                // Convertir texto a puntero
+                var textPtr = Marshal.StringToHGlobalAnsi(text);
+
+                try
+                {
+                    // Enviar texto estático usando la DLL CP5200
+                    var result = CP5200Wrapper.CP5200_Net_SendStatic(
+                        CP5200Wrapper.DefaultConfig.CardID,
+                        CP5200Wrapper.DefaultConfig.WindowNo,
+                        textPtr,
+                        PanelColors.White, // Color por defecto
+                        16, // Tamaño de fuente por defecto
+                        5, // Alineación centro
+                        x, y, width, height
+                    );
+
+                    _logger.LogDebug("Envío estático a panel {PanelIP}: resultado {Result}", panelIP, result);
+                    return result;
+                }
+                finally
+                {
+                    // Liberar memoria del puntero
+                    Marshal.FreeHGlobal(textPtr);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error enviando texto estático via DLL a panel {PanelIP}", panelIP);
+                return -1;
+            }
         }
 
         private int DetermineOccupancyColor(string status)
@@ -277,53 +390,12 @@ namespace ParkingAltea.PanelService.Services
             };
         }
 
-        private async Task<(bool Success, int ErrorCode, double ResponseTime)> SendCommandAsync(string panelIP, string command)
-        {
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-            
-            try
-            {
-                using var client = new TcpClient();
-                var connectTask = client.ConnectAsync(panelIP, 5200);
-                
-                if (await Task.WhenAny(connectTask, Task.Delay(3000)) != connectTask)
-                {
-                    throw new TimeoutException("Timeout conectando al panel");
-                }
-
-                using var stream = client.GetStream();
-                var data = Encoding.ASCII.GetBytes(command);
-                
-                await stream.WriteAsync(data, 0, data.Length);
-                
-                // Esperar respuesta breve
-                await Task.Delay(100);
-                
-                stopwatch.Stop();
-                
-                return (true, 0, stopwatch.ElapsedMilliseconds);
-            }
-            catch (Exception ex)
-            {
-                stopwatch.Stop();
-                _logger.LogError(ex, "Error enviando comando a panel {PanelIP}", panelIP);
-                return (false, -1, stopwatch.ElapsedMilliseconds);
-            }
-        }
-
         private async Task<bool> TestConnectivityAsync(string panelIP)
         {
             try
             {
-                using var client = new TcpClient();
-                var connectTask = client.ConnectAsync(panelIP, 5200);
-                
-                if (await Task.WhenAny(connectTask, Task.Delay(2000)) != connectTask)
-                {
-                    return false;
-                }
-
-                return client.Connected;
+                // Probar conectividad intentando inicializar el panel
+                return await InitializePanelAsync(panelIP);
             }
             catch
             {
