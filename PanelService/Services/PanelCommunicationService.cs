@@ -338,9 +338,9 @@ namespace ParkingAltea.PanelService.Services
                 // 3. Convertir texto a puntero (según ejemplo del fabricante)
                 var textPtr = Marshal.StringToHGlobalAnsi(message.Text);
 
-                // 4. Enviar usando CP5200_Net_SendTagText (según ejemplo del fabricante)
+                // 4. Enviar usando CP5200_Net_SendText (función completa para colores, alineación y efectos)
                 // Parámetros exactos del ejemplo: (CardID, Window, Text, Color=3000, FontSize=16, Speed=3, Effect=0, StayTime=3, Alignment=0)
-                var result = CP5200Wrapper.CP5200_Net_SendTagText(
+                var result = CP5200Wrapper.CP5200_Net_SendText(
                     CP5200Wrapper.DefaultConfig.CardID,  // CardID = 1
                     CP5200Wrapper.DefaultConfig.WindowNo, // Window = 0
                     textPtr,                              // Texto
@@ -352,7 +352,7 @@ namespace ParkingAltea.PanelService.Services
                     0                                     // Alignment = 0
                 );
 
-                _logger.LogDebug("Envío SendTagText a panel {PanelIP}: resultado {Result}", panelIP, result);
+                _logger.LogInformation("Envío SendText a panel {PanelIP}: resultado {Result}, texto: '{Text}'", panelIP, result, message.Text);
                 
                 // NOTA: Según el ejemplo del fabricante, NO liberamos la memoria del puntero
                 // Marshal.FreeHGlobal(textPtr); // COMENTADO - seguir ejemplo del fabricante
@@ -362,6 +362,73 @@ namespace ParkingAltea.PanelService.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error enviando texto via DLL a panel {PanelIP}", panelIP);
+                return -1;
+            }
+        }
+
+        // Función de prueba que usa SendTagText como alternativa
+        private async Task<int> SendTagTextViaDLLAsync(string panelIP, PanelMessage message)
+        {
+            try
+            {
+                var panelIPUInt = CP5200Wrapper.IPToUInt(panelIP);
+                if (panelIPUInt == 0)
+                {
+                    return -1;
+                }
+
+                // 1. Inicializar panel si no está inicializado
+                if (!await InitializePanelAsync(panelIP))
+                {
+                    return -1;
+                }
+
+                // 2. Configurar SplitScreen UNA VEZ por panel
+                if (!_splitScreenDone.ContainsKey(panelIP) || !_splitScreenDone[panelIP])
+                {
+                    int[] windowRect = new int[4] { 0, 0, CP5200Wrapper.DefaultConfig.ScreenWidth, CP5200Wrapper.DefaultConfig.ScreenHeight };
+                    var splitResult = CP5200Wrapper.CP5200_Net_SplitScreen(
+                        CP5200Wrapper.DefaultConfig.CardID,
+                        CP5200Wrapper.DefaultConfig.ScreenWidth,
+                        CP5200Wrapper.DefaultConfig.ScreenHeight,
+                        1, // Una ventana
+                        windowRect
+                    );
+
+                    if (splitResult >= 0)
+                    {
+                        _splitScreenDone[panelIP] = true;
+                        _logger.LogDebug("SplitScreen configurado para panel {PanelIP}", panelIP);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Error configurando SplitScreen para panel {PanelIP}: {Result}", panelIP, splitResult);
+                    }
+                }
+
+                // 3. Convertir texto a puntero
+                var textPtr = Marshal.StringToHGlobalAnsi(message.Text);
+
+                // 4. Enviar usando CP5200_Net_SendTagText (función alternativa)
+                var result = CP5200Wrapper.CP5200_Net_SendTagText(
+                    CP5200Wrapper.DefaultConfig.CardID,
+                    CP5200Wrapper.DefaultConfig.WindowNo,
+                    textPtr,
+                    3000, // Color = 3000
+                    16,   // FontSize = 16
+                    3,    // Speed = 3
+                    0,    // Effect = 0
+                    3,    // StayTime = 3
+                    0     // Alignment = 0
+                );
+
+                _logger.LogInformation("Envío SendTagText a panel {PanelIP}: resultado {Result}, texto: '{Text}'", panelIP, result, message.Text);
+                
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error enviando SendTagText via DLL a panel {PanelIP}", panelIP);
                 return -1;
             }
         }
