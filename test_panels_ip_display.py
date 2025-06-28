@@ -50,7 +50,7 @@ def send_message_to_panel(panel_ip, message, color=0x00FF00):
             "fontSize": 16,
             "speed": 3,
             "effect": 0,
-            "stayTime": 10,
+            "stayTime": 0,  # 0 = permanente, sin tiempo límite
             "alignment": 5
         }
         
@@ -97,7 +97,7 @@ def test_all_panels_ip():
         # Color verde para la prueba
         color = 0x00FF00  # Verde según SDK CP5200
         
-        print(f"   Enviando: '{message}'")
+        print(f"   Enviando: '{message}' (PERMANENTE)")
         
         # Enviar mensaje
         result = send_message_to_panel(panel_ip, message, color)
