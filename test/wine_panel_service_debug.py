@@ -105,7 +105,7 @@ using System.Runtime.InteropServices;
 class CP5200Test
 {{
     [DllImport("CP5200.dll")]
-    public static extern int CP5200_Net_SendText(byte nCardID, int nWndNo, IntPtr pText, int crColor, int nFontSize, int nSpeed, int nEffect, int nStayTime, int nAlignment);
+    public static extern int CP5200_Net_SendTagText(byte nCardID, int nWndNo, IntPtr pText, int crColor, int nFontSize, int nSpeed, int nEffect, int nStayTime, int nAlignment);
     
     static int Main()
     {{
@@ -124,9 +124,10 @@ class CP5200Test
             // Convertir string a IntPtr
             IntPtr textPtr = Marshal.StringToHGlobalAnsi(text);
             
-            Console.WriteLine("Enviando texto con CP5200_Net_SendText...");
+            Console.WriteLine("Enviando texto con CP5200_Net_SendTagText...");
             Console.WriteLine($"CardID: {{cardID}}, Window: {{wndNo}}, Text: {{text}}");
-            int result = CP5200_Net_SendText(cardID, wndNo, textPtr, color, fontSize, speed, effect, stayTime, alignment);
+            Console.WriteLine($"Color: {{color}}, FontSize: {{fontSize}}, Speed: {{speed}}, Effect: {{effect}}, StayTime: {{stayTime}}, Alignment: {{alignment}}");
+            int result = CP5200_Net_SendTagText(cardID, wndNo, textPtr, color, fontSize, speed, effect, stayTime, alignment);
             Console.WriteLine($"Resultado: {{result}}");
             
             // Liberar memoria
