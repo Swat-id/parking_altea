@@ -8,24 +8,26 @@ namespace ParkingAltea.PanelService.Services
         private readonly ILogger<PanelCommunicationService> _logger;
         private readonly Dictionary<string, PanelConfig> _panelConfigs;
         private readonly Dictionary<string, bool> _initializedPanels;
+        private readonly Dictionary<string, bool> _splitScreenDone; // Cache para SplitScreen
 
         public PanelCommunicationService(ILogger<PanelCommunicationService> logger)
         {
             _logger = logger;
             _initializedPanels = new Dictionary<string, bool>();
+            _splitScreenDone = new Dictionary<string, bool>(); // Cache para SplitScreen
             
             _panelConfigs = new Dictionary<string, PanelConfig>
             {
-                { "192.168.1.101", new PanelConfig { IP = "192.168.1.101", Name = "Panel 1", Parking = "P. Ciutat Esportiva" } },
-                { "192.168.1.102", new PanelConfig { IP = "192.168.1.102", Name = "Panel 2", Parking = "P. Poble antic 1" } },
-                { "192.168.1.103", new PanelConfig { IP = "192.168.1.103", Name = "Panel 3", Parking = "P. Poble antic 2" } },
-                { "192.168.1.104", new PanelConfig { IP = "192.168.1.104", Name = "Panel 4", Parking = "P. Poble antic 3" } },
-                { "192.168.1.105", new PanelConfig { IP = "192.168.1.105", Name = "Panel 5", Parking = "P. Poble antic 4" } },
-                { "192.168.1.106", new PanelConfig { IP = "192.168.1.106", Name = "Panel 6", Parking = "P. Poble antic 5" } },
-                { "192.168.1.107", new PanelConfig { IP = "192.168.1.107", Name = "Panel 7", Parking = "P. Port Altea" } },
-                { "192.168.1.108", new PanelConfig { IP = "192.168.1.108", Name = "Panel 8", Parking = "P. Estació Altea" } },
-                { "192.168.1.109", new PanelConfig { IP = "192.168.1.109", Name = "Panel 9", Parking = "P. Altea Hills" } },
-                { "192.168.1.110", new PanelConfig { IP = "192.168.1.110", Name = "Panel 10", Parking = "P. Ciutat Esportiva" } }
+                { "172.20.17.50", new PanelConfig { IP = "172.20.17.50", Name = "PANEL C. ESPORTIVA", Parking = "P. Ciutat Esportiva" } },
+                { "172.20.5.50", new PanelConfig { IP = "172.20.5.50", Name = "PANEL BASSETA 1", Parking = "P. Poble antic 1" } },
+                { "172.20.5.51", new PanelConfig { IP = "172.20.5.51", Name = "PANEL BASSETA 2", Parking = "P. Poble antic 2" } },
+                { "172.20.8.50", new PanelConfig { IP = "172.20.8.50", Name = "PANEL PITERES", Parking = "P. Poble antic 3" } },
+                { "172.20.4.50", new PanelConfig { IP = "172.20.4.50", Name = "PANEL PALAU", Parking = "P. Poble antic 4" } },
+                { "172.20.4.51", new PanelConfig { IP = "172.20.4.51", Name = "PANEL COCOLISO", Parking = "P. Poble antic 5" } },
+                { "172.20.4.52", new PanelConfig { IP = "172.20.4.52", Name = "BELLES ARTS 2", Parking = "P. Port Altea" } },
+                { "172.20.4.53", new PanelConfig { IP = "172.20.4.53", Name = "BELLES ARTS", Parking = "P. Estació Altea" } },
+                { "172.20.2.50", new PanelConfig { IP = "172.20.2.50", Name = "PANEL RENFE", Parking = "P. Altea Hills" } },
+                { "172.20.1.50", new PanelConfig { IP = "172.20.1.50", Name = "PANEL ALTEA VELLA", Parking = "P. Ciutat Esportiva" } }
             };
         }
 
@@ -303,38 +305,52 @@ namespace ParkingAltea.PanelService.Services
                     return -1;
                 }
 
-                // Primero configurar la pantalla dividida (SplitScreen) como en el ejemplo del SDK
-                int[] windowRect = new int[4] { 0, 0, CP5200Wrapper.DefaultConfig.ScreenWidth, CP5200Wrapper.DefaultConfig.ScreenHeight };
-                var splitResult = CP5200Wrapper.CP5200_Net_SplitScreen(
-                    CP5200Wrapper.DefaultConfig.CardID,
-                    CP5200Wrapper.DefaultConfig.ScreenWidth,
-                    CP5200Wrapper.DefaultConfig.ScreenHeight,
-                    1, // Una ventana
-                    windowRect
-                );
-
-                if (splitResult < 0)
+                // 1. Inicializar panel si no está inicializado
+                if (!await InitializePanelAsync(panelIP))
                 {
-                    _logger.LogWarning("Error configurando SplitScreen para panel {PanelIP}: {Result}", panelIP, splitResult);
-                    // Continuar de todas formas, puede que funcione sin SplitScreen
+                    return -1;
                 }
 
-                // Convertir texto a puntero
+                // 2. Configurar SplitScreen UNA VEZ por panel (según ejemplo del fabricante)
+                if (!_splitScreenDone.ContainsKey(panelIP) || !_splitScreenDone[panelIP])
+                {
+                    int[] windowRect = new int[4] { 0, 0, CP5200Wrapper.DefaultConfig.ScreenWidth, CP5200Wrapper.DefaultConfig.ScreenHeight };
+                    var splitResult = CP5200Wrapper.CP5200_Net_SplitScreen(
+                        CP5200Wrapper.DefaultConfig.CardID,
+                        CP5200Wrapper.DefaultConfig.ScreenWidth,
+                        CP5200Wrapper.DefaultConfig.ScreenHeight,
+                        1, // Una ventana
+                        windowRect
+                    );
+
+                    if (splitResult >= 0)
+                    {
+                        _splitScreenDone[panelIP] = true;
+                        _logger.LogDebug("SplitScreen configurado para panel {PanelIP}", panelIP);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Error configurando SplitScreen para panel {PanelIP}: {Result}", panelIP, splitResult);
+                        // Continuar de todas formas, puede que funcione sin SplitScreen
+                    }
+                }
+
+                // 3. Convertir texto a puntero
                 var textPtr = Marshal.StringToHGlobalAnsi(message.Text);
 
                 try
                 {
-                    // Enviar usando la DLL CP5200 con los parámetros correctos según el ejemplo
+                    // 4. Enviar usando parámetros correctos según ejemplo del fabricante
                     var result = CP5200Wrapper.CP5200_Net_SendTagText(
-                        CP5200Wrapper.DefaultConfig.CardID,
-                        CP5200Wrapper.DefaultConfig.WindowNo,
-                        textPtr,
-                        message.Color,
-                        message.FontSize,
-                        message.Speed,
-                        message.Effect,
-                        message.StayTime,
-                        message.Alignment
+                        CP5200Wrapper.DefaultConfig.CardID,  // CardID = 1
+                        CP5200Wrapper.DefaultConfig.WindowNo, // Window = 0
+                        textPtr,                              // Texto
+                        message.Color,                        // Color
+                        message.FontSize,                     // FontSize = 16
+                        message.Speed,                        // Speed = 3
+                        message.Effect,                       // Effect = 0
+                        message.StayTime,                     // StayTime = 3
+                        message.Alignment                     // Alignment = 0
                     );
 
                     _logger.LogDebug("Envío a panel {PanelIP}: resultado {Result}", panelIP, result);

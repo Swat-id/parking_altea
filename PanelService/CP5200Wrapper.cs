@@ -30,21 +30,21 @@ namespace ParkingAltea.PanelService
         [DllImport(DLL_PATH, CharSet = CharSet.Auto)]
         public static extern int CP5200_Net_PlaySelectedPrg(int nCardID, int[] pSelected, int nSelCnt, int nOption);
 
-        // Conversión de IP a uint
+        // Conversión de IP a uint con byte swapping correcto (según ejemplo del fabricante)
         public static uint IPToUInt(string ipAddress)
         {
-            var parts = ipAddress.Split('.');
-            if (parts.Length != 4)
-                return 0;
-
-            uint result = 0;
-            for (int i = 0; i < 4; i++)
+            try
             {
-                if (!uint.TryParse(parts[i], out uint part))
-                    return 0;
-                result = (result << 8) | part;
+                System.Net.IPAddress ipaddress = System.Net.IPAddress.Parse(ipAddress);
+                uint lIp = (uint)ipaddress.Address;
+                lIp = ((lIp & 0xFF000000) >> 24) + ((lIp & 0x00FF0000) >> 8) + 
+                      ((lIp & 0x0000FF00) << 8) + ((lIp & 0x000000FF) << 24);
+                return lIp;
             }
-            return result;
+            catch
+            {
+                return 0;
+            }
         }
 
         // Configuración por defecto
