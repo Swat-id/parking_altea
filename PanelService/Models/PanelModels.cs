@@ -21,7 +21,7 @@ namespace ParkingAltea.PanelService.Models
         public string Text { get; set; } = string.Empty;
         
         public int Window { get; set; } = 0;
-        public int Color { get; set; } = 0xFF0000; // Rojo por defecto
+        public int Color { get; set; } = 0x0000FF; // Rojo por defecto según SDK (255)
         public int FontSize { get; set; } = 16;
         public int Speed { get; set; } = 3; // Velocidad de movimiento
         public int Effect { get; set; } = 0; // 0 = sin efecto, 1 = efecto especial
@@ -38,7 +38,7 @@ namespace ParkingAltea.PanelService.Models
         public int Total { get; set; }
         public string Status { get; set; } = string.Empty; // LLIURE, DENS, COMPLET
         public string ParkingName { get; set; } = string.Empty;
-        public int Color { get; set; } = 0x00FF00; // Verde por defecto
+        public int Color { get; set; } = 0x00FF00; // Verde por defecto según SDK (65280)
         public int FontSize { get; set; } = 16;
         public int Speed { get; set; } = 2; // Movimiento más lento para ocupación
         public int Alignment { get; set; } = 5; // Centrado
@@ -70,7 +70,7 @@ namespace ParkingAltea.PanelService.Models
         
         public List<string>? PanelIPs { get; set; }
         public bool SendToAll { get; set; } = true;
-        public int Color { get; set; } = 0xFFFF00; // Amarillo por defecto
+        public int Color { get; set; } = 0x00FFFF; // Amarillo por defecto según SDK (65535)
         public int FontSize { get; set; } = 16;
         public int Speed { get; set; } = 3;
         public int Alignment { get; set; } = 5;
@@ -85,18 +85,18 @@ namespace ParkingAltea.PanelService.Models
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     }
 
-    // Constantes para colores predefinidos
+    // Constantes para colores predefinidos según SDK CP5200
     public static class PanelColors
     {
-        public const int Red = 0xFF0000;
-        public const int Green = 0x00FF00;
-        public const int Blue = 0x0000FF;
-        public const int Yellow = 0xFFFF00;
-        public const int Cyan = 0x00FFFF;
-        public const int Magenta = 0xFF00FF;
-        public const int White = 0xFFFFFF;
-        public const int Orange = 0xFF8000;
-        public const int Purple = 0x8000FF;
+        public const int Red = 0x0000FF;        // 255 (Decimal) - Rojo según SDK
+        public const int Green = 0x00FF00;      // 65280 (Decimal) - Verde según SDK  
+        public const int Blue = 0xFF0000;       // 16711680 (Decimal) - Azul según SDK
+        public const int Yellow = 0x00FFFF;     // 65535 (Decimal) - Amarillo
+        public const int Cyan = 0xFFFF00;       // 16776960 (Decimal) - Cyan
+        public const int Magenta = 0xFF00FF;    // 16711935 (Decimal) - Magenta
+        public const int White = 0xFFFFFF;      // 16777215 (Decimal) - Blanco
+        public const int Orange = 0x0080FF;     // 33023 (Decimal) - Naranja según SDK
+        public const int Purple = 0x800080;     // 8388736 (Decimal) - Púrpura
     }
 
     // Constantes para alineación

@@ -303,12 +303,28 @@ namespace ParkingAltea.PanelService.Services
                     return -1;
                 }
 
+                // Primero configurar la pantalla dividida (SplitScreen) como en el ejemplo del SDK
+                int[] windowRect = new int[4] { 0, 0, CP5200Wrapper.DefaultConfig.ScreenWidth, CP5200Wrapper.DefaultConfig.ScreenHeight };
+                var splitResult = CP5200Wrapper.CP5200_Net_SplitScreen(
+                    CP5200Wrapper.DefaultConfig.CardID,
+                    CP5200Wrapper.DefaultConfig.ScreenWidth,
+                    CP5200Wrapper.DefaultConfig.ScreenHeight,
+                    1, // Una ventana
+                    windowRect
+                );
+
+                if (splitResult < 0)
+                {
+                    _logger.LogWarning("Error configurando SplitScreen para panel {PanelIP}: {Result}", panelIP, splitResult);
+                    // Continuar de todas formas, puede que funcione sin SplitScreen
+                }
+
                 // Convertir texto a puntero
                 var textPtr = Marshal.StringToHGlobalAnsi(message.Text);
 
                 try
                 {
-                    // Enviar usando la DLL CP5200
+                    // Enviar usando la DLL CP5200 con los parámetros correctos según el ejemplo
                     var result = CP5200Wrapper.CP5200_Net_SendTagText(
                         CP5200Wrapper.DefaultConfig.CardID,
                         CP5200Wrapper.DefaultConfig.WindowNo,
@@ -347,6 +363,22 @@ namespace ParkingAltea.PanelService.Services
                     return -1;
                 }
 
+                // Primero configurar la pantalla dividida (SplitScreen) como en el ejemplo del SDK
+                int[] windowRect = new int[4] { 0, 0, CP5200Wrapper.DefaultConfig.ScreenWidth, CP5200Wrapper.DefaultConfig.ScreenHeight };
+                var splitResult = CP5200Wrapper.CP5200_Net_SplitScreen(
+                    CP5200Wrapper.DefaultConfig.CardID,
+                    CP5200Wrapper.DefaultConfig.ScreenWidth,
+                    CP5200Wrapper.DefaultConfig.ScreenHeight,
+                    1, // Una ventana
+                    windowRect
+                );
+
+                if (splitResult < 0)
+                {
+                    _logger.LogWarning("Error configurando SplitScreen para texto estático en panel {PanelIP}: {Result}", panelIP, splitResult);
+                    // Continuar de todas formas, puede que funcione sin SplitScreen
+                }
+
                 // Convertir texto a puntero
                 var textPtr = Marshal.StringToHGlobalAnsi(text);
 
@@ -383,10 +415,10 @@ namespace ParkingAltea.PanelService.Services
         {
             return status.ToUpper() switch
             {
-                "LLIURE" => PanelColors.Green,
-                "DENS" => PanelColors.Yellow,
-                "COMPLET" => PanelColors.Red,
-                _ => PanelColors.White
+                "LLIURE" => PanelColors.Green,    // Verde: 0x00FF00 (65280)
+                "DENS" => PanelColors.Orange,     // Naranja: 0x0080FF (33023) 
+                "COMPLET" => PanelColors.Red,     // Rojo: 0x0000FF (255)
+                _ => PanelColors.White            // Blanco: 0xFFFFFF (16777215)
             };
         }
 
