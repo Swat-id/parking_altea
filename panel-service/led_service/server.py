@@ -7,8 +7,8 @@ app = FastAPI()
 
 NETWORK_ID = 0x12345678
 CARD_ID = 0x01
-PANEL_IP = "192.168.1.100"
-PANEL_PORT = 5005
+PANEL_IP = "172.20.4.52"
+PANEL_PORT = 3210
 
 class TextRequest(BaseModel):
     window_no: int
