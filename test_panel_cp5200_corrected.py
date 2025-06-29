@@ -86,7 +86,7 @@ class CP5200Protocol:
 class CP5200Client:
     """Cliente TCP/IP para comunicación con paneles CP5200"""
     
-    def __init__(self, host: str, port: int = 5000, timeout: float = 5.0):
+    def __init__(self, host: str, port: int = 5200, timeout: float = 5.0):
         self.host = host
         self.port = port
         self.timeout = timeout
@@ -202,7 +202,7 @@ def main():
     
     # Configuración
     panel_ip = "172.20.4.52"
-    panel_port = 5000  # Puerto por defecto CP5200
+    panel_port = 5200  # Puerto correcto CP5200
     server_ip = "157.180.91.63"
     
     # Crear cliente
