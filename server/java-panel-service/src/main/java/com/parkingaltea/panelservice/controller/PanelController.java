@@ -29,6 +29,33 @@ public class PanelController {
     private PanelCommunicationService panelService;
 
     /**
+     * Health check general del servicio (raíz)
+     */
+    @GetMapping("/health")
+    public ResponseEntity<PanelResponse> healthRoot() {
+        try {
+            Map<String, Object> data = new HashMap<>();
+            data.put("service", "Java Panel Service");
+            data.put("version", "1.0.0");
+            data.put("status", "UP");
+            data.put("timestamp", System.currentTimeMillis());
+            
+            PanelResponse response = PanelResponse.success("Servicio funcionando correctamente", data);
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("Error en health check: {}", e.getMessage(), e);
+            
+            PanelResponse response = PanelResponse.error(
+                "Error en health check: " + e.getMessage(),
+                -1,
+                0.0
+            );
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    /**
      * Envía un mensaje a un panel específico
      */
     @PostMapping("/send")
@@ -182,7 +209,7 @@ public class PanelController {
     /**
      * Prueba la conectividad con un panel específico
      */
-    @PostMapping("/test/{panelIP}")
+    @GetMapping("/test/{panelIP}")
     public ResponseEntity<PanelResponse> testPanel(@PathVariable @NotBlank String panelIP) {
         long startTime = System.currentTimeMillis();
         
@@ -227,29 +254,37 @@ public class PanelController {
      */
     @GetMapping("/status")
     public ResponseEntity<PanelResponse> getPanelStatus() {
+        long startTime = System.currentTimeMillis();
+        
         try {
             log.info("Recibida petición de estado de paneles");
             
             Map<String, Boolean> initializedPanels = panelService.getInitializedPanels();
             
+            long responseTime = System.currentTimeMillis() - startTime;
+            
             Map<String, Object> data = new HashMap<>();
             data.put("initializedPanels", initializedPanels);
             data.put("totalPanels", initializedPanels.size());
             data.put("onlinePanels", initializedPanels.values().stream().filter(Boolean::booleanValue).count());
+            data.put("responseTime", responseTime);
             
             PanelResponse response = PanelResponse.success(
                 "Estado de paneles obtenido correctamente",
                 data
             );
+            response.setResponseTime((double) responseTime);
             
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
+            long responseTime = System.currentTimeMillis() - startTime;
             log.error("Error al obtener estado de paneles: {}", e.getMessage(), e);
             
             PanelResponse response = PanelResponse.error(
                 "Error interno del servidor: " + e.getMessage(),
-                -2
+                -2,
+                (double) responseTime
             );
             return ResponseEntity.internalServerError().body(response);
         }
@@ -260,6 +295,8 @@ public class PanelController {
      */
     @GetMapping("/colors")
     public ResponseEntity<PanelResponse> getAvailableColors() {
+        long startTime = System.currentTimeMillis();
+        
         try {
             Map<String, Integer> colors = Map.of(
                 "red", 0x0000FF,
@@ -271,19 +308,24 @@ public class PanelController {
                 "default", 3000
             );
             
+            long responseTime = System.currentTimeMillis() - startTime;
+            
             PanelResponse response = PanelResponse.success(
                 "Colores disponibles obtenidos correctamente",
                 colors
             );
+            response.setResponseTime((double) responseTime);
             
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
+            long responseTime = System.currentTimeMillis() - startTime;
             log.error("Error al obtener colores: {}", e.getMessage(), e);
             
             PanelResponse response = PanelResponse.error(
                 "Error interno del servidor: " + e.getMessage(),
-                -2
+                -2,
+                (double) responseTime
             );
             return ResponseEntity.internalServerError().body(response);
         }
@@ -294,53 +336,30 @@ public class PanelController {
      */
     @PostMapping("/clear-cache")
     public ResponseEntity<PanelResponse> clearCache() {
+        long startTime = System.currentTimeMillis();
+        
         try {
             log.info("Recibida petición para limpiar cache de paneles");
             
             panelService.clearInitializedPanels();
             
+            long responseTime = System.currentTimeMillis() - startTime;
+            
             PanelResponse response = PanelResponse.success(
                 "Cache de paneles limpiada correctamente"
             );
+            response.setResponseTime((double) responseTime);
             
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
+            long responseTime = System.currentTimeMillis() - startTime;
             log.error("Error al limpiar cache: {}", e.getMessage(), e);
             
             PanelResponse response = PanelResponse.error(
                 "Error interno del servidor: " + e.getMessage(),
-                -2
-            );
-            return ResponseEntity.internalServerError().body(response);
-        }
-    }
-
-    /**
-     * Endpoint de salud del servicio
-     */
-    @GetMapping("/health")
-    public ResponseEntity<PanelResponse> health() {
-        try {
-            Map<String, Object> healthData = new HashMap<>();
-            healthData.put("status", "UP");
-            healthData.put("service", "Java Panel Service");
-            healthData.put("version", "1.0.0");
-            healthData.put("timestamp", System.currentTimeMillis());
-            
-            PanelResponse response = PanelResponse.success(
-                "Servicio funcionando correctamente",
-                healthData
-            );
-            
-            return ResponseEntity.ok(response);
-            
-        } catch (Exception e) {
-            log.error("Error en health check: {}", e.getMessage(), e);
-            
-            PanelResponse response = PanelResponse.error(
-                "Error en health check: " + e.getMessage(),
-                -2
+                -2,
+                (double) responseTime
             );
             return ResponseEntity.internalServerError().body(response);
         }
