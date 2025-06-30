@@ -1,0 +1,31 @@
+[Unit]
+Description=Java Panel Service
+Documentation=https://github.com/Swat-id/parking_altea
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/java-panel-service
+ExecStart=/usr/bin/java -jar java-panel-service-1.0.0.jar
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=java-panel-service
+
+# Configuración de memoria y JVM
+Environment="JAVA_OPTS=-Xms256m -Xmx512m -XX:+UseG1GC"
+Environment="SPRING_PROFILES_ACTIVE=production"
+
+# Configuración de seguridad
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/java-panel-service/logs
+
+[Install]
+WantedBy=multi-user.target 
