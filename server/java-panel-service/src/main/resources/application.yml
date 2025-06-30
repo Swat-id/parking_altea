@@ -19,7 +19,7 @@ panel:
   service:
     # Configuración de la librería Java
     library:
-      jar-path: "../panel_java/protocol-1.2.6.jar"
+      jar-path: "/opt/parking_altea/panel_java/protocol-1.2.6.jar"
       timeout: 3000
       retry-attempts: 3
       retry-delay: 1000
