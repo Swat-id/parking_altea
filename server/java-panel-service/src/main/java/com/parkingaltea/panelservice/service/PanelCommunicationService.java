@@ -126,6 +126,7 @@ public class PanelCommunicationService {
                     .fontSize(occupancy.getFontSize())
                     .speed(occupancy.getSpeed())
                     .alignment(occupancy.getAlignment())
+                    .windowNo(occupancy.getWindowNo())
                     .build();
 
             return sendMessage(panelMessage);
@@ -227,7 +228,7 @@ public class PanelCommunicationService {
             
             // Llamar a la función sendMulti correcta
             // boolean sendMulti(int itemNum, String[] texts, int[] colors, int[] fontSizes, int[] showEffects)
-            boolean result = sendMulti(1, texts, colors, fontSizes, showEffects);
+            boolean result = sendMulti(panelMessage.getWindowNo(), texts, colors, fontSizes, showEffects);
             
             if (result) {
                 log.debug("Mensaje enviado exitosamente a panel {} usando sendMulti", panelMessage.getPanelIP());

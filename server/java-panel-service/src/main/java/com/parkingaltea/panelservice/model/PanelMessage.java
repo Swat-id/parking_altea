@@ -52,4 +52,9 @@ public class PanelMessage {
     @Min(value = 0, message = "La alineación mínima es 0")
     @Max(value = 10, message = "La alineación máxima es 10")
     private Integer alignment = 5; // Centro por defecto
+
+    @Builder.Default
+    @Min(value = 0, message = "El número de ventana mínimo es 0")
+    @Max(value = 10, message = "El número de ventana máximo es 10")
+    private Integer windowNo = 0; // Ventana 0 por defecto
 } 
