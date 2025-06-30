@@ -304,22 +304,21 @@ public class PanelCommunicationService {
      * Convierte color hexadecimal a formato del panel (1-7)
      */
     private int convertColorToPanelFormat(int hexColor) {
-        // Convertir color hexadecimal a formato del panel
-        // 1=red, 2=green, 3=yellow, 4=blue, 5=purple, 6=blue, 7=white
+        // Mapear colores según el manual del fabricante (1-7)
         switch (hexColor) {
-            case 0x0000FF: // Rojo
+            case 1: // Rojo
                 return 1;
-            case 0x00FF00: // Verde
+            case 2: // Verde
                 return 2;
-            case 0x00FFFF: // Amarillo
+            case 3: // Amarillo
                 return 3;
-            case 0xFF0000: // Azul
+            case 4: // Azul
                 return 4;
-            case 0x800080: // Púrpura
+            case 5: // Púrpura
                 return 5;
-            case 0x000080: // Azul oscuro (otro)
+            case 6: // Azul oscuro
                 return 6;
-            case 0xFFFFFF: // Blanco
+            case 7: // Blanco
                 return 7;
             default:
                 return 2; // Verde por defecto
