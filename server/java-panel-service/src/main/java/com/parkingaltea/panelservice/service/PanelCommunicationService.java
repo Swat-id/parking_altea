@@ -83,28 +83,24 @@ public class PanelCommunicationService {
      * Configura el listener para un panel
      */
     private void setupListener(ExtSendUtil sender, String panelIP) {
-        sender.setListener(new ExtSendUtilListener() {
+        sender.setListener(new OnTcpNetWorkListener() {
             public void onSocketInit(int result) {
                 log.debug("[LISTENER] Panel {} - onSocketInit: Result={}", panelIP, result);
             }
 
-            @Override
             public void onStatus(int status, int socketIndex) {
                 log.debug("[LISTENER] Panel {} - onStatus: Status={}, SocketIndex={}", panelIP, status, socketIndex);
             }
 
-            @Override
             public void onBackBytes(int[] backBytes, int socketIndex) {
                 log.debug("[LISTENER] Panel {} - onBackBytes received on socket {}", panelIP, socketIndex);
             }
 
-            @Override
             public void onTcpProcess(long process, long totalProcess, int socketIndex) {
                 log.debug("[LISTENER] Panel {} - onTcpProcess: {}/{} (SocketIndex={})", 
                         panelIP, process, totalProcess, socketIndex);
             }
 
-            @Override
             public void breakSocket(int socketIndex) {
                 log.debug("[LISTENER] Panel {} - breakSocket called on SocketIndex={}", panelIP, socketIndex);
             }
