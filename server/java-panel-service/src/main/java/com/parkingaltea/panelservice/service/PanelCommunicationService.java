@@ -2,6 +2,8 @@ package com.parkingaltea.panelservice.service;
 
 import com.parkingaltea.panelservice.model.PanelMessage;
 import com.parkingaltea.panelservice.model.PanelOccupancy;
+import com.lumen.ledcenter3.protocol.ExtSendUtil;
+import com.lumen.ledcenter3.protocol.ExternalNetworkSendProtocol.OnTcpNetWorkListener;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -41,9 +43,9 @@ public class PanelCommunicationService {
 
     // Cache de paneles inicializados
     private final ConcurrentHashMap<String, Boolean> initializedPanels = new ConcurrentHashMap<>();
-
-    // Objeto de comunicación con la librería Java
-    private Object panelProtocol;
+    
+    // Instancia de la librería del fabricante por panel
+    private final ConcurrentHashMap<String, ExtSendUtil> panelSenders = new ConcurrentHashMap<>();
 
     /**
      * Inicializa la librería Java del fabricante
@@ -52,8 +54,12 @@ public class PanelCommunicationService {
         try {
             log.info("Inicializando librería Java de paneles desde: {}", jarPath);
             
-            // Aquí se cargaría la librería Java del fabricante
-            // Por ahora simulamos la inicialización
+            // Verificar que el JAR existe
+            java.io.File jarFile = new java.io.File(jarPath);
+            if (!jarFile.exists()) {
+                log.error("JAR del fabricante no encontrado en: {}", jarPath);
+                throw new RuntimeException("JAR del fabricante no encontrado");
+            }
             
             log.info("Librería Java inicializada correctamente");
             
@@ -61,6 +67,49 @@ public class PanelCommunicationService {
             log.error("Error al inicializar librería Java: {}", e.getMessage(), e);
             throw new RuntimeException("No se pudo inicializar la librería Java", e);
         }
+    }
+
+    /**
+     * Obtiene o crea una instancia de ExtSendUtil para un panel
+     */
+    private ExtSendUtil getPanelSender(String panelIP) {
+        return panelSenders.computeIfAbsent(panelIP, ip -> {
+            log.debug("Creando nueva instancia de ExtSendUtil para panel {}", ip);
+            return new ExtSendUtil();
+        });
+    }
+
+    /**
+     * Configura el listener para un panel
+     */
+    private void setupListener(ExtSendUtil sender, String panelIP) {
+        sender.setListener(new OnTcpNetWorkListener() {
+            @Override
+            public void onSocketInit(int result) {
+                log.debug("[LISTENER] Panel {} - onSocketInit: {}", panelIP, result == 1 ? "SUCCESS" : "FAIL");
+            }
+
+            @Override
+            public void onStatus(int status, int socketIndex) {
+                log.debug("[LISTENER] Panel {} - onStatus: Status={}, SocketIndex={}", panelIP, status, socketIndex);
+            }
+
+            @Override
+            public void onBackBytes(int[] backBytes, int socketIndex) {
+                log.debug("[LISTENER] Panel {} - onBackBytes received on socket {}", panelIP, socketIndex);
+            }
+
+            @Override
+            public void onTcpProcess(long process, long totalProcess, int socketIndex) {
+                log.debug("[LISTENER] Panel {} - onTcpProcess: {}/{} (SocketIndex={})", 
+                        panelIP, process, totalProcess, socketIndex);
+            }
+
+            @Override
+            public void breakSocket(int socketIndex) {
+                log.debug("[LISTENER] Panel {} - breakSocket called on SocketIndex={}", panelIP, socketIndex);
+            }
+        });
     }
 
     /**
@@ -193,8 +242,14 @@ public class PanelCommunicationService {
         try {
             log.debug("Inicializando panel: {}", panelIP);
             
-            // Aquí se llamaría a la función de inicialización de la librería Java
-            // Por ahora simulamos la inicialización
+            // Obtener instancia de ExtSendUtil
+            ExtSendUtil sender = getPanelSender(panelIP);
+            
+            // Configurar listener
+            setupListener(sender, panelIP);
+            
+            // Inicializar red con parámetros por defecto
+            sender.initNetwork(panelIP, defaultPort, "255.255.255.255");
             
             // Simular delay de inicialización
             Thread.sleep(100);
@@ -221,15 +276,20 @@ public class PanelCommunicationService {
                     panelMessage.getSpeed(), panelMessage.getEffect(), 
                     panelMessage.getStayTime(), panelMessage.getAlignment());
 
-            // Preparar arrays para sendMulti
+            // Obtener instancia de ExtSendUtil
+            ExtSendUtil sender = getPanelSender(panelMessage.getPanelIP());
+            
+            // Preparar arrays para sendMulti (formato del fabricante)
             String[] texts = {panelMessage.getMessage()};
             int[] colors = {convertColorToPanelFormat(panelMessage.getColor())};
-            int[] fontSizes = {panelMessage.getFontSize()};
+            int[] fontSizes = {convertFontSizeToPanelFormat(panelMessage.getFontSize())};
             int[] showEffects = {convertEffectToPanelFormat(panelMessage.getEffect())};
             
-            // Llamar a la función sendMulti correcta
-            // boolean sendMulti(int itemNum, String[] texts, int[] colors, int[] fontSizes, int[] showEffects)
-            boolean result = sendMulti(panelMessage.getWindowNo(), texts, colors, fontSizes, showEffects);
+            // Usar itemNum = 1 (como en el ejemplo que funciona)
+            int itemNum = 1;
+            
+            // Llamar a sendMulti de la librería del fabricante
+            boolean result = sender.sendMulti(itemNum, texts, colors, fontSizes, showEffects);
             
             if (result) {
                 log.debug("Mensaje enviado exitosamente a panel {} usando sendMulti", panelMessage.getPanelIP());
@@ -272,6 +332,17 @@ public class PanelCommunicationService {
     }
 
     /**
+     * Convierte tamaño de fuente a formato del panel
+     */
+    private int convertFontSizeToPanelFormat(int fontSize) {
+        // Mapear tamaños de fuente según el ejemplo que funciona
+        // 2 = ~24px, 1 = ~16px, etc.
+        if (fontSize >= 24) return 2;
+        if (fontSize >= 16) return 1;
+        return 1; // Por defecto
+    }
+
+    /**
      * Convierte efecto a formato del panel
      */
     private int convertEffectToPanelFormat(int effect) {
@@ -297,9 +368,7 @@ public class PanelCommunicationService {
      */
     private boolean sendMulti(int itemNum, String[] texts, int[] colors, int[] fontSizes, int[] showEffects) {
         try {
-            // Aquí se implementaría la llamada real a la librería Java del fabricante
-            // Por ahora simulamos el envío exitoso
-            
+            // Esta función ya no se usa directamente, se usa la de ExtSendUtil
             log.debug("Llamando a sendMulti: itemNum={}, texts={}, colors={}, fontSizes={}, showEffects={}", 
                     itemNum, java.util.Arrays.toString(texts), 
                     java.util.Arrays.toString(colors), 
@@ -350,6 +419,7 @@ public class PanelCommunicationService {
      */
     public void clearInitializedPanels() {
         initializedPanels.clear();
+        panelSenders.clear();
         log.info("Cache de paneles inicializados limpiada");
     }
 
@@ -377,11 +447,14 @@ public class PanelCommunicationService {
                 return false;
             }
 
-            // Aquí se llamaría a la función initNetwork de la librería Java del fabricante
-            // Por ahora simulamos la inicialización exitosa
+            // Obtener instancia de ExtSendUtil
+            ExtSendUtil sender = getPanelSender(panelIP);
             
-            // Simular delay de inicialización de red
-            Thread.sleep(200);
+            // Configurar listener
+            setupListener(sender, panelIP);
+            
+            // Inicializar red usando la librería del fabricante
+            sender.initNetwork(panelIP, port, idCode);
             
             // Marcar panel como inicializado
             initializedPanels.put(panelIP, true);
@@ -413,14 +486,15 @@ public class PanelCommunicationService {
                 }
             }
 
-            // Aquí se llamaría a la función setListener de la librería Java del fabricante
-            // Por ahora simulamos la configuración exitosa
-            
-            // Simular delay de configuración del listener
-            Thread.sleep(100);
-            
-            log.info("Listener configurado correctamente para panel {}", panelIP);
-            return true;
+            // El listener ya se configura en initNetwork, solo verificamos
+            ExtSendUtil sender = getPanelSender(panelIP);
+            if (sender != null) {
+                log.info("Listener configurado correctamente para panel {}", panelIP);
+                return true;
+            } else {
+                log.error("No se pudo obtener instancia de ExtSendUtil para panel {}", panelIP);
+                return false;
+            }
 
         } catch (Exception e) {
             log.error("Error al configurar listener para panel {}: {}", panelIP, e.getMessage(), e);
@@ -446,14 +520,17 @@ public class PanelCommunicationService {
                 }
             }
 
+            // Obtener instancia de ExtSendUtil
+            ExtSendUtil sender = getPanelSender(panelIP);
+            
             // Convertir listas a arrays para la función sendMulti
             String[] textsArray = texts.toArray(new String[0]);
             int[] colorsArray = colors.stream().mapToInt(Integer::intValue).toArray();
             int[] fontSizesArray = fontSizes.stream().mapToInt(Integer::intValue).toArray();
             int[] showEffectsArray = showEffects.stream().mapToInt(Integer::intValue).toArray();
 
-            // Llamar a la función sendMulti interna
-            boolean result = sendMulti(itemNum, textsArray, colorsArray, fontSizesArray, showEffectsArray);
+            // Llamar a sendMulti de la librería del fabricante
+            boolean result = sender.sendMulti(itemNum, textsArray, colorsArray, fontSizesArray, showEffectsArray);
             
             if (result) {
                 log.info("sendMulti ejecutado correctamente en panel {}", panelIP);
@@ -490,24 +567,18 @@ public class PanelCommunicationService {
             // Esperar un momento para que se establezca la conexión
             Thread.sleep(100);
 
-            // Paso 2: setListener
-            log.debug("Paso 2: Configurando listener...");
-            if (!setListener(panelIP, true, 5001)) {
-                log.error("Error en setListener para panel {}", panelIP);
-                return false;
-            }
-
-            // Esperar un momento para que se configure el listener
-            Thread.sleep(100);
+            // Paso 2: setListener (ya se hace en initNetwork)
+            log.debug("Paso 2: Listener ya configurado en initNetwork");
 
             // Paso 3: sendMulti
             log.debug("Paso 3: Enviando mensaje con sendMulti...");
             List<String> texts = List.of(message);
             List<Integer> colors = List.of(color != null ? color : 2);
-            List<Integer> fontSizes = List.of(fontSize != null ? fontSize : 16);
+            List<Integer> fontSizes = List.of(convertFontSizeToPanelFormat(fontSize != null ? fontSize : 16));
             List<Integer> showEffects = List.of(effect != null ? effect : 0);
 
-            boolean result = sendMulti(panelIP, windowNo, texts, colors, fontSizes, showEffects);
+            // Usar itemNum = 1 como en el ejemplo que funciona
+            boolean result = sendMulti(panelIP, 1, texts, colors, fontSizes, showEffects);
             
             if (result) {
                 log.info("Mensaje manual enviado correctamente a panel {}", panelIP);

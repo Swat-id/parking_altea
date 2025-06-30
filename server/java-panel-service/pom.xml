@@ -4,6 +4,12 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
          http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.7.18</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
 
     <groupId>com.parkingaltea</groupId>
     <artifactId>java-panel-service</artifactId>
@@ -18,6 +24,7 @@
         <maven.compiler.target>11</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <spring.boot.version>2.7.18</spring.boot.version>
+        <java.version>11</java.version>
     </properties>
 
     <dependencyManagement>
@@ -67,8 +74,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>1.18.30</version>
-            <scope>provided</scope>
+            <optional>true</optional>
         </dependency>
 
         <!-- Test dependencies -->
@@ -83,6 +89,15 @@
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <!-- Librería Java del fabricante -->
+        <dependency>
+            <groupId>com.lumen.ledcenter3</groupId>
+            <artifactId>protocol</artifactId>
+            <version>1.2.6</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/../../panel_java/protocol-1.2.6.jar</systemPath>
         </dependency>
     </dependencies>
 
@@ -103,6 +118,12 @@
                 <configuration>
                     <mainClass>com.parkingaltea.panelservice.PanelServiceApplication</mainClass>
                     <layout>JAR</layout>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
                 </configuration>
             </plugin>
 
