@@ -15,7 +15,7 @@ from datetime import datetime
 # Configuración de la base de datos
 DB_CONFIG = {
     'host': 'localhost',
-    'database': 'parking_altea',
+    'database': 'parking_db',
     'user': 'parking_user',
     'password': 'parking_pass'
 }
