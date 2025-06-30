@@ -1,76 +1,42 @@
-# Servicio Java de Comunicación con Paneles LED
+# Java Panel Service v2.5
 
-## 📋 Descripción
+Servicio Java para comunicación con paneles LED basado en la librería del fabricante.
 
-Este servicio proporciona una API REST para comunicarse con los paneles electrónicos LED del sistema de parking de Altea, utilizando la librería Java del fabricante Rotuloselectronicos.net.
+## Características
 
-## 🏗️ Arquitectura
+- ✅ Comunicación con paneles LED usando la librería oficial
+- ✅ API REST para envío de mensajes
+- ✅ Cache de conexiones por panel
+- ✅ Configuración flexible
+- ✅ Logging detallado
+- ✅ Health checks
+- ✅ Validación de datos
 
-### Componentes
+## Tecnologías
 
-- **Spring Boot 2.7.18**: Framework de aplicación
-- **Java 11**: Lenguaje de programación
-- **Maven**: Gestión de dependencias
-- **Librería Java del fabricante**: `protocol-1.2.6.jar`
+- **Java 11**
+- **Spring Boot 2.7.18**
+- **Maven**
+- **Lombok**
+- **Librería del fabricante**: `protocol-1.2.6.jar`
 
-### Estructura del Proyecto
+## Estructura del Proyecto
 
 ```
-server/java-panel-service/
-├── src/
-│   ├── main/
-│   │   ├── java/com/parkingaltea/panelservice/
-│   │   │   ├── PanelServiceApplication.java
-│   │   │   ├── config/
-│   │   │   │   └── PanelServiceConfig.java
-│   │   │   ├── controller/
-│   │   │   │   └── PanelController.java
-│   │   │   ├── model/
-│   │   │   │   ├── PanelMessage.java
-│   │   │   │   ├── PanelOccupancy.java
-│   │   │   │   └── PanelResponse.java
-│   │   │   └── service/
-│   │   │       └── PanelCommunicationService.java
-│   │   └── resources/
-│   │       └── application.yml
-│   └── test/
-│       └── java/com/parkingaltea/panelservice/
-│           ├── PanelServiceApplicationTests.java
-│           └── service/
-│               └── PanelCommunicationServiceTest.java
-├── pom.xml
-└── README.md
+src/main/java/com/parkingaltea/panelservice/
+├── PanelServiceApplication.java    # Clase principal
+├── controller/
+│   └── PanelController.java        # Controlador REST
+├── model/
+│   ├── PanelMessage.java           # Modelo de mensaje
+│   └── PanelResponse.java          # Modelo de respuesta
+└── service/
+    └── PanelService.java           # Servicio principal
 ```
 
-## 🚀 Instalación y Configuración
+## Configuración
 
-### Prerrequisitos
-
-- Java 11 o superior
-- Maven 3.6 o superior
-- Librería Java del fabricante: `panel_java/protocol-1.2.6.jar`
-
-### Compilación
-
-```bash
-cd server/java-panel-service
-mvn clean compile
-```
-
-### Ejecución
-
-```bash
-# Ejecutar en modo desarrollo
-mvn spring-boot:run
-
-# Ejecutar JAR compilado
-mvn clean package
-java -jar target/java-panel-service-1.0.0.jar
-```
-
-### Configuración
-
-El servicio se configura a través del archivo `application.yml`:
+El servicio se configura mediante `application.yml`:
 
 ```yaml
 server:
@@ -80,324 +46,147 @@ server:
 
 panel:
   service:
-    library:
-      jar-path: "../panel_java/protocol-1.2.6.jar"
-      timeout: 3000
-      retry-attempts: 3
-      retry-delay: 1000
+    default:
+      port: 5200
+      card-id: 1
+      window-no: 0
+    panels:
+      - ip: "172.20.5.50"
+        name: "PANEL BASSETA 1"
+      # ... más paneles
 ```
 
-## 📡 API Endpoints
-
-### Base URL
-```
-http://localhost:5002/api
-```
-
-### Endpoints Disponibles
-
-#### 1. Enviar Mensaje a Panel
-```http
-POST /panel/send
-Content-Type: application/json
-
-{
-  "panelIP": "172.20.5.50",
-  "message": "PARKING LLIURE",
-  "color": 0x00FF00,
-  "fontSize": 16,
-  "speed": 3,
-  "effect": 0,
-  "stayTime": 5,
-  "alignment": 5
-}
-```
-
-#### 2. Enviar Información de Ocupación
-```http
-POST /panel/occupancy
-Content-Type: application/json
-
-{
-  "panelIP": "172.20.5.50",
-  "current": 45,
-  "total": 500,
-  "status": "LLIURE",
-  "parkingName": "P. Ciutat Esportiva",
-  "color": 0x00FF00,
-  "fontSize": 16,
-  "speed": 2,
-  "alignment": 5
-}
-```
-
-#### 3. Broadcast a Todos los Paneles
-```http
-POST /panel/broadcast
-Content-Type: application/json
-
-{
-  "message": "MANTENIMENT EN CURS",
-  "color": 0xFFFF00,
-  "fontSize": 16,
-  "speed": 3,
-  "alignment": 5
-}
-```
-
-#### 4. Probar Conectividad de Panel
-```http
-POST /panel/test/{panelIP}
-```
-
-#### 5. Obtener Estado de Paneles
-```http
-GET /panel/status
-```
-
-#### 6. Obtener Colores Disponibles
-```http
-GET /panel/colors
-```
-
-#### 7. Limpiar Cache de Paneles
-```http
-POST /panel/clear-cache
-```
-
-#### 8. Health Check
-```http
-GET /panel/health
-```
-
-## 🎨 Configuración de Colores
-
-### Colores Disponibles
-- **Rojo**: `0x0000FF`
-- **Verde**: `0x00FF00`
-- **Azul**: `0xFF0000`
-- **Amarillo**: `0x00FFFF`
-- **Naranja**: `0x0080FF`
-- **Blanco**: `0xFFFFFF`
-- **Por defecto**: `3000`
-
-### Estados de Ocupación por Color
-- **LLIURE**: Verde (`0x00FF00`)
-- **DENS**: Naranja (`0x0080FF`)
-- **COMPLET**: Rojo (`0x0000FF`)
-
-## 🔧 Configuración de Paneles
-
-### Paneles Configurados
-| IP | Nombre | Parking |
-|----|--------|---------|
-| 172.20.17.50 | Panel 1 | P. Ciutat Esportiva |
-| 172.20.5.50 | Panel 2 | P. Poble antic 1 |
-| 172.20.5.51 | Panel 3 | P. Poble antic 2 |
-| 172.20.8.50 | Panel 4 | P. Piteres |
-| 172.20.4.50 | Panel 5 | P. Palau |
-| 172.20.4.51 | Panel 6 | P. Cocoliso |
-| 172.20.4.52 | Panel 7 | Belles Arts 2 |
-| 172.20.4.53 | Panel 8 | Belles Arts |
-| 172.20.2.50 | Panel 9 | P. Renfe |
-| 172.20.1.50 | Panel 10 | P. Altea Vella |
-
-### Configuración por Defecto
-- **Puerto**: 5200
-- **Card ID**: 1
-- **Window No**: 0
-- **Font Size**: 16
-- **Speed**: 3
-- **Effect**: 0
-- **Stay Time**: 5
-- **Alignment**: 5 (Centro)
-
-## 🔄 Flujo de Comunicación
-
-### 1. Inicialización
-```
-1. Cargar librería Java del fabricante
-2. Verificar conectividad con panel
-3. Inicializar panel (una vez por panel)
-4. Configurar pantalla dividida
-```
-
-### 2. Envío de Mensaje
-```
-1. Validar parámetros de entrada
-2. Verificar conectividad
-3. Inicializar panel si es necesario
-4. Enviar mensaje con reintentos
-5. Registrar resultado
-```
-
-### 3. Gestión de Errores
-```
-1. Timeout de conexión
-2. Reintentos automáticos
-3. Logging detallado
-4. Respuestas estructuradas
-```
-
-## 📊 Monitoreo y Logs
-
-### Logs del Servicio
-```bash
-# Ver logs en tiempo real
-tail -f logs/panel-service.log
-
-# Ver últimas 100 líneas
-tail -n 100 logs/panel-service.log
-```
-
-### Métricas Disponibles
-- Tiempo de respuesta por operación
-- Tasa de éxito de envío
-- Número de paneles online
-- Errores por tipo
+## API Endpoints
 
 ### Health Check
-```http
-GET /panel/health
+```
+GET /api/panel/health
 ```
 
-Respuesta:
-```json
+### Enviar Mensaje
+```
+POST /api/panel/send
+Content-Type: application/json
+
 {
-  "success": true,
-  "message": "Servicio funcionando correctamente",
-  "data": {
-    "status": "UP",
-    "service": "Java Panel Service",
-    "version": "1.0.0",
-    "timestamp": 1640995200000
-  }
+  "panelIP": "172.20.4.52",
+  "message": "PANEL 3",
+  "color": 1,
+  "fontSize": 2,
+  "effect": 0,
+  "itemNum": 1
 }
 ```
 
-## 🧪 Pruebas
-
-### Ejecutar Pruebas Unitarias
-```bash
-mvn test
+### Estado de Cache
+```
+GET /api/panel/status
 ```
 
-### Ejecutar Pruebas de Integración
-```bash
-mvn verify
+### Limpiar Cache
+```
+POST /api/panel/clear-cache
 ```
 
-### Pruebas Manuales
-
-#### 1. Probar Envío de Mensaje
-```bash
-curl -X POST http://localhost:5002/api/panel/send \
-  -H "Content-Type: application/json" \
-  -d '{
-    "panelIP": "172.20.5.50",
-    "message": "TEST MESSAGE",
-    "color": 0x00FF00
-  }'
+### Colores Disponibles
+```
+GET /api/panel/colors
 ```
 
-#### 2. Probar Conectividad
+## Parámetros de Mensaje
+
+| Parámetro | Tipo | Descripción | Valores |
+|-----------|------|-------------|---------|
+| `panelIP` | String | IP del panel | Obligatorio |
+| `message` | String | Texto a mostrar | Obligatorio |
+| `color` | Integer | Color del texto | 1-7 (1=Rojo, 2=Verde, etc.) |
+| `fontSize` | Integer | Tamaño de fuente | 1-7 |
+| `effect` | Integer | Efecto de visualización | 0-3 |
+| `itemNum` | Integer | Número de item | 1-10 |
+
+## Colores Disponibles
+
+1. **Rojo** (1)
+2. **Verde** (2)
+3. **Amarillo** (3)
+4. **Azul** (4)
+5. **Púrpura** (5)
+6. **Azul oscuro** (6)
+7. **Blanco** (7)
+
+## Compilación y Ejecución
+
+### Prerrequisitos
+- Java 11 o superior
+- Maven 3.6 o superior
+- Librería `protocol-1.2.6.jar` en `../../panel_java/`
+
+### Compilar
 ```bash
-curl -X POST http://localhost:5002/api/panel/test/172.20.5.50
+mvn clean compile
 ```
 
-#### 3. Verificar Estado
-```bash
-curl -X GET http://localhost:5002/api/panel/status
-```
-
-## 🚀 Despliegue
-
-### Desarrollo
+### Ejecutar
 ```bash
 mvn spring-boot:run
 ```
 
-### Producción
+### Crear JAR
 ```bash
-# Compilar
-mvn clean package -DskipTests
-
-# Ejecutar
-java -jar target/java-panel-service-1.0.0.jar \
-  --spring.profiles.active=production
+mvn clean package
 ```
 
-### Docker (Opcional)
-```dockerfile
-FROM openjdk:11-jre-slim
-COPY target/java-panel-service-1.0.0.jar app.jar
-EXPOSE 5002
-ENTRYPOINT ["java", "-jar", "/app.jar"]
+### Ejecutar JAR
+```bash
+java -jar target/java-panel-service-1.0.0.jar
 ```
 
-## 🔧 Troubleshooting
+## Logging
 
-### Problemas Comunes
+El servicio incluye logging detallado con diferentes niveles:
 
-#### 1. Librería Java no encontrada
-```
-Error: Archivo JAR no encontrado
-Solución: Verificar ruta en application.yml
-```
+- **INFO**: Operaciones principales
+- **DEBUG**: Detalles de comunicación
+- **ERROR**: Errores y excepciones
 
-#### 2. Panel no responde
-```
-Error: Panel no es alcanzable
-Solución: Verificar conectividad de red y configuración IP
-```
+## Ejemplo de Uso
 
-#### 3. Timeout de conexión
-```
-Error: Timeout al conectar con panel
-Solución: Aumentar timeout en configuración
-```
+```java
+// Crear mensaje
+PanelMessage message = PanelMessage.builder()
+    .panelIP("172.20.4.52")
+    .message("PANEL 3")
+    .color(1)        // Rojo
+    .fontSize(2)     // Tamaño 2
+    .effect(0)       // Sin efecto
+    .itemNum(1)      // Item 1
+    .build();
 
-### Logs de Debug
-```yaml
-logging:
-  level:
-    com.parkingaltea.panelservice: DEBUG
+// Enviar mensaje
+boolean success = panelService.sendMessage(message);
 ```
 
-## 📝 Notas de Desarrollo
+## Notas de Implementación
 
-### Integración con Librería Java
-- La librería se carga dinámicamente al inicio
-- Se mantiene cache de paneles inicializados
-- Reintentos automáticos en caso de fallo
+- El servicio mantiene una cache de instancias `ExtSendUtil` por panel
+- Cada panel se inicializa automáticamente en la primera comunicación
+- Los listeners se configuran automáticamente para cada panel
+- El servicio es thread-safe usando `ConcurrentHashMap`
 
-### Optimizaciones
-- Pool de conexiones para operaciones asíncronas
-- Cache de inicialización de paneles
-- Logging estructurado para debugging
+## Troubleshooting
 
-### Seguridad
-- Validación de entrada en todos los endpoints
-- Sanitización de parámetros
-- Logging de operaciones sensibles
+### Error de librería no encontrada
+Verificar que `protocol-1.2.6.jar` esté en la ruta correcta:
+```
+../../panel_java/protocol-1.2.6.jar
+```
 
-## 🔮 Próximas Mejoras
+### Error de conexión
+- Verificar que el panel esté encendido y en red
+- Verificar la IP y puerto configurados
+- Revisar logs para detalles del error
 
-### Funcionalidades Planificadas
-1. **Integración con Base de Datos**: Cargar configuración de paneles desde BD
-2. **Métricas Avanzadas**: Prometheus/Grafana
-3. **Autenticación**: JWT para endpoints sensibles
-4. **WebSocket**: Comunicación en tiempo real
-5. **Clustering**: Múltiples instancias del servicio
-
-### Optimizaciones
-1. **Pool de Conexiones**: Reutilizar conexiones TCP
-2. **Batch Processing**: Enviar múltiples mensajes en una conexión
-3. **Compresión**: Comprimir mensajes largos
-4. **Queue**: Cola para mensajes pendientes
-
----
-
-**Versión**: 1.0.0  
-**Autor**: Parking Altea Team  
-**Fecha**: Enero 2025 
+### Error de compilación
+- Verificar versión de Java (requiere Java 11+)
+- Verificar que Maven esté instalado correctamente
+- Limpiar y recompilar: `mvn clean compile` 

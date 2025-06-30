@@ -6,70 +6,54 @@ server:
 spring:
   application:
     name: java-panel-service
-  
-  jackson:
-    default-property-inclusion: non_null
-    serialization:
-      write-dates-as-timestamps: false
-    deserialization:
-      fail-on-unknown-properties: false
 
-# Configuración del servicio de paneles
-panel:
-  service:
-    # Configuración de la librería Java
-    library:
-      jar-path: "/opt/parking_altea/panel_java/protocol-1.2.6.jar"
-      timeout: 3000
-      retry-attempts: 3
-      retry-delay: 1000
-    
-    # Configuración de paneles por defecto
-    default:
-      port: 5200
-      card-id: 1
-      window-no: 0
-      font-size: 16
-      speed: 3
-      effect: 0
-      stay-time: 5
-      alignment: 5
-      screen-width: 64
-      screen-height: 32
-    
-    # Colores disponibles
-    colors:
-      red: 0x0000FF
-      green: 0x00FF00
-      blue: 0xFF0000
-      yellow: 0x00FFFF
-      orange: 0x0080FF
-      white: 0xFFFFFF
-      default: 3000
-
-# Configuración de logging
 logging:
   level:
     com.parkingaltea.panelservice: DEBUG
     org.springframework.web: INFO
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
-  file:
-    name: logs/panel-service.log
-    max-size: 10MB
-    max-history: 30
 
-# Configuración de actuator
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics,env
-  endpoint:
-    health:
-      show-details: always
-  metrics:
-    export:
-      prometheus:
-        enabled: true 
+# Configuración de paneles
+panel:
+  service:
+    library:
+      jar-path: /opt/parking_altea/panel_java/protocol-1.2.6.jar
+      timeout: 5000
+      retry-attempts: 3
+      retry-delay: 1000
+    default:
+      port: 5200
+      card-id: 1
+      window-no: 0
+    panels:
+      - ip: "172.20.5.50"
+        name: "PANEL BASSETA 1"
+        description: "P. Basseta Centre"
+      - ip: "172.20.5.51"
+        name: "PANEL BASSETA 2"
+        description: "P. Basseta Centre"
+      - ip: "172.20.4.50"
+        name: "PANEL PALAU"
+        description: "P. Poble antic/Palau Altea"
+      - ip: "172.20.4.51"
+        name: "PANEL COCOLISO"
+        description: "P. Poble antic/Palau Altea"
+      - ip: "172.20.4.52"
+        name: "BELLES ARTS 2"
+        description: "P. Poble antic/Belles Arts 2"
+      - ip: "172.20.4.53"
+        name: "BELLES ARTS"
+        description: "P. Poble antic/Belles Arts 1"
+      - ip: "172.20.2.50"
+        name: "PANEL RENFE"
+        description: "P. Estació Altea"
+      - ip: "172.20.1.50"
+        name: "PANEL ALTEA VELLA"
+        description: "P. Altea la Vella"
+      - ip: "172.20.8.50"
+        name: "PANEL PITERES"
+        description: "P. Poble antic/Conservatori"
+      - ip: "172.20.17.50"
+        name: "PANEL C. ESPORTIVA"
+        description: "P. Ciutat Esportiva" 

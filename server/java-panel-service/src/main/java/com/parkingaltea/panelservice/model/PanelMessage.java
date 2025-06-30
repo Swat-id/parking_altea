@@ -28,35 +28,20 @@ public class PanelMessage {
     @Builder.Default
     @Min(value = 1, message = "El color mínimo es 1")
     @Max(value = 7, message = "El color máximo es 7")
-    private Integer color = 2; // Verde por defecto (2)
+    private Integer color = 1; // Rojo por defecto
 
     @Builder.Default
     @Min(value = 1, message = "El tamaño de fuente mínimo es 1")
     @Max(value = 7, message = "El tamaño de fuente máximo es 7")
-    private Integer fontSize = 2; // Tamaño 2 por defecto (corresponde a ~16px)
-
-    @Builder.Default
-    @Min(value = 1, message = "La velocidad mínima es 1")
-    @Max(value = 5, message = "La velocidad máxima es 5")
-    private Integer speed = 3;
+    private Integer fontSize = 2; // Tamaño 2 por defecto (~24px)
 
     @Builder.Default
     @Min(value = 0, message = "El efecto mínimo es 0")
     @Max(value = 3, message = "El efecto máximo es 3")
-    private Integer effect = 0;
+    private Integer effect = 0; // Sin efecto por defecto
 
     @Builder.Default
-    @Min(value = 1, message = "El tiempo de permanencia mínimo es 1 segundo")
-    @Max(value = 60, message = "El tiempo de permanencia máximo es 60 segundos")
-    private Integer stayTime = 5;
-
-    @Builder.Default
-    @Min(value = 0, message = "La alineación mínima es 0")
-    @Max(value = 10, message = "La alineación máxima es 10")
-    private Integer alignment = 5; // Centro por defecto
-
-    @Builder.Default
-    @Min(value = 0, message = "El número de ventana mínimo es 0")
-    @Max(value = 10, message = "El número de ventana máximo es 10")
-    private Integer windowNo = 0; // Ventana 0 por defecto
+    @Min(value = 1, message = "El itemNum mínimo es 1")
+    @Max(value = 10, message = "El itemNum máximo es 10")
+    private Integer itemNum = 1; // Item 1 por defecto
 } 
