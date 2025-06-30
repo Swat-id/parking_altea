@@ -122,6 +122,14 @@ update_files() {
     cp "$PROJECT_DIR/server/java-panel-service/target/$JAR_NAME" "$SERVICE_DIR/"
     log "SUCCESS" "JAR actualizado"
     
+    # Copiar librería del fabricante
+    if [ -f "$PROJECT_DIR/panel_java/protocol-1.2.6.jar" ]; then
+        cp "$PROJECT_DIR/panel_java/protocol-1.2.6.jar" "$SERVICE_DIR/"
+        log "SUCCESS" "Librería del fabricante copiada"
+    else
+        log "WARNING" "Librería del fabricante no encontrada: $PROJECT_DIR/panel_java/protocol-1.2.6.jar"
+    fi
+    
     # Copiar configuración si existe
     if [ -f "$PROJECT_DIR/server/java-panel-service/src/main/resources/application.yml" ]; then
         cp "$PROJECT_DIR/server/java-panel-service/src/main/resources/application.yml" "$SERVICE_DIR/"
@@ -135,6 +143,7 @@ update_files() {
     chown -R root:root "$SERVICE_DIR"
     chmod -R 755 "$SERVICE_DIR"
     chmod 644 "$SERVICE_DIR/$JAR_NAME"
+    chmod 644 "$SERVICE_DIR/protocol-1.2.6.jar"
     
     log "SUCCESS" "Archivos actualizados correctamente"
 }
