@@ -1,0 +1,75 @@
+server:
+  port: 5002
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: java-panel-service
+  
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+# Configuración del servicio de paneles
+panel:
+  service:
+    # Configuración de la librería Java
+    library:
+      jar-path: "../panel_java/protocol-1.2.6.jar"
+      timeout: 3000
+      retry-attempts: 3
+      retry-delay: 1000
+    
+    # Configuración de paneles por defecto
+    default:
+      port: 5200
+      card-id: 1
+      window-no: 0
+      font-size: 16
+      speed: 3
+      effect: 0
+      stay-time: 5
+      alignment: 5
+      screen-width: 64
+      screen-height: 32
+    
+    # Colores disponibles
+    colors:
+      red: 0x0000FF
+      green: 0x00FF00
+      blue: 0xFF0000
+      yellow: 0x00FFFF
+      orange: 0x0080FF
+      white: 0xFFFFFF
+      default: 3000
+
+# Configuración de logging
+logging:
+  level:
+    com.parkingaltea.panelservice: DEBUG
+    org.springframework.web: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/panel-service.log
+    max-size: 10MB
+    max-history: 30
+
+# Configuración de actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true 
