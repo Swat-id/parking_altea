@@ -260,7 +260,7 @@ public class PanelCommunicationService {
                 return 4;
             case 0x800080: // Púrpura
                 return 5;
-            case 0x0000FF: // Azul (otro)
+            case 0x000080: // Azul oscuro (otro)
                 return 6;
             case 0xFFFFFF: // Blanco
                 return 7;
