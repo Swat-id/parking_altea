@@ -12,7 +12,9 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
+import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -363,6 +365,199 @@ public class PanelController {
                 (double) responseTime
             );
             return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    // ===== NUEVOS ENDPOINTS SEGÚN EL MANUAL DEL FABRICANTE =====
+
+    /**
+     * Inicializar red (initNetwork) según el manual del fabricante
+     */
+    @PostMapping("/init-network")
+    public ResponseEntity<PanelResponse> initNetwork(@RequestBody Map<String, Object> initData) {
+        long startTime = System.currentTimeMillis();
+        
+        try {
+            String panelIP = (String) initData.get("panelIP");
+            Integer port = (Integer) initData.get("port");
+            String idCode = (String) initData.get("idCode");
+            Integer timeout = (Integer) initData.get("timeout");
+
+            log.info("Inicializando red para panel {}: puerto={}, idCode={}, timeout={}", 
+                    panelIP, port, idCode, timeout);
+
+            // Aquí se llamaría a la función initNetwork de la librería Java
+            boolean success = panelService.initNetwork(panelIP, port, idCode, timeout);
+            long responseTime = System.currentTimeMillis() - startTime;
+
+            PanelResponse response = PanelResponse.builder()
+                    .success(success)
+                    .message(success ? 
+                            "Red inicializada correctamente para panel " + panelIP : 
+                            "Error al inicializar red para panel " + panelIP)
+                    .responseTime(responseTime)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            long responseTime = System.currentTimeMillis() - startTime;
+            log.error("Error en initNetwork: {}", e.getMessage(), e);
+            
+            PanelResponse response = PanelResponse.builder()
+                    .success(false)
+                    .message("Error interno: " + e.getMessage())
+                    .responseTime(responseTime)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+            return ResponseEntity.ok(response);
+        }
+    }
+
+    /**
+     * Configurar listener (setListener) según el manual del fabricante
+     */
+    @PostMapping("/set-listener")
+    public ResponseEntity<PanelResponse> setListener(@RequestBody Map<String, Object> listenerData) {
+        long startTime = System.currentTimeMillis();
+        
+        try {
+            String panelIP = (String) listenerData.get("panelIP");
+            Boolean enableListener = (Boolean) listenerData.get("enableListener");
+            Integer callbackPort = (Integer) listenerData.get("callbackPort");
+
+            log.info("Configurando listener para panel {}: enable={}, callbackPort={}", 
+                    panelIP, enableListener, callbackPort);
+
+            // Aquí se llamaría a la función setListener de la librería Java
+            boolean success = panelService.setListener(panelIP, enableListener, callbackPort);
+            long responseTime = System.currentTimeMillis() - startTime;
+
+            PanelResponse response = PanelResponse.builder()
+                    .success(success)
+                    .message(success ? 
+                            "Listener configurado correctamente para panel " + panelIP : 
+                            "Error al configurar listener para panel " + panelIP)
+                    .responseTime(responseTime)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            long responseTime = System.currentTimeMillis() - startTime;
+            log.error("Error en setListener: {}", e.getMessage(), e);
+            
+            PanelResponse response = PanelResponse.builder()
+                    .success(false)
+                    .message("Error interno: " + e.getMessage())
+                    .responseTime(responseTime)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+            return ResponseEntity.ok(response);
+        }
+    }
+
+    /**
+     * Enviar mensaje usando sendMulti según el manual del fabricante
+     */
+    @PostMapping("/send-multi")
+    public ResponseEntity<PanelResponse> sendMulti(@RequestBody Map<String, Object> sendMultiData) {
+        long startTime = System.currentTimeMillis();
+        
+        try {
+            String panelIP = (String) sendMultiData.get("panelIP");
+            Integer itemNum = (Integer) sendMultiData.get("itemNum");
+            @SuppressWarnings("unchecked")
+            List<String> texts = (List<String>) sendMultiData.get("texts");
+            @SuppressWarnings("unchecked")
+            List<Integer> colors = (List<Integer>) sendMultiData.get("colors");
+            @SuppressWarnings("unchecked")
+            List<Integer> fontSizes = (List<Integer>) sendMultiData.get("fontSizes");
+            @SuppressWarnings("unchecked")
+            List<Integer> showEffects = (List<Integer>) sendMultiData.get("showEffects");
+
+            log.info("Enviando sendMulti a panel {}: itemNum={}, texts={}, colors={}, fontSizes={}, showEffects={}", 
+                    panelIP, itemNum, texts, colors, fontSizes, showEffects);
+
+            // Aquí se llamaría a la función sendMulti de la librería Java
+            boolean success = panelService.sendMulti(panelIP, itemNum, texts, colors, fontSizes, showEffects);
+            long responseTime = System.currentTimeMillis() - startTime;
+
+            PanelResponse response = PanelResponse.builder()
+                    .success(success)
+                    .message(success ? 
+                            "sendMulti ejecutado correctamente en panel " + panelIP : 
+                            "Error al ejecutar sendMulti en panel " + panelIP)
+                    .responseTime(responseTime)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            long responseTime = System.currentTimeMillis() - startTime;
+            log.error("Error en sendMulti: {}", e.getMessage(), e);
+            
+            PanelResponse response = PanelResponse.builder()
+                    .success(false)
+                    .message("Error interno: " + e.getMessage())
+                    .responseTime(responseTime)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+            return ResponseEntity.ok(response);
+        }
+    }
+
+    /**
+     * Enviar mensaje con parámetros exactos del manual
+     */
+    @PostMapping("/send-manual")
+    public ResponseEntity<PanelResponse> sendManual(@RequestBody Map<String, Object> manualData) {
+        long startTime = System.currentTimeMillis();
+        
+        try {
+            String panelIP = (String) manualData.get("panelIP");
+            Integer port = (Integer) manualData.get("port");
+            String idCode = (String) manualData.get("idCode");
+            Integer timeout = (Integer) manualData.get("timeout");
+            Integer cardId = (Integer) manualData.get("cardId");
+            Integer windowNo = (Integer) manualData.get("windowNo");
+            String message = (String) manualData.get("message");
+            Integer color = (Integer) manualData.get("color");
+            Integer fontSize = (Integer) manualData.get("fontSize");
+            Integer speed = (Integer) manualData.get("speed");
+            Integer effect = (Integer) manualData.get("effect");
+            Integer stayTime = (Integer) manualData.get("stayTime");
+            Integer alignment = (Integer) manualData.get("alignment");
+
+            log.info("Enviando mensaje manual a panel {}: puerto={}, cardId={}, windowNo={}, mensaje='{}'", 
+                    panelIP, port, cardId, windowNo, message);
+
+            // Ejecutar flujo completo según el manual
+            boolean success = panelService.sendManualMessage(panelIP, port, idCode, timeout, 
+                    cardId, windowNo, message, color, fontSize, speed, effect, stayTime, alignment);
+            long responseTime = System.currentTimeMillis() - startTime;
+
+            PanelResponse response = PanelResponse.builder()
+                    .success(success)
+                    .message(success ? 
+                            "Mensaje manual enviado correctamente a panel " + panelIP : 
+                            "Error al enviar mensaje manual a panel " + panelIP)
+                    .responseTime(responseTime)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            long responseTime = System.currentTimeMillis() - startTime;
+            log.error("Error en sendManual: {}", e.getMessage(), e);
+            
+            PanelResponse response = PanelResponse.builder()
+                    .success(false)
+                    .message("Error interno: " + e.getMessage())
+                    .responseTime(responseTime)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+            return ResponseEntity.ok(response);
         }
     }
 } 

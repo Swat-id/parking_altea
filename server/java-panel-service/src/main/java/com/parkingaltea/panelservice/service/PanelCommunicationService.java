@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.net.InetAddress;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -357,5 +358,168 @@ public class PanelCommunicationService {
      */
     public java.util.Map<String, Boolean> getInitializedPanels() {
         return new java.util.HashMap<>(initializedPanels);
+    }
+
+    // ===== MÉTODOS SEGÚN EL MANUAL DEL FABRICANTE =====
+
+    /**
+     * Inicializar red (initNetwork) según el manual del fabricante
+     * Parámetros: panelIP, port, idCode, timeout
+     */
+    public boolean initNetwork(String panelIP, Integer port, String idCode, Integer timeout) {
+        try {
+            log.info("Inicializando red para panel {}: puerto={}, idCode={}, timeout={}", 
+                    panelIP, port, idCode, timeout);
+
+            // Verificar conectividad básica
+            if (!isPanelReachable(panelIP)) {
+                log.error("Panel {} no es alcanzable", panelIP);
+                return false;
+            }
+
+            // Aquí se llamaría a la función initNetwork de la librería Java del fabricante
+            // Por ahora simulamos la inicialización exitosa
+            
+            // Simular delay de inicialización de red
+            Thread.sleep(200);
+            
+            // Marcar panel como inicializado
+            initializedPanels.put(panelIP, true);
+            
+            log.info("Red inicializada correctamente para panel {}", panelIP);
+            return true;
+
+        } catch (Exception e) {
+            log.error("Error al inicializar red para panel {}: {}", panelIP, e.getMessage(), e);
+            initializedPanels.put(panelIP, false);
+            return false;
+        }
+    }
+
+    /**
+     * Configurar listener (setListener) según el manual del fabricante
+     * Parámetros: panelIP, enableListener, callbackPort
+     */
+    public boolean setListener(String panelIP, Boolean enableListener, Integer callbackPort) {
+        try {
+            log.info("Configurando listener para panel {}: enable={}, callbackPort={}", 
+                    panelIP, enableListener, callbackPort);
+
+            // Verificar que el panel esté inicializado
+            if (!isPanelInitialized(panelIP)) {
+                log.warn("Panel {} no está inicializado, inicializando primero", panelIP);
+                if (!initNetwork(panelIP, defaultPort, "255.255.255.255", timeout)) {
+                    return false;
+                }
+            }
+
+            // Aquí se llamaría a la función setListener de la librería Java del fabricante
+            // Por ahora simulamos la configuración exitosa
+            
+            // Simular delay de configuración del listener
+            Thread.sleep(100);
+            
+            log.info("Listener configurado correctamente para panel {}", panelIP);
+            return true;
+
+        } catch (Exception e) {
+            log.error("Error al configurar listener para panel {}: {}", panelIP, e.getMessage(), e);
+            return false;
+        }
+    }
+
+    /**
+     * Enviar mensaje usando sendMulti según el manual del fabricante
+     * Parámetros: panelIP, itemNum, texts, colors, fontSizes, showEffects
+     */
+    public boolean sendMulti(String panelIP, Integer itemNum, List<String> texts, 
+                           List<Integer> colors, List<Integer> fontSizes, List<Integer> showEffects) {
+        try {
+            log.info("Enviando sendMulti a panel {}: itemNum={}, texts={}, colors={}, fontSizes={}, showEffects={}", 
+                    panelIP, itemNum, texts, colors, fontSizes, showEffects);
+
+            // Verificar que el panel esté inicializado
+            if (!isPanelInitialized(panelIP)) {
+                log.warn("Panel {} no está inicializado, inicializando primero", panelIP);
+                if (!initNetwork(panelIP, defaultPort, "255.255.255.255", timeout)) {
+                    return false;
+                }
+            }
+
+            // Convertir listas a arrays para la función sendMulti
+            String[] textsArray = texts.toArray(new String[0]);
+            int[] colorsArray = colors.stream().mapToInt(Integer::intValue).toArray();
+            int[] fontSizesArray = fontSizes.stream().mapToInt(Integer::intValue).toArray();
+            int[] showEffectsArray = showEffects.stream().mapToInt(Integer::intValue).toArray();
+
+            // Llamar a la función sendMulti interna
+            boolean result = sendMulti(itemNum, textsArray, colorsArray, fontSizesArray, showEffectsArray);
+            
+            if (result) {
+                log.info("sendMulti ejecutado correctamente en panel {}", panelIP);
+                return true;
+            } else {
+                log.error("Error al ejecutar sendMulti en panel {}", panelIP);
+                return false;
+            }
+
+        } catch (Exception e) {
+            log.error("Error en sendMulti para panel {}: {}", panelIP, e.getMessage(), e);
+            return false;
+        }
+    }
+
+    /**
+     * Enviar mensaje con parámetros exactos del manual del fabricante
+     * Ejecuta el flujo completo: initNetwork -> setListener -> sendMulti
+     */
+    public boolean sendManualMessage(String panelIP, Integer port, String idCode, Integer timeout,
+                                   Integer cardId, Integer windowNo, String message, Integer color,
+                                   Integer fontSize, Integer speed, Integer effect, Integer stayTime, Integer alignment) {
+        try {
+            log.info("Enviando mensaje manual a panel {}: puerto={}, cardId={}, windowNo={}, mensaje='{}'", 
+                    panelIP, port, cardId, windowNo, message);
+
+            // Paso 1: initNetwork
+            log.debug("Paso 1: Inicializando red...");
+            if (!initNetwork(panelIP, port, idCode, timeout)) {
+                log.error("Error en initNetwork para panel {}", panelIP);
+                return false;
+            }
+
+            // Esperar un momento para que se establezca la conexión
+            Thread.sleep(100);
+
+            // Paso 2: setListener
+            log.debug("Paso 2: Configurando listener...");
+            if (!setListener(panelIP, true, 5001)) {
+                log.error("Error en setListener para panel {}", panelIP);
+                return false;
+            }
+
+            // Esperar un momento para que se configure el listener
+            Thread.sleep(100);
+
+            // Paso 3: sendMulti
+            log.debug("Paso 3: Enviando mensaje con sendMulti...");
+            List<String> texts = List.of(message);
+            List<Integer> colors = List.of(color != null ? color : 2);
+            List<Integer> fontSizes = List.of(fontSize != null ? fontSize : 16);
+            List<Integer> showEffects = List.of(effect != null ? effect : 0);
+
+            boolean result = sendMulti(panelIP, windowNo, texts, colors, fontSizes, showEffects);
+            
+            if (result) {
+                log.info("Mensaje manual enviado correctamente a panel {}", panelIP);
+                return true;
+            } else {
+                log.error("Error al enviar mensaje manual a panel {}", panelIP);
+                return false;
+            }
+
+        } catch (Exception e) {
+            log.error("Error en sendManualMessage para panel {}: {}", panelIP, e.getMessage(), e);
+            return false;
+        }
     }
 } 
