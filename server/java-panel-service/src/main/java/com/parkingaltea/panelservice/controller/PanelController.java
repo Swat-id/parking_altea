@@ -299,13 +299,14 @@ public class PanelController {
         
         try {
             Map<String, Integer> colors = Map.of(
-                "red", 0x0000FF,
-                "green", 0x00FF00,
-                "blue", 0xFF0000,
-                "yellow", 0x00FFFF,
-                "orange", 0x0080FF,
-                "white", 0xFFFFFF,
-                "default", 3000
+                "red", 1,
+                "green", 2,
+                "yellow", 3,
+                "blue", 4,
+                "purple", 5,
+                "blue2", 6,
+                "white", 7,
+                "default", 2
             );
             
             long responseTime = System.currentTimeMillis() - startTime;

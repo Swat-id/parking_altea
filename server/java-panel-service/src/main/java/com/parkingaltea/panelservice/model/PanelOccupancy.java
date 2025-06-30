@@ -37,7 +37,7 @@ public class PanelOccupancy {
     private String parkingName;
 
     @Builder.Default
-    private Integer color = 0x00FF00; // Verde por defecto
+    private Integer color = 2; // Verde por defecto (2)
 
     @Builder.Default
     @Min(value = 8, message = "El tamaño de fuente mínimo es 8")

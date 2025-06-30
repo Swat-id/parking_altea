@@ -219,22 +219,21 @@ public class PanelCommunicationService {
                     panelMessage.getSpeed(), panelMessage.getEffect(), 
                     panelMessage.getStayTime(), panelMessage.getAlignment());
 
-            // Convertir IP a formato numérico para la librería
-            int panelIP = ipToInt(panelMessage.getPanelIP());
+            // Preparar arrays para sendMulti
+            String[] texts = {panelMessage.getMessage()};
+            int[] colors = {convertColorToPanelFormat(panelMessage.getColor())};
+            int[] fontSizes = {panelMessage.getFontSize()};
+            int[] showEffects = {convertEffectToPanelFormat(panelMessage.getEffect())};
             
-            // Preparar el texto para envío
-            String text = panelMessage.getMessage();
-            byte[] textBytes = text.getBytes("UTF-8");
+            // Llamar a la función sendMulti correcta
+            // boolean sendMulti(int itemNum, String[] texts, int[] colors, int[] fontSizes, int[] showEffects)
+            boolean result = sendMulti(1, texts, colors, fontSizes, showEffects);
             
-            // Llamar a la función sendMulti de la librería Java del fabricante
-            // CP5200_Net_SendMultiProtocol(int nCardID, int nItemNum, const BYTE *pText, int nLength)
-            int result = sendMultiProtocol(panelIP, cardId, windowNo, textBytes, textBytes.length);
-            
-            if (result == 0) {
+            if (result) {
                 log.debug("Mensaje enviado exitosamente a panel {} usando sendMulti", panelMessage.getPanelIP());
                 return true;
             } else {
-                log.error("Error al enviar mensaje a panel {}: código de error {}", panelMessage.getPanelIP(), result);
+                log.error("Error al enviar mensaje a panel {}: sendMulti retornó false", panelMessage.getPanelIP());
                 return false;
             }
 
@@ -245,43 +244,75 @@ public class PanelCommunicationService {
     }
 
     /**
-     * Convierte una IP en formato string a entero para la librería
+     * Convierte color hexadecimal a formato del panel (1-7)
      */
-    private int ipToInt(String ipAddress) {
-        try {
-            String[] parts = ipAddress.split("\\.");
-            int result = 0;
-            for (int i = 0; i < 4; i++) {
-                result = result << 8 | Integer.parseInt(parts[i]);
-            }
-            return result;
-        } catch (Exception e) {
-            log.error("Error al convertir IP {} a entero: {}", ipAddress, e.getMessage());
-            return 0;
+    private int convertColorToPanelFormat(int hexColor) {
+        // Convertir color hexadecimal a formato del panel
+        // 1=red, 2=green, 3=yellow, 4=blue, 5=purple, 6=blue, 7=white
+        switch (hexColor) {
+            case 0x0000FF: // Rojo
+                return 1;
+            case 0x00FF00: // Verde
+                return 2;
+            case 0x00FFFF: // Amarillo
+                return 3;
+            case 0xFF0000: // Azul
+                return 4;
+            case 0x800080: // Púrpura
+                return 5;
+            case 0x0000FF: // Azul (otro)
+                return 6;
+            case 0xFFFFFF: // Blanco
+                return 7;
+            default:
+                return 2; // Verde por defecto
         }
     }
 
     /**
-     * Llama a la función sendMulti de la librería Java del fabricante
-     * Esta función debe ser implementada usando JNI o la librería Java del fabricante
+     * Convierte efecto a formato del panel
      */
-    private int sendMultiProtocol(int panelIP, int cardId, int windowNo, byte[] text, int length) {
+    private int convertEffectToPanelFormat(int effect) {
+        // Mapear efectos del modelo a efectos del panel
+        // Los valores exactos dependen de la documentación del fabricante
+        switch (effect) {
+            case 0: // Sin efecto
+                return 0;
+            case 1: // Efecto 1
+                return 1;
+            case 2: // Efecto 2
+                return 2;
+            case 3: // Efecto 3
+                return 3;
+            default:
+                return 0; // Sin efecto por defecto
+        }
+    }
+
+    /**
+     * Llama a la función sendMulti correcta de la librería Java del fabricante
+     * boolean sendMulti(int itemNum, String[] texts, int[] colors, int[] fontSizes, int[] showEffects)
+     */
+    private boolean sendMulti(int itemNum, String[] texts, int[] colors, int[] fontSizes, int[] showEffects) {
         try {
             // Aquí se implementaría la llamada real a la librería Java del fabricante
             // Por ahora simulamos el envío exitoso
             
-            log.debug("Llamando a sendMulti: panelIP={}, cardId={}, windowNo={}, textLength={}", 
-                    panelIP, cardId, windowNo, length);
+            log.debug("Llamando a sendMulti: itemNum={}, texts={}, colors={}, fontSizes={}, showEffects={}", 
+                    itemNum, java.util.Arrays.toString(texts), 
+                    java.util.Arrays.toString(colors), 
+                    java.util.Arrays.toString(fontSizes), 
+                    java.util.Arrays.toString(showEffects));
             
             // Simular delay de envío
             Thread.sleep(50);
             
             // Simular éxito (en producción aquí se verificaría la respuesta real)
-            return 0; // 0 = éxito
+            return true;
             
         } catch (Exception e) {
             log.error("Error en sendMulti: {}", e.getMessage(), e);
-            return -1; // Error
+            return false;
         }
     }
 
@@ -302,13 +333,13 @@ public class PanelCommunicationService {
     private int getColorForStatus(String status) {
         switch (status.toUpperCase()) {
             case "LLIURE":
-                return 0x00FF00; // Verde
+                return 2; // Verde (2)
             case "DENS":
-                return 0x0080FF;   // Naranja
+                return 3;   // Amarillo (3)
             case "COMPLET":
-                return 0x0000FF; // Rojo
+                return 1; // Rojo (1)
             default:
-                return 0x00FF00;       // Verde por defecto
+                return 2;       // Verde por defecto (2)
         }
     }
 

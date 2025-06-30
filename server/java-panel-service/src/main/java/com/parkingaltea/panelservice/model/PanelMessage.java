@@ -26,7 +26,7 @@ public class PanelMessage {
     private String message;
 
     @Builder.Default
-    private Integer color = 0x00FF00; // Verde por defecto
+    private Integer color = 2; // Verde por defecto (2)
 
     @Builder.Default
     @Min(value = 8, message = "El tamaño de fuente mínimo es 8")
