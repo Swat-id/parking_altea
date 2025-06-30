@@ -21,7 +21,7 @@ echo "mvn package -DskipTests"
 echo ""
 
 echo "3. VERIFICAR JAR:"
-echo "ls -la target/panel-service-1.0.0.jar"
+echo "ls -la target/java-panel-service-1.0.0.jar"
 echo ""
 
 echo "4. DETENER SERVICIO:"
@@ -29,7 +29,7 @@ echo "systemctl stop java-panel-service"
 echo ""
 
 echo "5. COPIAR NUEVO JAR:"
-echo "cp target/panel-service-1.0.0.jar /opt/panel-service-1.0.0.jar"
+echo "cp target/java-panel-service-1.0.0.jar /opt/java-panel-service-1.0.0.jar"
 echo ""
 
 echo "6. INICIAR SERVICIO:"

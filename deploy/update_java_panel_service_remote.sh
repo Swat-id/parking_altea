@@ -11,7 +11,7 @@ echo "=== Actualizando Java Panel Service en servidor remoto ==="
 PROJECT_DIR="/opt/parking_altea"
 JAVA_SERVICE_DIR="$PROJECT_DIR/server/java-panel-service"
 SERVICE_NAME="java-panel-service"
-JAR_NAME="panel-service-1.0.0.jar"
+JAR_NAME="java-panel-service-1.0.0.jar"
 
 echo "1. Navegando al directorio del proyecto..."
 cd $PROJECT_DIR
