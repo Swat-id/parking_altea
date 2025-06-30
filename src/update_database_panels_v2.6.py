@@ -61,7 +61,7 @@ def create_languages_table():
     sql = """
     CREATE TABLE IF NOT EXISTS panel_languages (
         id SERIAL PRIMARY KEY,
-        language_code VARCHAR(10) NOT NULL,
+        language_code VARCHAR(10) NOT NULL UNIQUE,
         language_name VARCHAR(50) NOT NULL,
         libre_text VARCHAR(50) NOT NULL,
         denso_text VARCHAR(50) NOT NULL,
@@ -81,13 +81,7 @@ def insert_languages_data():
         ('va', 'Valenciano', 'LLIURE', 'DENSA', 'COMPLET'),
         ('en', 'Inglés', 'FREE', 'BUSY', 'FULL'),
         ('fr', 'Francés', 'LIBRE', 'OCCUPÉ', 'COMPLET'),
-        ('de', 'Alemán', 'FREI', 'BESETZT', 'VOLL')
-    ON CONFLICT (language_code) DO UPDATE SET
-        language_name = EXCLUDED.language_name,
-        libre_text = EXCLUDED.libre_text,
-        denso_text = EXCLUDED.denso_text,
-        completo_text = EXCLUDED.completo_text,
-        updated_at = CURRENT_TIMESTAMP;
+        ('de', 'Alemán', 'FREI', 'BESETZT', 'VOLL');
     """
     return sql
 
