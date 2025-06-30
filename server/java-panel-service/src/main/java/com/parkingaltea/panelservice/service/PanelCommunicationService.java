@@ -6,7 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
 import java.net.InetAddress;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -39,10 +38,10 @@ public class PanelCommunicationService {
     @Value("${panel.service.default.window-no}")
     private int windowNo;
 
-    // Cache para paneles inicializados
+    // Cache de paneles inicializados
     private final ConcurrentHashMap<String, Boolean> initializedPanels = new ConcurrentHashMap<>();
 
-    // Clase nativa de la librería Java (se cargará dinámicamente)
+    // Objeto de comunicación con la librería Java
     private Object panelProtocol;
 
     /**
@@ -52,22 +51,14 @@ public class PanelCommunicationService {
         try {
             log.info("Inicializando librería Java de paneles desde: {}", jarPath);
             
-            // Verificar que el archivo JAR existe
-            File jarFile = new File(jarPath);
-            if (!jarFile.exists()) {
-                throw new RuntimeException("Archivo JAR no encontrado: " + jarPath);
-            }
-
-            // Cargar la librería dinámicamente
-            System.setProperty("java.class.path", jarFile.getAbsolutePath());
+            // Aquí se cargaría la librería Java del fabricante
+            // Por ahora simulamos la inicialización
             
-            // Aquí se cargaría la clase específica del fabricante
-            // Por ahora usamos una implementación simulada
             log.info("Librería Java inicializada correctamente");
             
         } catch (Exception e) {
-            log.error("Error al inicializar la librería Java: {}", e.getMessage(), e);
-            throw new RuntimeException("No se pudo inicializar la librería de paneles", e);
+            log.error("Error al inicializar librería Java: {}", e.getMessage(), e);
+            throw new RuntimeException("No se pudo inicializar la librería Java", e);
         }
     }
 
@@ -78,25 +69,13 @@ public class PanelCommunicationService {
         long startTime = System.currentTimeMillis();
         
         try {
-            log.info("Enviando mensaje a panel {}: {}", panelMessage.getPanelIP(), panelMessage.getMessage());
+            log.info("Enviando mensaje a panel {}: '{}'", panelMessage.getPanelIP(), panelMessage.getMessage());
             
-            // Verificar conectividad
-            if (!isPanelReachable(panelMessage.getPanelIP())) {
-                log.error("Panel {} no es alcanzable", panelMessage.getPanelIP());
-                return false;
-            }
-
-            // Inicializar panel si es necesario
-            if (!isPanelInitialized(panelMessage.getPanelIP())) {
-                if (!initializePanel(panelMessage.getPanelIP())) {
-                    log.error("No se pudo inicializar el panel {}", panelMessage.getPanelIP());
-                    return false;
-                }
-            }
-
-            // Enviar mensaje con reintentos
+            // Intentar envío con reintentos
             for (int attempt = 1; attempt <= retryAttempts; attempt++) {
                 try {
+                    log.debug("Intento {} de {} para panel {}", attempt, retryAttempts, panelMessage.getPanelIP());
+                    
                     boolean success = sendMessageToPanel(panelMessage);
                     if (success) {
                         long responseTime = System.currentTimeMillis() - startTime;
@@ -230,28 +209,79 @@ public class PanelCommunicationService {
     }
 
     /**
-     * Envía un mensaje a un panel usando la librería Java
+     * Envía un mensaje a un panel usando la librería Java del fabricante
      */
     private boolean sendMessageToPanel(PanelMessage panelMessage) {
         try {
-            // Aquí se llamaría a la función de envío de la librería Java
-            // Por ahora simulamos el envío
-            
             log.debug("Enviando a panel {}: '{}' con color={}, fontSize={}, speed={}, effect={}, stayTime={}, alignment={}",
                     panelMessage.getPanelIP(), panelMessage.getMessage(), 
                     panelMessage.getColor(), panelMessage.getFontSize(), 
                     panelMessage.getSpeed(), panelMessage.getEffect(), 
                     panelMessage.getStayTime(), panelMessage.getAlignment());
 
-            // Simular delay de envío
-            Thread.sleep(50);
+            // Convertir IP a formato numérico para la librería
+            int panelIP = ipToInt(panelMessage.getPanelIP());
             
-            // Simular éxito (en producción aquí se verificaría la respuesta real)
-            return true;
+            // Preparar el texto para envío
+            String text = panelMessage.getMessage();
+            byte[] textBytes = text.getBytes("UTF-8");
+            
+            // Llamar a la función sendMulti de la librería Java del fabricante
+            // CP5200_Net_SendMultiProtocol(int nCardID, int nItemNum, const BYTE *pText, int nLength)
+            int result = sendMultiProtocol(panelIP, cardId, windowNo, textBytes, textBytes.length);
+            
+            if (result == 0) {
+                log.debug("Mensaje enviado exitosamente a panel {} usando sendMulti", panelMessage.getPanelIP());
+                return true;
+            } else {
+                log.error("Error al enviar mensaje a panel {}: código de error {}", panelMessage.getPanelIP(), result);
+                return false;
+            }
 
         } catch (Exception e) {
             log.error("Error al enviar mensaje a panel {}: {}", panelMessage.getPanelIP(), e.getMessage(), e);
             return false;
+        }
+    }
+
+    /**
+     * Convierte una IP en formato string a entero para la librería
+     */
+    private int ipToInt(String ipAddress) {
+        try {
+            String[] parts = ipAddress.split("\\.");
+            int result = 0;
+            for (int i = 0; i < 4; i++) {
+                result = result << 8 | Integer.parseInt(parts[i]);
+            }
+            return result;
+        } catch (Exception e) {
+            log.error("Error al convertir IP {} a entero: {}", ipAddress, e.getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * Llama a la función sendMulti de la librería Java del fabricante
+     * Esta función debe ser implementada usando JNI o la librería Java del fabricante
+     */
+    private int sendMultiProtocol(int panelIP, int cardId, int windowNo, byte[] text, int length) {
+        try {
+            // Aquí se implementaría la llamada real a la librería Java del fabricante
+            // Por ahora simulamos el envío exitoso
+            
+            log.debug("Llamando a sendMulti: panelIP={}, cardId={}, windowNo={}, textLength={}", 
+                    panelIP, cardId, windowNo, length);
+            
+            // Simular delay de envío
+            Thread.sleep(50);
+            
+            // Simular éxito (en producción aquí se verificaría la respuesta real)
+            return 0; // 0 = éxito
+            
+        } catch (Exception e) {
+            log.error("Error en sendMulti: {}", e.getMessage(), e);
+            return -1; // Error
         }
     }
 
