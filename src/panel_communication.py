@@ -363,25 +363,97 @@ def init_panels_from_config(panel_configs: List[Dict]) -> PanelManager:
     return panel_manager
 
 def update_parking_panels(parking_id: int, current_occupancy: int, total_spaces: int, status: str = ""):
-    """Update all panels for a specific parking with Catalan status text"""
-    # Convertir estado a valenciano según especificaciones
-    valenciano_status = ""
-    if status == "LIBRE":
-        valenciano_status = "LLIURE"
-    elif status == "DENSO":
-        valenciano_status = "DENS"
-    elif status == "COMPLETO":
-        valenciano_status = "COMPLET"
-    else:
-        valenciano_status = status  # Mantener el estado original si no coincide
-    
-    # Construir mensaje para los paneles
-    message = f"{current_occupancy}/{total_spaces} - {valenciano_status}"
-    
-    # Broadcast to all panels
-    panel_manager.broadcast_occupancy(current_occupancy, total_spaces, valenciano_status)
-    
-    # Log del mensaje enviado
-    logger.info(f"Panel message sent for parking {parking_id}: {message}")
-    
-    return message 
+    """Update all panels for a specific parking with valenciano status text and dynamic colors"""
+    try:
+        # Importar el servicio de comunicación
+        from panel_communication_service import PanelCommunicationService
+        
+        # Crear instancia del servicio
+        service = PanelCommunicationService()
+        
+        # Obtener información del parking desde la base de datos
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from models import Parking, Panel
+        import config
+        
+        engine = create_engine(config.DB_URL)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        try:
+            # Obtener parking
+            parking = session.query(Parking).filter(Parking.id == parking_id).first()
+            if not parking:
+                logger.error(f"Parking {parking_id} not found")
+                return None
+            
+            # Obtener paneles del parking
+            panels = session.query(Panel).filter(Panel.parking_id == parking_id).all()
+            if not panels:
+                logger.info(f"No panels found for parking {parking_id}")
+                return None
+            
+            # Convertir estado a valenciano según especificaciones
+            valenciano_status = ""
+            if status == "LIBRE":
+                valenciano_status = "LLIURE"
+            elif status == "DENSO":
+                valenciano_status = "DENS"
+            elif status == "COMPLETO":
+                valenciano_status = "COMPLET"
+            else:
+                valenciano_status = status  # Mantener el estado original si no coincide
+            
+            # Calcular plazas libres
+            free_spaces = total_spaces - current_occupancy
+            
+            # Determinar color según umbrales del parking
+            if free_spaces < 0:
+                # Descuadre negativo - rojo
+                color = 1  # Rojo
+            elif free_spaces <= parking.threshold_full:
+                # Completo - rojo
+                color = 1  # Rojo
+            elif free_spaces <= parking.threshold_dense:
+                # Denso - amarillo
+                color = 3  # Amarillo
+            else:
+                # Libre - verde
+                color = 2  # Verde
+            
+            # Construir mensaje para los paneles
+            message = f"{current_occupancy}/{total_spaces} - {valenciano_status}"
+            
+            # Enviar mensaje a cada panel
+            success_count = 0
+            for panel in panels:
+                try:
+                    # Enviar mensaje con configuración específica
+                    result = service.send_custom_text(
+                        panel_ip=panel.ip,
+                        text=message,
+                        color=color,
+                        font_size=2,  # Tamaño de texto 2 por defecto
+                        speed=2,      # Velocidad 2 por defecto
+                        alignment=5   # Centrado
+                    )
+                    
+                    if result.get('success'):
+                        success_count += 1
+                        logger.info(f"Message sent to panel {panel.ip}: {message} (color: {color})")
+                    else:
+                        logger.error(f"Failed to send message to panel {panel.ip}: {result.get('error', 'Unknown error')}")
+                        
+                except Exception as e:
+                    logger.error(f"Error sending message to panel {panel.ip}: {e}")
+            
+            logger.info(f"Panel messages sent for parking {parking_id}: {success_count}/{len(panels)} successful")
+            return message
+            
+        finally:
+            session.close()
+            
+    except Exception as e:
+        logger.error(f"Error in update_parking_panels for parking {parking_id}: {e}")
+        return None 

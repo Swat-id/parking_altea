@@ -395,6 +395,14 @@ def set_occupancy(pid):
         session.commit()
         session.close()
         
+        # Enviar mensaje a paneles después de actualizar la ocupación
+        try:
+            from panel_communication import update_parking_panels
+            update_parking_panels(pid, final_occupancy, final_free_spaces + final_occupancy, final_status)
+            logger.info(f"Panel messages sent after manual occupancy update for parking {parking_name}")
+        except Exception as e:
+            logger.error(f"Error sending panel messages after manual occupancy update: {e}")
+        
         logger.info(f"Manual occupancy update - Parking: {parking_name}, Previous: {previous_occupancy}, New: {final_occupancy}, Change: {change_amount}, Status: {final_status}")
         
         return jsonify({
@@ -464,6 +472,19 @@ def update_parking_config(pid):
         
         session.commit()
         session.close()
+        
+        # Enviar mensaje a paneles después de actualizar la configuración
+        try:
+            from panel_communication import update_parking_panels
+            # Obtener la ocupación actual para enviar el mensaje actualizado
+            session = Session()
+            p = session.query(Parking).get(pid)
+            if p:
+                update_parking_panels(pid, p.current_occupancy, p.max_capacity, p.status)
+                logger.info(f"Panel messages sent after config update for parking {parking_name}")
+            session.close()
+        except Exception as e:
+            logger.error(f"Error sending panel messages after config update: {e}")
         
         logger.info(f"Parking config updated - Parking: {parking_name}, Max: {final_max_capacity}, Dense: {final_threshold_dense}, Full: {final_threshold_full}")
         return jsonify({
