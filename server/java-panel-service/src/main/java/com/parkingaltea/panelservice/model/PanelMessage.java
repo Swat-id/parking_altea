@@ -44,4 +44,9 @@ public class PanelMessage {
     @Min(value = 1, message = "El itemNum mínimo es 1")
     @Max(value = 10, message = "El itemNum máximo es 10")
     private Integer itemNum = 1; // Item 1 por defecto
+
+    @Builder.Default
+    @Min(value = 0, message = "El windowNo mínimo es 0")
+    @Max(value = 3, message = "El windowNo máximo es 3")
+    private Integer windowNo = 0; // Ventana 0 por defecto
 } 

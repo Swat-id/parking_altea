@@ -160,4 +160,121 @@ public class PanelService {
         panelSenders.keySet().forEach(ip -> status.put(ip, true));
         return status;
     }
+
+    /**
+     * Prueba la conectividad con un panel específico
+     */
+    public boolean testPanel(String panelIP) {
+        long startTime = System.currentTimeMillis();
+        
+        try {
+            log.info("Probando conectividad con panel: {}", panelIP);
+            
+            // Crear una instancia temporal para la prueba
+            ExtSendUtil testSender = new ExtSendUtil();
+            
+            // Configurar listener básico
+            testSender.setListener(new OnTcpNetWorkListener() {
+                @Override
+                public void onSocketInit(int result) {
+                    log.debug("[TEST] Panel {} - onSocketInit: {}", panelIP, result == 1 ? "SUCCESS" : "FAIL");
+                }
+
+                @Override
+                public void onStatus(int status, int socketIndex) {
+                    log.debug("[TEST] Panel {} - onStatus: Status={}, SocketIndex={}", panelIP, status, socketIndex);
+                }
+
+                public void onBackBytes(int[] backBytes, int socketIndex) {
+                    log.debug("[TEST] Panel {} - onBackBytes received on socket {}", panelIP, socketIndex);
+                }
+
+                @Override
+                public void onTcpProcess(long process, long totalProcess, int socketIndex) {
+                    log.debug("[TEST] Panel {} - onTcpProcess: {}/{} (SocketIndex={})", 
+                            panelIP, process, totalProcess, socketIndex);
+                }
+
+                @Override
+                public void breakSocket(int socketIndex) {
+                    log.debug("[TEST] Panel {} - breakSocket called on SocketIndex={}", panelIP, socketIndex);
+                }
+            });
+            
+            // Intentar inicializar la red
+            boolean initResult = testSender.initNetwork(panelIP, defaultPort, "255.255.255.255");
+            
+            long responseTime = System.currentTimeMillis() - startTime;
+            
+            if (initResult) {
+                log.info("Panel {} responde correctamente en {}ms", panelIP, responseTime);
+                return true;
+            } else {
+                log.warn("Panel {} no responde en {}ms", panelIP, responseTime);
+                return false;
+            }
+
+        } catch (Exception e) {
+            long responseTime = System.currentTimeMillis() - startTime;
+            log.error("Error al probar panel {}: {} ({}ms)", panelIP, e.getMessage(), responseTime, e);
+            return false;
+        }
+    }
+
+    /**
+     * Envía un mensaje a múltiples paneles
+     */
+    public boolean sendMultiMessage(java.util.List<String> ips, String message, Integer color, Integer fontSize, Integer windowNo) {
+        long startTime = System.currentTimeMillis();
+        
+        try {
+            log.info("Enviando mensaje a {} paneles: '{}'", ips.size(), message);
+            
+            // Usar valores por defecto si no se proporcionan
+            int finalColor = (color != null) ? color : 7; // Blanco por defecto
+            int finalFontSize = (fontSize != null) ? fontSize : 16; // Tamaño 16 por defecto
+            int finalWindowNo = (windowNo != null) ? windowNo : this.windowNo;
+            
+            boolean allSuccess = true;
+            int successCount = 0;
+            
+            for (String ip : ips) {
+                try {
+                    // Crear mensaje para este panel
+                    PanelMessage panelMessage = new PanelMessage();
+                    panelMessage.setPanelIP(ip);
+                    panelMessage.setMessage(message);
+                    panelMessage.setColor(finalColor);
+                    panelMessage.setFontSize(finalFontSize);
+                    panelMessage.setWindowNo(finalWindowNo);
+                    panelMessage.setItemNum(0);
+                    panelMessage.setEffect(0);
+                    
+                    // Enviar mensaje
+                    boolean success = sendMessage(panelMessage);
+                    if (success) {
+                        successCount++;
+                    } else {
+                        allSuccess = false;
+                    }
+                    
+                } catch (Exception e) {
+                    log.error("Error al enviar mensaje a panel {}: {}", ip, e.getMessage(), e);
+                    allSuccess = false;
+                }
+            }
+            
+            long responseTime = System.currentTimeMillis() - startTime;
+            
+            log.info("Envío multi-panel completado: {}/{} exitosos en {}ms", 
+                    successCount, ips.size(), responseTime);
+            
+            return allSuccess;
+
+        } catch (Exception e) {
+            long responseTime = System.currentTimeMillis() - startTime;
+            log.error("Error al enviar mensaje multi-panel: {} ({}ms)", e.getMessage(), responseTime, e);
+            return false;
+        }
+    }
 } 
