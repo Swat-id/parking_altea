@@ -26,12 +26,14 @@ public class PanelMessage {
     private String message;
 
     @Builder.Default
+    @Min(value = 1, message = "El color mínimo es 1")
+    @Max(value = 7, message = "El color máximo es 7")
     private Integer color = 2; // Verde por defecto (2)
 
     @Builder.Default
-    @Min(value = 8, message = "El tamaño de fuente mínimo es 8")
-    @Max(value = 32, message = "El tamaño de fuente máximo es 32")
-    private Integer fontSize = 16;
+    @Min(value = 1, message = "El tamaño de fuente mínimo es 1")
+    @Max(value = 7, message = "El tamaño de fuente máximo es 7")
+    private Integer fontSize = 2; // Tamaño 2 por defecto (corresponde a ~16px)
 
     @Builder.Default
     @Min(value = 1, message = "La velocidad mínima es 1")
