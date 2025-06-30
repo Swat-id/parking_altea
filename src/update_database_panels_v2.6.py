@@ -78,7 +78,7 @@ def insert_languages_data():
     INSERT INTO panel_languages (language_code, language_name, libre_text, denso_text, completo_text) 
     VALUES 
         ('es', 'Castellano', 'LIBRE', 'DENSO', 'COMPLETO'),
-        ('va', 'Valenciano', 'LLIURE', 'DENSA', 'COMPLET'),
+        ('va', 'Valenciano', 'LLIURE', 'DENS', 'COMPLET'),
         ('en', 'Inglés', 'FREE', 'BUSY', 'FULL'),
         ('fr', 'Francés', 'LIBRE', 'OCCUPÉ', 'COMPLET'),
         ('de', 'Alemán', 'FREI', 'BESETZT', 'VOLL');

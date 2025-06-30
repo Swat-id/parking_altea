@@ -71,6 +71,11 @@ Cámara → POST /camera → Camera Server → Base de Datos → Paneles
 - **DENSO**: Plazas libres <= threshold_dense
 - **COMPLETO**: Plazas libres <= threshold_full o descuadre negativo
 
+**Textos en valenciano para paneles:**
+- **LLIURE**: Estado libre
+- **DENS**: Estado denso
+- **COMPLET**: Estado completo
+
 ### 3. Flujo de Gestión de Estados de Cámaras
 
 **Estados posibles:**
@@ -101,6 +106,23 @@ Cámara → POST /camera → Camera Server → Base de Datos → Paneles
 **Estados de paneles:**
 - **ONLINE**: Ping exitoso (returncode == 0)
 - **OFFLINE**: Ping fallido o timeout
+
+### 6. Flujo de Configuración de Colores Dinámica
+
+**Configuración de umbrales por parking:**
+- `threshold_dense`: Umbral para estado denso (configurable por usuario)
+- `threshold_full`: Umbral para estado completo (configurable por usuario)
+- Los colores se asignan automáticamente según estos umbrales
+
+**Asignación de colores:**
+- **Verde**: Ocupación < threshold_dense (estado libre)
+- **Amarillo**: Ocupación >= threshold_dense y < threshold_full (estado denso)
+- **Rojo**: Ocupación >= threshold_full (estado completo)
+
+**Configuración desde frontend:**
+- Los usuarios pueden ajustar los umbrales desde la interfaz web
+- Los cambios se guardan en la base de datos
+- Los colores se actualizan automáticamente según los nuevos umbrales
 
 ## 📊 Modelos de Datos
 

@@ -170,7 +170,7 @@ class PanelCommunicationService:
                 status = "LLIURE" if language_code == 'va' else "LIBRE"
                 color = 2  # Verde
             elif occupancy_percentage < 90:
-                status = "DENSA" if language_code == 'va' else "DENSO"
+                status = "DENS" if language_code == 'va' else "DENSO"
                 color = 3  # Amarillo
             else:
                 status = "COMPLET" if language_code == 'va' else "COMPLETO"

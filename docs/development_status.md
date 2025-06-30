@@ -169,6 +169,13 @@
 - [x] **Manejo de errores** y timeouts
 - [x] **Logging detallado** de operaciones
 
+### ✅ Configuración de Idiomas y Colores
+- [x] **Textos en valenciano** corregidos (LLIURE, DENS, COMPLET)
+- [x] **Configuración de colores dinámica** según umbrales del usuario
+- [x] **Umbrales configurables** desde el frontend
+- [x] **Asignación automática de colores** según ocupación
+- [x] **Persistencia de configuración** en base de datos
+
 ### ✅ Configuración de Red
 - [x] **Puerto 5001** abierto en firewall
 - [x] **Puerto 5789** (frontend) configurado correctamente
@@ -198,6 +205,26 @@
 #### Paneles (10 total)
 - [x] **Configuración IP** completada
 - [x] **Comunicación** funcional con servicio C#
+- [x] **Textos en valenciano** implementados (LLIURE, DENS, COMPLET)
+- [x] **Configuración de colores dinámica** según umbrales
+
+## 🎨 Configuración de Colores Dinámica
+
+### Sistema de Umbrales Configurables
+- **threshold_dense**: Umbral para estado denso (configurable por parking)
+- **threshold_full**: Umbral para estado completo (configurable por parking)
+- Los usuarios pueden ajustar estos valores desde el frontend
+
+### Asignación Automática de Colores
+- **🟢 Verde**: Ocupación < threshold_dense (estado libre)
+- **🟡 Amarillo**: Ocupación >= threshold_dense y < threshold_full (estado denso)
+- **🔴 Rojo**: Ocupación >= threshold_full (estado completo)
+
+### Configuración desde Frontend
+- Interfaz de edición en la página de parkings
+- Validación de rangos (0-100%)
+- Persistencia inmediata en base de datos
+- Actualización automática de colores en tiempo real
 - [x] **Estados** monitoreados en tiempo real
 - [x] **Verificación por ping** operativa
 - [x] **Actualización automática** de estados

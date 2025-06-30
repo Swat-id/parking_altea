@@ -16,7 +16,7 @@ La versión 2.6 introduce una gestión avanzada de paneles LED con soporte para 
 
 ### 2. Soporte Multiidioma
 - **Castellano**: LIBRE / DENSO / COMPLETO
-- **Valenciano**: LLIURE / DENSA / COMPLET
+- **Valenciano**: LLIURE / DENS / COMPLET
 - **Inglés**: FREE / BUSY / FULL
 - **Francés**: LIBRE / OCCUPÉ / COMPLET
 - **Alemán**: FREI / BESETZT / VOLL
@@ -157,13 +157,21 @@ Prueba la conectividad con la API REST.
 
 ## 🎨 Configuraciones de Color
 
-### Estados de Parking
+### Estados de Parking (Configuración Dinámica)
 
-| Estado | Porcentaje | Color | Código |
-|--------|------------|-------|--------|
-| Libre | < 50% | Verde | 2 |
-| Denso | 50-90% | Amarillo | 3 |
-| Completo | > 90% | Rojo | 1 |
+Los colores se asignan automáticamente según los umbrales configurados por el usuario en el frontend:
+
+| Estado | Condición | Color | Código |
+|--------|-----------|-------|--------|
+| Libre | Ocupación < threshold_dense | Verde | 2 |
+| Denso | Ocupación >= threshold_dense y < threshold_full | Amarillo | 3 |
+| Completo | Ocupación >= threshold_full | Rojo | 1 |
+
+### Configuración de Umbrales
+- **threshold_dense**: Configurable por parking desde el frontend
+- **threshold_full**: Configurable por parking desde el frontend
+- Los valores se guardan en la base de datos y se aplican automáticamente
+- Los colores se actualizan en tiempo real según la ocupación actual
 
 ### Colores Disponibles
 
@@ -198,7 +206,7 @@ WHERE ip = '172.20.4.52';
 | Idioma | Libre | Denso | Completo |
 |--------|-------|-------|----------|
 | Castellano | LIBRE | DENSO | COMPLETO |
-| Valenciano | LLIURE | DENSA | COMPLET |
+| Valenciano | LLIURE | DENS | COMPLET |
 | Inglés | FREE | BUSY | FULL |
 | Francés | LIBRE | OCCUPÉ | COMPLET |
 | Alemán | FREI | BESETZT | VOLL |
