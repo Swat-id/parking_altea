@@ -422,8 +422,8 @@ def update_parking_panels(parking_id: int, current_occupancy: int, total_spaces:
                 # Libre - verde
                 color = 2  # Verde
             
-            # Construir mensaje para los paneles
-            message = f"{current_occupancy}/{total_spaces} - {valenciano_status}"
+            # Construir mensaje para los paneles - SOLO EL ESTADO EN VALENCIANO
+            message = valenciano_status
             
             # Enviar mensaje a cada panel
             success_count = 0

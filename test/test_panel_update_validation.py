@@ -73,8 +73,8 @@ def test_panel_update_validation():
             else:
                 valenciano_status = parking.status
             
-            message = f"{parking.current_occupancy}/{parking.max_capacity} - {valenciano_status}"
-            print(f"   📤 Mensaje que se enviaría: '{message}'")
+            message = valenciano_status
+            print(f"   📤 Mensaje que se enviaría: '{message}' (solo estado)")
             
             # Verificar que hay paneles para enviar mensajes
             if panels:
@@ -161,7 +161,7 @@ def test_panel_update_validation():
         
         print(f"\n🎯 FUNCIONALIDADES VERIFICADAS:")
         print(f"   ✅ Actualización automática de paneles al cambiar aforo")
-        print(f"   ✅ Textos en valenciano: LLIURE, DENS, COMPLET")
+        print(f"   ✅ Solo estado en valenciano: LLIURE, DENS, COMPLET")
         print(f"   ✅ Colores dinámicos según umbrales")
         print(f"   ✅ Tamaño de texto 2 por defecto")
         print(f"   ✅ Configuración desde frontend")
