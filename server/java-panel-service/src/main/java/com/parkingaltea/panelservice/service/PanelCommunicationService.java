@@ -270,12 +270,16 @@ public class PanelCommunicationService {
      * Obtiene el color correspondiente al estado del parking
      */
     private int getColorForStatus(String status) {
-        return switch (status.toUpperCase()) {
-            case "LLIURE" -> 0x00FF00; // Verde
-            case "DENS" -> 0x0080FF;   // Naranja
-            case "COMPLET" -> 0x0000FF; // Rojo
-            default -> 0x00FF00;       // Verde por defecto
-        };
+        switch (status.toUpperCase()) {
+            case "LLIURE":
+                return 0x00FF00; // Verde
+            case "DENS":
+                return 0x0080FF;   // Naranja
+            case "COMPLET":
+                return 0x0000FF; // Rojo
+            default:
+                return 0x00FF00;       // Verde por defecto
+        }
     }
 
     /**
