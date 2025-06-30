@@ -329,10 +329,10 @@ public class PanelCommunicationService {
      * Convierte tamaño de fuente a formato del panel
      */
     private int convertFontSizeToPanelFormat(int fontSize) {
-        // Mapear tamaños de fuente según el ejemplo que funciona
-        // 2 = ~24px, 1 = ~16px, etc.
-        if (fontSize >= 24) return 2;
-        if (fontSize >= 16) return 1;
+        // Mapear tamaños de fuente según el manual del fabricante
+        // 2 = ~16px, 1 = ~12px, etc.
+        if (fontSize >= 16) return 2;
+        if (fontSize >= 12) return 1;
         return 1; // Por defecto
     }
 
