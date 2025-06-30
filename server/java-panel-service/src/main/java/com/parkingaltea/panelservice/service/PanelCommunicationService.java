@@ -83,10 +83,9 @@ public class PanelCommunicationService {
      * Configura el listener para un panel
      */
     private void setupListener(ExtSendUtil sender, String panelIP) {
-        sender.setListener(new OnTcpNetWorkListener() {
-            @Override
+        sender.setListener(new ExtSendUtilListener() {
             public void onSocketInit(int result) {
-                log.debug("[LISTENER] Panel {} - onSocketInit: {}", panelIP, result == 1 ? "SUCCESS" : "FAIL");
+                log.debug("[LISTENER] Panel {} - onSocketInit: Result={}", panelIP, result);
             }
 
             @Override

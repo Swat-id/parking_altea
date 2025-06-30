@@ -395,7 +395,7 @@ public class PanelController {
                     .message(success ? 
                             "Red inicializada correctamente para panel " + panelIP : 
                             "Error al inicializar red para panel " + panelIP)
-                    .responseTime(responseTime)
+                    .responseTime((double) responseTime)
                     .timestamp(LocalDateTime.now())
                     .build();
             return ResponseEntity.ok(response);
@@ -407,7 +407,7 @@ public class PanelController {
             PanelResponse response = PanelResponse.builder()
                     .success(false)
                     .message("Error interno: " + e.getMessage())
-                    .responseTime(responseTime)
+                    .responseTime((double) responseTime)
                     .timestamp(LocalDateTime.now())
                     .build();
             return ResponseEntity.ok(response);
@@ -438,7 +438,7 @@ public class PanelController {
                     .message(success ? 
                             "Listener configurado correctamente para panel " + panelIP : 
                             "Error al configurar listener para panel " + panelIP)
-                    .responseTime(responseTime)
+                    .responseTime((double) responseTime)
                     .timestamp(LocalDateTime.now())
                     .build();
             return ResponseEntity.ok(response);
@@ -450,7 +450,7 @@ public class PanelController {
             PanelResponse response = PanelResponse.builder()
                     .success(false)
                     .message("Error interno: " + e.getMessage())
-                    .responseTime(responseTime)
+                    .responseTime((double) responseTime)
                     .timestamp(LocalDateTime.now())
                     .build();
             return ResponseEntity.ok(response);
@@ -488,7 +488,7 @@ public class PanelController {
                     .message(success ? 
                             "sendMulti ejecutado correctamente en panel " + panelIP : 
                             "Error al ejecutar sendMulti en panel " + panelIP)
-                    .responseTime(responseTime)
+                    .responseTime((double) responseTime)
                     .timestamp(LocalDateTime.now())
                     .build();
             return ResponseEntity.ok(response);
@@ -500,7 +500,7 @@ public class PanelController {
             PanelResponse response = PanelResponse.builder()
                     .success(false)
                     .message("Error interno: " + e.getMessage())
-                    .responseTime(responseTime)
+                    .responseTime((double) responseTime)
                     .timestamp(LocalDateTime.now())
                     .build();
             return ResponseEntity.ok(response);
@@ -542,7 +542,7 @@ public class PanelController {
                     .message(success ? 
                             "Mensaje manual enviado correctamente a panel " + panelIP : 
                             "Error al enviar mensaje manual a panel " + panelIP)
-                    .responseTime(responseTime)
+                    .responseTime((double) responseTime)
                     .timestamp(LocalDateTime.now())
                     .build();
             return ResponseEntity.ok(response);
@@ -554,7 +554,7 @@ public class PanelController {
             PanelResponse response = PanelResponse.builder()
                     .success(false)
                     .message("Error interno: " + e.getMessage())
-                    .responseTime(responseTime)
+                    .responseTime((double) responseTime)
                     .timestamp(LocalDateTime.now())
                     .build();
             return ResponseEntity.ok(response);
