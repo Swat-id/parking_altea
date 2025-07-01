@@ -435,8 +435,7 @@ def update_parking_panels(parking_id: int, current_occupancy: int, total_spaces:
                         text=message,
                         color=color,
                         font_size=2,  # Tamaño de texto 2 por defecto
-                        speed=2,      # Velocidad 2 por defecto
-                        alignment=5   # Centrado
+                        effect=1      # Efecto centrado
                     )
                     
                     if result.get('success'):
