@@ -735,13 +735,17 @@ def send_message_to_panel(panel_id):
             session.close()
             return jsonify({'error': 'Panel not found'}), 404
         
+        # Guardar información del panel antes de cerrar la sesión
+        panel_name = panel.name
+        panel_ip = panel.ip
+        
         # Usar el PanelCommunicationService
         from panel_communication_service import get_panel_service
         panel_service = get_panel_service()
         
         start_time = datetime.now()
         result = panel_service.send_custom_text(
-            panel_ip=panel.ip,
+            panel_ip=panel_ip,
             text=message,
             color=color,
             font_size=fontSize,
@@ -749,7 +753,7 @@ def send_message_to_panel(panel_id):
         )
         response_time = (datetime.now() - start_time).total_seconds() * 1000  # en ms
         
-        # Actualizar estado del panel
+        # Actualizar estado del panel (usar el objeto dentro de la sesión)
         panel.status = 'ONLINE' if result['success'] else 'OFFLINE'
         panel.last_message = message
         panel.last_update = datetime.now()
@@ -761,8 +765,8 @@ def send_message_to_panel(panel_id):
             'success': result['success'],
             'message': result['message'],
             'panel_id': panel_id,
-            'panel_name': panel.name,
-            'panel_ip': panel.ip,
+            'panel_name': panel_name,
+            'panel_ip': panel_ip,
             'message': message,
             'duration': duration,
             'responseTime': response_time
@@ -783,13 +787,17 @@ def test_panel(panel_id):
             session.close()
             return jsonify({'error': 'Panel not found'}), 404
         
+        # Guardar información del panel antes de cerrar la sesión
+        panel_name = panel.name
+        panel_ip = panel.ip
+        
         # Usar el PanelCommunicationService
         from panel_communication_service import get_panel_service
         panel_service = get_panel_service()
         
         start_time = datetime.now()
         result = panel_service.send_custom_text(
-            panel_ip=panel.ip,
+            panel_ip=panel_ip,
             text='PRUEBA',
             color=2,  # Verde para prueba
             font_size=2,
@@ -797,7 +805,7 @@ def test_panel(panel_id):
         )
         response_time = (datetime.now() - start_time).total_seconds() * 1000
         
-        # Actualizar estado del panel
+        # Actualizar estado del panel (usar el objeto dentro de la sesión)
         panel.status = 'ONLINE' if result['success'] else 'OFFLINE'
         panel.last_update = datetime.now()
         
@@ -808,8 +816,8 @@ def test_panel(panel_id):
             'success': result['success'],
             'message': result['message'],
             'panel_id': panel_id,
-            'panel_name': panel.name,
-            'panel_ip': panel.ip,
+            'panel_name': panel_name,
+            'panel_ip': panel_ip,
             'responseTime': response_time
         })
         
