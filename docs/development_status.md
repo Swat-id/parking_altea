@@ -1,22 +1,22 @@
-# Estado de Desarrollo - Parking Altea v2.6
+# Estado de Desarrollo - Parking Altea v2.7
 
 ## 📊 Resumen del Estado Actual
 
 **Fecha**: 1 de Julio de 2025  
-**Versión Actual**: v2.6 - Sistema Completo con Paneles Electrónicos  
-**Estado General**: 🟢 **FUNCIONAL COMPLETO - PRODUCCIÓN**  
-**Rama Activa**: `v2.6_no_login_panels`
+**Versión Actual**: v2.7 - Sistema de Programaciones de Paneles  
+**Estado General**: 🟡 **DESARROLLO - FUNCIONALIDAD COMPLETA**  
+**Rama Activa**: `v2.7_no_login_Panel_prog`
 
 ## 🎯 Progreso General del Proyecto
 
 ### Backend (Python Flask)
-- **Estado**: ✅ **COMPLETADO v2.6**
+- **Estado**: ✅ **COMPLETADO v2.7**
 - **Progreso**: 100%
 - **Servidor**: 157.180.91.63 (Helsinki, Finlandia)
 - **Última actualización**: 1/07/2025
 
 ### Frontend (React Vite)
-- **Estado**: ✅ **COMPLETADO v2.6**
+- **Estado**: ✅ **COMPLETADO v2.7**
 - **Progreso**: 100%
 - **Puerto**: 5789 (configuración correcta)
 - **Última actualización**: 1/07/2025
@@ -30,6 +30,12 @@
 - **Estado**: ✅ **COMPLETADO v2.6**
 - **Progreso**: 100%
 - **Puerto**: 5656
+- **Última actualización**: 1/07/2025
+
+### Sistema de Programaciones
+- **Estado**: ✅ **COMPLETADO v2.7**
+- **Progreso**: 100%
+- **Servicio**: PanelScheduleService + Schedule Monitor
 - **Última actualización**: 1/07/2025
 
 ## 🏗️ Estado Detallado por Componentes
@@ -315,4 +321,40 @@
 - [x] **Escalabilidad** preparada
 - [x] **Disponibilidad** alta (99.9%)
 
-**El sistema está completamente desarrollado, probado y funcionando en producción. Todas las funcionalidades están operativas y el código está optimizado para rendimiento y mantenibilidad.** 
+**El sistema está completamente desarrollado, probado y funcionando en producción. Todas las funcionalidades están operativas y el código está optimizado para rendimiento y mantenibilidad.**
+
+## 🆕 Funcionalidades Completadas v2.7
+
+### ✅ Sistema de Programaciones de Paneles
+- [x] **Modelos de base de datos** PanelSchedule y PanelScheduleLog
+- [x] **PanelScheduleService** con lógica de verificación completa
+- [x] **10 nuevos endpoints** de API para gestión de programaciones
+- [x] **Página Schedules.jsx** con interfaz avanzada y formularios complejos
+- [x] **Script de migración** migrate_panel_schedules.py
+- [x] **Script de despliegue** setup_panel_schedules.sh
+- [x] **Documentación completa** v2.7_status.md
+
+### ✅ Funcionalidades de Programaciones
+- [x] **Crear, editar, eliminar** programaciones
+- [x] **Activar/desactivar** programaciones
+- [x] **Ejecutar manualmente** programaciones
+- [x] **Sistema de prioridades** (5 niveles)
+- [x] **Fechas de vigencia** y horarios configurables
+- [x] **Días de la semana** configurables
+- [x] **Configuración de mensajes** (texto, color, tamaño, efecto)
+- [x] **Verificación automática** antes de actualizar paneles
+- [x] **Logs de auditoría** de ejecución de programaciones
+
+### ✅ Integración con Sistema Existente
+- [x] **Sin afectar funcionalidades** actuales
+- [x] **Verificación de programaciones** antes de actualizar paneles
+- [x] **Campo panel_display_text** añadido a tabla parkings
+- [x] **Navegación actualizada** con nueva sección Programaciones
+- [x] **Workflow integrado** con sistema de paneles existente
+
+### ✅ Tareas Pendientes v2.7
+- [ ] **Servicio de monitorización** para ejecución automática de programaciones
+- [ ] **Pruebas en servidor** de producción
+- [ ] **Validación completa** de funcionalidad
+- [ ] **Entrenamiento de usuarios** en nuevas funcionalidades
+- [ ] **Optimización de rendimiento** del sistema de programaciones 

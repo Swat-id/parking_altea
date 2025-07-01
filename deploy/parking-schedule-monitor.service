@@ -1,0 +1,29 @@
+[Unit]
+Description=Parking Altea Schedule Monitor Service
+After=network.target parking-api.service
+Wants=parking-api.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/parking_altea/src
+ExecStart=/usr/bin/python3 /root/parking_altea/src/schedule_monitor_service.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=parking-schedule-monitor
+
+# Configuración de seguridad
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/root/parking_altea/src
+
+# Configuración de recursos
+MemoryMax=512M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target 

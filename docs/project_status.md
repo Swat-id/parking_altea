@@ -2,9 +2,9 @@
 
 ## 📊 Resumen Ejecutivo
 
-**Versión Actual**: v2.6 - Sistema Completo con Paneles Electrónicos  
+**Versión Actual**: v2.7 - Sistema de Programaciones de Paneles  
 **Fecha de Actualización**: 1 de Julio 2025  
-**Estado**: ✅ PRODUCCIÓN - FUNCIONAL COMPLETO
+**Estado**: 🟡 DESARROLLO - FUNCIONALIDAD COMPLETA
 
 ### 🎯 Objetivos Cumplidos
 
@@ -20,6 +20,11 @@
 - ✅ Gestión de estados ONLINE/OFFLINE de cámaras
 - ✅ Servicio Java REST para paneles (v2.6)
 - ✅ Workflow de paneles corregido y optimizado
+- ✅ Sistema de programaciones de paneles (v2.7)
+- ✅ Gestión completa de programaciones automáticas
+- ✅ Verificación de programaciones activas antes de actualizar paneles
+- ✅ Logs de auditoría de programaciones
+- ✅ Interfaz avanzada de gestión de programaciones
 
 ## 🏗️ Arquitectura del Sistema
 
@@ -36,11 +41,14 @@
 - **Statistics**: Estadísticas y reportes
 - **Profile**: Gestión de usuarios
 - **Panels**: Gestión completa de paneles electrónicos
+- **Schedules**: Gestión avanzada de programaciones de paneles
 
 ### Servicios de Paneles
 - **Java REST Service**: Puerto 5656 - Servicio principal de comunicación
 - **PanelCommunicationService**: Cliente Python para comunicación con paneles
 - **Protocolo CP5200**: Comunicación directa con paneles LED
+- **PanelScheduleService**: Gestión de programaciones automáticas
+- **Schedule Monitor Service**: Monitorización y ejecución automática de programaciones
 
 ## 🔄 Flujos de Gestión de Mensajes
 
@@ -124,6 +132,31 @@ Frontend → API Backend → PanelCommunicationService → Java REST Service →
 - Se mantiene ONLINE mientras hay actividad
 - Se considera OFFLINE después de 1 hora sin mensajes
 
+### 5. Sistema de Programaciones de Paneles (v2.7)
+
+**Flujo de verificación de programaciones:**
+```
+Mensaje Cámara → Actualizar Ocupación → Verificar Programaciones Activas → Actualizar Paneles
+```
+
+**Proceso detallado:**
+1. **Recepción**: Mensaje de cámara actualiza ocupación del parking
+2. **Verificación**: Sistema verifica si hay programaciones activas para el parking
+3. **Decisión**: 
+   - Si hay programación activa → No actualizar paneles (mantiene mensaje programado)
+   - Si no hay programación activa → Actualizar paneles con estado actual
+4. **Ejecución**: Programaciones se ejecutan automáticamente según horario configurado
+5. **Finalización**: Al terminar horario, paneles vuelven a mostrar estado del parking
+
+**Características de programaciones:**
+- **Fechas de vigencia**: Inicio y fin de período
+- **Horario diario**: Hora de inicio y fin
+- **Días de la semana**: Configuración por día
+- **Prioridades**: 5 niveles (1=baja, 5=alta)
+- **Efectos de texto**: Estático, scroll izquierda/derecha, centrado
+- **Colores**: 7 opciones de color
+- **Tamaños de fuente**: 3 opciones
+
 ## 📊 Estadísticas y Reportes
 
 ### Endpoints Disponibles
@@ -148,6 +181,18 @@ Frontend → API Backend → PanelCommunicationService → Java REST Service →
 - `POST /api/panel/{id}/message` - Envío de mensaje a panel
 - `POST /api/panel/{id}/test` - Prueba de panel
 - `POST /api/panels/verify` - Verificación de todos los paneles
+
+#### Programaciones (v2.7)
+- `GET /api/schedules` - Listar programaciones
+- `POST /api/schedules` - Crear programación
+- `GET /api/schedules/{id}` - Obtener programación
+- `PUT /api/schedules/{id}` - Actualizar programación
+- `DELETE /api/schedules/{id}` - Eliminar programación
+- `POST /api/schedules/{id}/toggle` - Activar/desactivar
+- `POST /api/schedules/{id}/execute` - Ejecutar manualmente
+- `GET /api/schedules/logs` - Obtener logs
+- `GET /api/parking/{id}/schedules` - Programaciones de parking
+- `GET /api/parking/{id}/active-schedules` - Programaciones activas
 
 #### Estadísticas
 - `GET /api/statistics/daily` - Estadísticas diarias
@@ -183,6 +228,17 @@ Frontend → API Backend → PanelCommunicationService → Java REST Service →
 - [x] Mensajes en valenciano (LLIURE, DENS, COMPLET)
 - [x] Colores dinámicos según ocupación
 - [x] Corrección de errores SQLAlchemy Session
+
+### Fase 5 ✅ (v2.7)
+- [x] Sistema de programaciones de paneles completo
+- [x] Modelos PanelSchedule y PanelScheduleLog
+- [x] PanelScheduleService con lógica de verificación
+- [x] 10 nuevos endpoints de API para programaciones
+- [x] Página Schedules.jsx con interfaz avanzada
+- [x] Script de migración de base de datos
+- [x] Script de despliegue automatizado
+- [x] Documentación completa v2.7_status.md
+- [x] Integración con sistema existente sin afectar funcionalidades
 
 ## 📈 Métricas de Rendimiento
 
