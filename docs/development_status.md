@@ -3,8 +3,8 @@
 ## 📊 Resumen del Estado Actual
 
 **Fecha**: 1 de Julio de 2025  
-**Versión Actual**: v2.7 - Sistema de Programaciones de Paneles  
-**Estado General**: 🟡 **DESARROLLO - FUNCIONALIDAD COMPLETA**  
+**Versión Actual**: v2.7.1 - Corrección de Cálculo de Deltas  
+**Estado General**: 🟡 **DESARROLLO - CORRECCIÓN APLICADA**  
 **Rama Activa**: `v2.7_no_login_Panel_prog`
 
 ## 🎯 Progreso General del Proyecto
@@ -352,8 +352,34 @@
 - [x] **Navegación actualizada** con nueva sección Programaciones
 - [x] **Workflow integrado** con sistema de paneles existente
 
-### ✅ Tareas Pendientes v2.7
-- [ ] **Servicio de monitorización** para ejecución automática de programaciones
+### ✅ Corrección de Cálculo de Deltas (v2.7.1)
+
+**Problema identificado:**
+- Error en el cálculo de deltas causando descuadres en la ocupación
+- Ejemplo: Contador 408→409 reportaba +3 en lugar de +1
+- Afectaba la precisión del conteo de vehículos
+
+**Causa raíz:**
+- Lógica incorrecta en la función `detect_camera_reset`
+- Ajuste incorrecto de contadores anteriores en caso de reinicio
+- Fórmula: `adjusted_previous_in = 0 if new_in <= previous_in else previous_in`
+
+**Solución implementada:**
+- Corrección de la función `detect_camera_reset`
+- Simplificación de la lógica de ajuste: siempre usar 0 en caso de reinicio
+- Añadido logging detallado para diagnóstico
+- Script de pruebas `test_delta_calculation.py` para validar corrección
+
+**Archivos modificados:**
+- `src/camera_server.py` - Corrección de funciones de cálculo de deltas
+- `test/test_delta_calculation.py` - Script de pruebas para validar corrección
+
+**Estado:** ✅ Corregido y probado
+
+### ✅ Tareas Pendientes v2.7.1
+- [x] **Servicio de monitorización** para ejecución automática de programaciones
+- [x] **Corrección del cálculo de deltas** en procesamiento de cámaras
+- [x] **Script de pruebas** para validar corrección de deltas
 - [ ] **Pruebas en servidor** de producción
 - [ ] **Validación completa** de funcionalidad
 - [ ] **Entrenamiento de usuarios** en nuevas funcionalidades

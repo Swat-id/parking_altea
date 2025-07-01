@@ -2,9 +2,9 @@
 
 ## 📊 Resumen Ejecutivo
 
-**Versión Actual**: v2.7 - Sistema de Programaciones de Paneles  
+**Versión Actual**: v2.7.1 - Corrección de Cálculo de Deltas  
 **Fecha de Actualización**: 1 de Julio 2025  
-**Estado**: 🟡 DESARROLLO - FUNCIONALIDAD COMPLETA
+**Estado**: 🟡 DESARROLLO - CORRECCIÓN APLICADA
 
 ### 🎯 Objetivos Cumplidos
 
@@ -25,6 +25,7 @@
 - ✅ Verificación de programaciones activas antes de actualizar paneles
 - ✅ Logs de auditoría de programaciones
 - ✅ Interfaz avanzada de gestión de programaciones
+- ✅ Corrección del cálculo de deltas en procesamiento de cámaras
 
 ## 🏗️ Arquitectura del Sistema
 
@@ -293,6 +294,13 @@ Mensaje Cámara → Actualizar Ocupación → Verificar Programaciones Activas �
 **Problema**: Frontend llamaba directamente al servicio Java causando problemas CORS
 **Solución**: Frontend usa API backend, backend usa PanelCommunicationService
 **Estado**: ✅ Implementado y funcionando correctamente
+
+### 6. Cálculo de Deltas ✅ CORREGIDO (v2.7.1)
+**Problema**: Error en cálculo de deltas causando descuadres en ocupación
+**Ejemplo**: Contador 408→409 reportaba +3 en lugar de +1
+**Causa**: Lógica incorrecta en detección de reinicios de cámara
+**Solución**: Corrección de función `detect_camera_reset` y `calculate_deltas_with_reset_handling`
+**Estado**: ✅ Corregido y probado
 
 ## 🔮 Próximos Pasos
 
