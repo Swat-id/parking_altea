@@ -721,6 +721,9 @@ def send_message_to_panel(panel_id):
         req = request.get_json(force=True)
         message = req.get('message')
         duration = req.get('duration', 30)
+        color = req.get('color', 1)
+        fontSize = req.get('fontSize', 2)
+        showEffect = req.get('showEffect', 1)
         
         if not message:
             return jsonify({'error': 'Missing message field'}), 400
@@ -732,15 +735,22 @@ def send_message_to_panel(panel_id):
             session.close()
             return jsonify({'error': 'Panel not found'}), 404
         
-        # Enviar mensaje al panel
-        formatted_message = f"{message}|VERDE|CENTER"
+        # Usar el PanelCommunicationService
+        from panel_communication_service import get_panel_service
+        panel_service = get_panel_service()
         
         start_time = datetime.now()
-        success = send_to_panel(panel.ip, formatted_message)
+        result = panel_service.send_custom_text(
+            panel_ip=panel.ip,
+            text=message,
+            color=color,
+            font_size=fontSize,
+            effect=showEffect
+        )
         response_time = (datetime.now() - start_time).total_seconds() * 1000  # en ms
         
         # Actualizar estado del panel
-        panel.status = 'ONLINE' if success else 'OFFLINE'
+        panel.status = 'ONLINE' if result['success'] else 'OFFLINE'
         panel.last_message = message
         panel.last_update = datetime.now()
         
@@ -748,12 +758,14 @@ def send_message_to_panel(panel_id):
         session.close()
         
         return jsonify({
-            'status': 'ok' if success else 'failed',
+            'success': result['success'],
+            'message': result['message'],
             'panel_id': panel_id,
             'panel_name': panel.name,
+            'panel_ip': panel.ip,
             'message': message,
             'duration': duration,
-            'response_time': response_time
+            'responseTime': response_time
         })
         
     except Exception as e:
@@ -771,25 +783,34 @@ def test_panel(panel_id):
             session.close()
             return jsonify({'error': 'Panel not found'}), 404
         
-        # Enviar mensaje de prueba
-        test_message = "PRUEBA|VERDE|CENTER"
+        # Usar el PanelCommunicationService
+        from panel_communication_service import get_panel_service
+        panel_service = get_panel_service()
         
         start_time = datetime.now()
-        success = send_to_panel(panel.ip, test_message)
+        result = panel_service.send_custom_text(
+            panel_ip=panel.ip,
+            text='PRUEBA',
+            color=2,  # Verde para prueba
+            font_size=2,
+            effect=1
+        )
         response_time = (datetime.now() - start_time).total_seconds() * 1000
         
         # Actualizar estado del panel
-        panel.status = 'ONLINE' if success else 'OFFLINE'
+        panel.status = 'ONLINE' if result['success'] else 'OFFLINE'
         panel.last_update = datetime.now()
         
         session.commit()
         session.close()
         
         return jsonify({
-            'status': 'ok' if success else 'failed',
+            'success': result['success'],
+            'message': result['message'],
             'panel_id': panel_id,
             'panel_name': panel.name,
-            'response_time': response_time
+            'panel_ip': panel.ip,
+            'responseTime': response_time
         })
         
     except Exception as e:
