@@ -1,8 +1,12 @@
-# Documentación del Sistema Parking Altea
+# Documentación del Sistema Parking Altea v2.6
 
 ## Índice de Documentación
 
-Esta documentación proporciona información completa sobre el sistema de gestión de aparcamientos Parking Altea, incluyendo su arquitectura, API, protocolos de comunicación, base de datos, despliegue y mantenimiento.
+Esta documentación proporciona información completa sobre el sistema de gestión de aparcamientos Parking Altea v2.6, incluyendo su arquitectura, API, protocolos de comunicación, base de datos, despliegue y mantenimiento.
+
+**Versión Actual**: v2.6 - Sistema Completo con Paneles Electrónicos  
+**Fecha de Actualización**: 1 de Julio de 2025  
+**Estado**: ✅ PRODUCCIÓN - FUNCIONAL COMPLETO
 
 ---
 
@@ -22,13 +26,35 @@ Documentación general del proyecto con descripción, arquitectura, componentes 
 Documento completo del estado actual del proyecto con resultados de pruebas y funcionalidades implementadas.
 
 **Contenido:**
-- Información general del proyecto
-- Arquitectura del sistema
-- Estructura de archivos y funcionalidades
+- Información general del proyecto v2.6
+- Arquitectura del sistema completo
+- Flujos de gestión de mensajes
 - Endpoints implementados y probados
-- Resultados de pruebas realizadas
-- Problemas conocidos y soluciones
-- Próximos pasos del desarrollo
+- Métricas de rendimiento
+- Problemas resueltos y soluciones
+- Configuración de producción
+
+### [Estado de Desarrollo](./development_status.md)
+Documentación detallada del estado de desarrollo con progreso por componentes.
+
+**Contenido:**
+- Progreso general del proyecto
+- Estado detallado por componentes
+- Funcionalidades completadas v2.6
+- Problemas resueltos
+- Métricas de rendimiento
+- Estado final del desarrollo
+
+### [Estado v2.6](./v2.6_status.md)
+Documentación específica de la versión v2.6 con detalles de implementación.
+
+**Contenido:**
+- Objetivos de la versión v2.6
+- Arquitectura del sistema v2.6
+- Problemas resueltos en v2.6
+- Funcionalidades implementadas
+- Pruebas y validación
+- Configuración de producción
 
 ---
 
@@ -76,6 +102,16 @@ Protocolo de comunicación con los paneles electrónicos.
 - Configuración de paneles
 - Gestión de errores
 
+### [Paneles v2.6](./panels_v2.6.md)
+Documentación específica de la integración de paneles en v2.6.
+
+**Contenido:**
+- Workflow de paneles v2.6
+- Servicio Java REST
+- PanelCommunicationService
+- Mensajes en valenciano
+- Colores dinámicos
+
 ---
 
 ## 🗄️ Base de Datos
@@ -106,6 +142,15 @@ Guía completa de instalación y configuración del sistema.
 - Scripts de despliegue
 - Troubleshooting
 
+### [Despliegue Paneles v2.6](./panels_v2.6_deployment_summary.md)
+Resumen del despliegue de la funcionalidad de paneles v2.6.
+
+**Contenido:**
+- Proceso de despliegue
+- Configuración de servicios
+- Validación de funcionalidad
+- Troubleshooting
+
 ---
 
 ## 🔧 Mantenimiento y Monitoreo
@@ -134,39 +179,69 @@ Sistema de pruebas automatizadas para verificar el funcionamiento de la API.
 
 ---
 
-## 📁 Estructura del Proyecto
+## 📊 Análisis y Reportes
+
+### [Análisis de SDK](./sdk_analysis_summary.md)
+Análisis del SDK de paneles electrónicos.
+
+**Contenido:**
+- Análisis del protocolo CP5200
+- Documentación del fabricante
+- Ejemplos de implementación
+- Recomendaciones
+
+### [Implementación de Estadísticas](./statistics_implementation.md)
+Documentación de la implementación del sistema de estadísticas.
+
+**Contenido:**
+- Funcionalidades de estadísticas
+- Gráficos implementados
+- Consultas de base de datos
+- Optimización de rendimiento
+
+---
+
+## 📁 Estructura del Proyecto v2.6
 
 ```
 parking_altea/
 ├── docs/                          # Documentación
 │   ├── README.md                  # Documentación principal
-│   ├── project_status.md          # Estado del proyecto
+│   ├── project_status.md          # Estado del proyecto v2.6
+│   ├── development_status.md      # Estado de desarrollo
+│   ├── v2.6_status.md             # Estado específico v2.6
 │   ├── api_endpoints.md           # Endpoints API con ejemplos
 │   ├── api.md                     # API REST
 │   ├── cameras.md                 # Protocolo cámaras
 │   ├── panels.md                  # Protocolo paneles
+│   ├── panels_v2.6.md             # Paneles v2.6
 │   ├── database.md                # Esquema BD
 │   ├── deployment.md              # Guía despliegue
 │   ├── maintenance.md             # Mantenimiento
 │   └── index.md                   # Este archivo
-├── src/                           # Código fuente
+├── client/                        # Frontend React
+│   ├── src/                       # Código fuente React
+│   ├── package.json               # Dependencias
+│   └── vite.config.js             # Configuración Vite
+├── server/                        # Backend Python
 │   ├── api_server.py             # Servidor API REST
 │   ├── camera_server.py          # Servidor de cámaras
-│   ├── panel_client.py           # Cliente de paneles
+│   ├── panel_communication_service.py # Servicio de comunicación
 │   ├── models.py                 # Modelos de BD
 │   ├── config.py                 # Configuración
 │   ├── init_db.py                # Inicialización BD
-│   ├── load_data.py              # Carga de datos
-│   └── analyze_discrepancies.py  # Análisis de descuadres
+│   └── load_data.py              # Carga de datos
 ├── csv_templates/                 # Plantillas CSV
 │   ├── parkings.csv              # Datos de aparcamientos
 │   ├── accesses.csv              # Datos de cámaras
 │   └── panels.csv                # Datos de paneles
 ├── deploy/                        # Archivos de despliegue
 │   ├── setup.sh                  # Script de instalación
-│   ├── update.sh                 # Script de actualización
+│   ├── deploy_frontend.sh        # Despliegue frontend
+│   ├── deploy_and_validate.sh    # Despliegue completo
 │   ├── parking-api.service       # Servicio systemd API
-│   └── parking-camera.service    # Servicio systemd cámaras
+│   ├── parking-camera.service    # Servicio systemd cámaras
+│   └── panel-service.service     # Servicio systemd paneles
 ├── requirements.txt               # Dependencias Python
 └── README.md                      # README del proyecto
 ```
