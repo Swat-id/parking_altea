@@ -17,7 +17,9 @@ import {
   Loader,
   Info,
   Eye,
-  EyeOff
+  EyeOff,
+  Server,
+  Globe
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -30,6 +32,7 @@ const Panels = () => {
   const [verificationResults, setVerificationResults] = useState(null)
   const [messageResponse, setMessageResponse] = useState(null)
   const [showResponseDetails, setShowResponseDetails] = useState(false)
+  const [selectedColor, setSelectedColor] = useState(1) // 1=Rojo, 2=Verde, 3=Amarillo
 
   // Obtener paneles
   const { data: panels = [], isLoading, refetch } = useQuery(
@@ -143,6 +146,19 @@ const Panels = () => {
     }
   }
 
+  const getColorName = (colorCode) => {
+    switch (colorCode) {
+      case 1: return 'Rojo'
+      case 2: return 'Verde'
+      case 3: return 'Amarillo'
+      case 4: return 'Azul'
+      case 5: return 'Magenta'
+      case 6: return 'Cian'
+      case 7: return 'Blanco'
+      default: return 'Rojo'
+    }
+  }
+
   const handleSendMessage = () => {
     if (!selectedPanel) {
       toast.error('Selecciona un panel')
@@ -158,7 +174,8 @@ const Panels = () => {
       panelId: selectedPanel.id,
       messageData: {
         message: messageText,
-        duration: messageDuration
+        duration: messageDuration,
+        color: selectedColor
       }
     })
   }
@@ -178,6 +195,7 @@ const Panels = () => {
     setSelectedPanel(null)
     setMessageText('')
     setMessageDuration(30)
+    setSelectedColor(1)
   }
 
   if (isLoading) {
@@ -198,7 +216,7 @@ const Panels = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Paneles Electrónicos</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Gestión y comunicación con paneles informativos
+            Gestión y comunicación con paneles informativos v2.6
           </p>
         </div>
         <div className="flex space-x-3">
@@ -224,130 +242,139 @@ const Panels = () => {
         </div>
       </div>
 
+      {/* Información del servicio */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-center">
+          <Server className="h-5 w-5 text-blue-600 mr-2" />
+          <span className="text-sm font-medium text-blue-900">Servicio de Comunicación v2.6</span>
+        </div>
+        <div className="mt-2 text-sm text-blue-700 space-y-1">
+          <p>• <strong>Endpoint:</strong> http://157.180.91.63:5656/sendMulti</p>
+          <p>• <strong>Protocolo:</strong> API REST JSON</p>
+          <p>• <strong>Características:</strong> Soporte multiidioma, colores dinámicos, múltiples pantallas</p>
+          <p>• <strong>Idioma por defecto:</strong> Valenciano (LLIURE/DENS/COMPLET)</p>
+        </div>
+      </div>
+
       {/* Resultados de verificación */}
       {verificationResults && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <CheckCircle className="h-5 w-5 text-blue-600 mr-2" />
-              <h3 className="text-sm font-medium text-blue-900">
-                Verificación Completada
-              </h3>
-            </div>
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900">Resultados de Verificación</h3>
             <button
               onClick={() => setVerificationResults(null)}
-              className="text-blue-400 hover:text-blue-600"
+              className="text-gray-400 hover:text-gray-600"
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5" />
             </button>
           </div>
-          <div className="mt-2 text-sm text-blue-700">
-            <p>Total de paneles verificados: {verificationResults.total_panels}</p>
-            <p>Paneles actualizados: {verificationResults.updated_count}</p>
-            {verificationResults.updated_count > 0 && (
-              <div className="mt-2">
-                <p className="font-medium">Cambios realizados:</p>
-                <ul className="mt-1 space-y-1">
-                  {verificationResults.results
-                    .filter(result => result.status_changed)
-                    .map((result, index) => (
-                      <li key={index} className="text-xs">
-                        • {result.panel_name}: {result.previous_status} → {result.new_status}
-                        {result.response_time && ` (${result.response_time.toFixed(0)}ms)`}
-                      </li>
-                    ))}
-                </ul>
+          
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-900">{verificationResults.total_panels}</div>
+              <div className="text-sm text-gray-500">Total Paneles</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{verificationResults.updated_count}</div>
+              <div className="text-sm text-gray-500">Actualizados</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{verificationResults.results?.filter(r => r.ping_success).length || 0}</div>
+              <div className="text-sm text-gray-500">En Línea</div>
+            </div>
+          </div>
+          
+          <div className="max-h-64 overflow-y-auto">
+            {verificationResults.results?.map((result, index) => (
+              <div key={index} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0">
+                <div>
+                  <span className="font-medium">{result.panel_name}</span>
+                  <span className="text-sm text-gray-500 ml-2">({result.ip})</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    result.ping_success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {result.ping_success ? 'ONLINE' : 'OFFLINE'}
+                  </span>
+                  {result.response_time && (
+                    <span className="text-xs text-gray-500">
+                      {result.response_time.toFixed(1)}ms
+                    </span>
+                  )}
+                </div>
               </div>
-            )}
+            ))}
           </div>
         </div>
       )}
 
-      {/* Respuesta detallada del mensaje */}
-      {messageResponse && showResponseDetails && (
-        <div className={`border rounded-lg p-4 ${messageResponse.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              {messageResponse.success ? (
-                <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
-              ) : (
-                <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
-              )}
-              <h3 className="text-sm font-medium text-gray-900">
-                Respuesta del Servicio C#
-              </h3>
-            </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => setShowResponseDetails(!showResponseDetails)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                {showResponseDetails ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-              <button
-                onClick={clearMessageResponse}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+      {/* Respuesta del mensaje */}
+      {messageResponse && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900">Respuesta del Servicio</h3>
+            <button
+              onClick={clearMessageResponse}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
-          
-          {showResponseDetails && (
-            <div className="mt-3 space-y-2 text-sm">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <span className="font-medium text-gray-700">Estado:</span>
-                  <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
-                    messageResponse.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {messageResponse.success ? 'EXITOSO' : 'FALLIDO'}
-                  </span>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-700">Tiempo de respuesta:</span>
-                  <span className="ml-2 text-gray-600">
-                    {messageResponse.responseTime ? `${messageResponse.responseTime.toFixed(2)}ms` : 'N/A'}
-                  </span>
-                </div>
-              </div>
-              
-              {messageResponse.panel_name && (
-                <div>
-                  <span className="font-medium text-gray-700">Panel:</span>
-                  <span className="ml-2 text-gray-600">{messageResponse.panel_name}</span>
-                </div>
-              )}
-              
-              {messageResponse.panel_ip && (
-                <div>
-                  <span className="font-medium text-gray-700">IP:</span>
-                  <span className="ml-2 text-gray-600">{messageResponse.panel_ip}</span>
-                </div>
-              )}
-              
-              {messageResponse.message && (
-                <div>
-                  <span className="font-medium text-gray-700">Mensaje enviado:</span>
-                  <span className="ml-2 text-gray-600">"{messageResponse.message}"</span>
-                </div>
-              )}
-              
+
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <span className="font-medium text-gray-700">Respuesta del servicio:</span>
-                <div className="mt-1 p-2 bg-gray-100 rounded text-xs font-mono text-gray-800">
-                  {messageResponse.message || 'Sin respuesta'}
-                </div>
+                <span className="font-medium text-gray-700">Estado:</span>
+                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
+                  messageResponse.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                }`}>
+                  {messageResponse.success ? 'EXITOSO' : 'FALLIDO'}
+                </span>
               </div>
-              
-              {messageResponse.errorCode && messageResponse.errorCode !== 0 && (
-                <div>
-                  <span className="font-medium text-gray-700">Código de error:</span>
-                  <span className="ml-2 text-red-600">{messageResponse.errorCode}</span>
-                </div>
-              )}
+              <div>
+                <span className="font-medium text-gray-700">Tiempo de respuesta:</span>
+                <span className="ml-2 text-gray-600">
+                  {messageResponse.responseTime ? `${messageResponse.responseTime.toFixed(2)}ms` : 'N/A'}
+                </span>
+              </div>
             </div>
-          )}
+            
+            {messageResponse.panel_name && (
+              <div>
+                <span className="font-medium text-gray-700">Panel:</span>
+                <span className="ml-2 text-gray-600">{messageResponse.panel_name}</span>
+              </div>
+            )}
+            
+            {messageResponse.panel_ip && (
+              <div>
+                <span className="font-medium text-gray-700">IP:</span>
+                <span className="ml-2 text-gray-600">{messageResponse.panel_ip}</span>
+              </div>
+            )}
+            
+            {messageResponse.message && (
+              <div>
+                <span className="font-medium text-gray-700">Mensaje enviado:</span>
+                <span className="ml-2 text-gray-600">"{messageResponse.message}"</span>
+              </div>
+            )}
+            
+            <div>
+              <span className="font-medium text-gray-700">Respuesta del servicio:</span>
+              <div className="mt-1 p-2 bg-gray-100 rounded text-xs font-mono text-gray-800">
+                {messageResponse.message || 'Sin respuesta'}
+              </div>
+            </div>
+            
+            {messageResponse.errorCode && messageResponse.errorCode !== 0 && (
+              <div>
+                <span className="font-medium text-gray-700">Código de error:</span>
+                <span className="ml-2 text-red-600">{messageResponse.errorCode}</span>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -529,18 +556,39 @@ const Panels = () => {
               </p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Duración (segundos)
-              </label>
-              <input
-                type="number"
-                value={messageDuration}
-                onChange={(e) => setMessageDuration(parseInt(e.target.value) || 30)}
-                className="input-field w-32"
-                min="10"
-                max="300"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Color
+                </label>
+                <select
+                  value={selectedColor}
+                  onChange={(e) => setSelectedColor(parseInt(e.target.value))}
+                  className="input-field"
+                >
+                  <option value={1}>Rojo</option>
+                  <option value={2}>Verde</option>
+                  <option value={3}>Amarillo</option>
+                  <option value={4}>Azul</option>
+                  <option value={5}>Magenta</option>
+                  <option value={6}>Cian</option>
+                  <option value={7}>Blanco</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Duración (segundos)
+                </label>
+                <input
+                  type="number"
+                  value={messageDuration}
+                  onChange={(e) => setMessageDuration(parseInt(e.target.value) || 30)}
+                  className="input-field w-full"
+                  min="10"
+                  max="300"
+                />
+              </div>
             </div>
 
             {selectedPanel && (
@@ -559,13 +607,16 @@ const Panels = () => {
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <div className="flex items-center">
-                <Info className="h-4 w-4 text-blue-600 mr-2" />
-                <span className="text-sm font-medium text-blue-900">Información del Proceso</span>
+                <Globe className="h-4 w-4 text-blue-600 mr-2" />
+                <span className="text-sm font-medium text-blue-900">Servicio v2.6 - Características</span>
               </div>
-              <p className="text-xs text-blue-700 mt-1">
-                El mensaje se enviará usando el servicio C# y se mostrará la respuesta completa del panel, 
-                incluyendo tiempo de respuesta y estado de la comunicación.
-              </p>
+              <div className="text-xs text-blue-700 mt-1 space-y-1">
+                <p>• <strong>Formato:</strong> API REST JSON con soporte multiidioma</p>
+                <p>• <strong>Colores:</strong> 7 colores disponibles (1-7)</p>
+                <p>• <strong>Tamaño de texto:</strong> 2 por defecto</p>
+                <p>• <strong>Efecto:</strong> Centrado automático</p>
+                <p>• <strong>Idioma:</strong> Valenciano por defecto (LLIURE/DENS/COMPLET)</p>
+              </div>
             </div>
           </div>
 
