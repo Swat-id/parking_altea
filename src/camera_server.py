@@ -517,6 +517,9 @@ def handle_camera():
                 logger.info(f"Message sent to panels: {parking.current_occupancy}/{parking.max_capacity} ({parking.status})")
             except Exception as e:
                 logger.error(f"Error sending to panels: {e}")
+                # Log detallado del error para debugging
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
         
         # Preparar información adicional para el log en caso de reinicio
         error_message = None

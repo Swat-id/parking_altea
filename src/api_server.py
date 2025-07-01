@@ -402,6 +402,9 @@ def set_occupancy(pid):
             logger.info(f"Panel messages sent after manual occupancy update for parking {parking_name}")
         except Exception as e:
             logger.error(f"Error sending panel messages after manual occupancy update: {e}")
+            # Log detallado del error para debugging
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
         
         logger.info(f"Manual occupancy update - Parking: {parking_name}, Previous: {previous_occupancy}, New: {final_occupancy}, Change: {change_amount}, Status: {final_status}")
         
@@ -485,6 +488,9 @@ def update_parking_config(pid):
             session.close()
         except Exception as e:
             logger.error(f"Error sending panel messages after config update: {e}")
+            # Log detallado del error para debugging
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
         
         logger.info(f"Parking config updated - Parking: {parking_name}, Max: {final_max_capacity}, Dense: {final_threshold_dense}, Full: {final_threshold_full}")
         return jsonify({
