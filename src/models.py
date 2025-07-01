@@ -254,3 +254,66 @@ class CameraLog(Base):
     # Relaciones
     access = relationship('Access')
     parking = relationship('Parking')
+
+class PanelSchedule(Base):
+    __tablename__ = 'panel_schedules'
+    id = Column(Integer, primary_key=True)
+    parking_id = Column(Integer, ForeignKey('parkings.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    
+    # Información básica
+    name = Column(String, nullable=False)  # Nombre de la programación
+    description = Column(Text)  # Descripción opcional
+    
+    # Fechas de vigencia
+    start_date = Column(DateTime(timezone=True), nullable=False)  # Fecha de inicio
+    end_date = Column(DateTime(timezone=True), nullable=False)  # Fecha de fin
+    
+    # Horario diario
+    start_time = Column(String, nullable=False)  # Hora de inicio (HH:MM)
+    end_time = Column(String, nullable=False)  # Hora de fin (HH:MM)
+    
+    # Días de la semana (0=domingo, 1=lunes, ..., 6=sábado)
+    monday = Column(Boolean, default=False)
+    tuesday = Column(Boolean, default=False)
+    wednesday = Column(Boolean, default=False)
+    thursday = Column(Boolean, default=False)
+    friday = Column(Boolean, default=False)
+    saturday = Column(Boolean, default=False)
+    sunday = Column(Boolean, default=False)
+    
+    # Configuración del mensaje
+    message = Column(Text, nullable=False)  # Texto a mostrar
+    color = Column(Integer, default=2)  # Color del texto (1=Rojo, 2=Verde, 3=Amarillo, etc.)
+    font_size = Column(Integer, default=2)  # Tamaño de fuente
+    effect = Column(String, default='static')  # 'static', 'scroll_left', 'scroll_right', 'center'
+    
+    # Estado de la programación
+    is_active = Column(Boolean, default=True)  # Programación activa/inactiva
+    priority = Column(Integer, default=1)  # Prioridad (1=baja, 5=alta)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relaciones
+    parking = relationship('Parking')
+    user = relationship('User')
+
+class PanelScheduleLog(Base):
+    __tablename__ = 'panel_schedule_logs'
+    id = Column(Integer, primary_key=True)
+    schedule_id = Column(Integer, ForeignKey('panel_schedules.id'), nullable=False)
+    parking_id = Column(Integer, ForeignKey('parkings.id'), nullable=False)
+    
+    # Información de ejecución
+    execution_type = Column(String, nullable=False)  # 'started', 'ended', 'skipped', 'error'
+    message_sent = Column(Text)  # Mensaje enviado
+    panels_affected = Column(Integer, default=0)  # Número de paneles afectados
+    
+    # Timestamps
+    executed_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relaciones
+    schedule = relationship('PanelSchedule')
+    parking = relationship('Parking')

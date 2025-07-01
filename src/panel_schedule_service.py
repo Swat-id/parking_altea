@@ -1,0 +1,378 @@
+#!/usr/bin/env python3
+"""
+Servicio para gestionar programaciones de paneles
+"""
+
+import logging
+from datetime import datetime, timedelta
+from sqlalchemy import and_, or_, func
+from sqlalchemy.orm import Session
+from models import PanelSchedule, PanelScheduleLog, Parking, Panel
+from panel_communication_service import PanelCommunicationService
+
+logger = logging.getLogger(__name__)
+
+class PanelScheduleService:
+    def __init__(self, session: Session, panel_service_url: str = None):
+        self.session = session
+        self.panel_communication_service = PanelCommunicationService(panel_service_url)
+    
+    def create_schedule(self, schedule_data: dict) -> dict:
+        """Crear una nueva programación"""
+        try:
+            # Validar datos requeridos
+            required_fields = ['parking_id', 'name', 'start_date', 'end_date', 'start_time', 'end_time', 'message']
+            for field in required_fields:
+                if field not in schedule_data:
+                    return {'success': False, 'error': f'Campo requerido faltante: {field}'}
+            
+            # Crear la programación
+            schedule = PanelSchedule(
+                parking_id=schedule_data['parking_id'],
+                user_id=schedule_data.get('user_id'),
+                name=schedule_data['name'],
+                description=schedule_data.get('description', ''),
+                start_date=datetime.fromisoformat(schedule_data['start_date']),
+                end_date=datetime.fromisoformat(schedule_data['end_date']),
+                start_time=schedule_data['start_time'],
+                end_time=schedule_data['end_time'],
+                monday=schedule_data.get('monday', False),
+                tuesday=schedule_data.get('tuesday', False),
+                wednesday=schedule_data.get('wednesday', False),
+                thursday=schedule_data.get('thursday', False),
+                friday=schedule_data.get('friday', False),
+                saturday=schedule_data.get('saturday', False),
+                sunday=schedule_data.get('sunday', False),
+                message=schedule_data['message'],
+                color=schedule_data.get('color', 2),
+                font_size=schedule_data.get('font_size', 2),
+                effect=schedule_data.get('effect', 'static'),
+                is_active=schedule_data.get('is_active', True),
+                priority=schedule_data.get('priority', 1)
+            )
+            
+            self.session.add(schedule)
+            self.session.commit()
+            
+            logger.info(f"Programación creada: {schedule.id} - {schedule.name}")
+            return {'success': True, 'schedule_id': schedule.id}
+            
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error creando programación: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def get_schedules(self, parking_id: int = None, active_only: bool = True) -> dict:
+        """Obtener programaciones"""
+        try:
+            query = self.session.query(PanelSchedule)
+            
+            if parking_id:
+                query = query.filter(PanelSchedule.parking_id == parking_id)
+            
+            if active_only:
+                query = query.filter(PanelSchedule.is_active == True)
+            
+            schedules = query.order_by(PanelSchedule.priority.desc(), PanelSchedule.created_at.desc()).all()
+            
+            result = []
+            for schedule in schedules:
+                result.append({
+                    'id': schedule.id,
+                    'parking_id': schedule.parking_id,
+                    'user_id': schedule.user_id,
+                    'name': schedule.name,
+                    'description': schedule.description,
+                    'start_date': schedule.start_date.isoformat(),
+                    'end_date': schedule.end_date.isoformat(),
+                    'start_time': schedule.start_time,
+                    'end_time': schedule.end_time,
+                    'monday': schedule.monday,
+                    'tuesday': schedule.tuesday,
+                    'wednesday': schedule.wednesday,
+                    'thursday': schedule.thursday,
+                    'friday': schedule.friday,
+                    'saturday': schedule.saturday,
+                    'sunday': schedule.sunday,
+                    'message': schedule.message,
+                    'color': schedule.color,
+                    'font_size': schedule.font_size,
+                    'effect': schedule.effect,
+                    'is_active': schedule.is_active,
+                    'priority': schedule.priority,
+                    'created_at': schedule.created_at.isoformat(),
+                    'updated_at': schedule.updated_at.isoformat()
+                })
+            
+            return {'success': True, 'schedules': result}
+            
+        except Exception as e:
+            logger.error(f"Error obteniendo programaciones: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def update_schedule(self, schedule_id: int, schedule_data: dict) -> dict:
+        """Actualizar una programación"""
+        try:
+            schedule = self.session.query(PanelSchedule).filter(PanelSchedule.id == schedule_id).first()
+            if not schedule:
+                return {'success': False, 'error': 'Programación no encontrada'}
+            
+            # Actualizar campos
+            for field, value in schedule_data.items():
+                if hasattr(schedule, field):
+                    if field in ['start_date', 'end_date'] and isinstance(value, str):
+                        setattr(schedule, field, datetime.fromisoformat(value))
+                    else:
+                        setattr(schedule, field, value)
+            
+            schedule.updated_at = datetime.now()
+            self.session.commit()
+            
+            logger.info(f"Programación actualizada: {schedule_id}")
+            return {'success': True}
+            
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error actualizando programación: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def delete_schedule(self, schedule_id: int) -> dict:
+        """Eliminar una programación"""
+        try:
+            schedule = self.session.query(PanelSchedule).filter(PanelSchedule.id == schedule_id).first()
+            if not schedule:
+                return {'success': False, 'error': 'Programación no encontrada'}
+            
+            self.session.delete(schedule)
+            self.session.commit()
+            
+            logger.info(f"Programación eliminada: {schedule_id}")
+            return {'success': True}
+            
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error eliminando programación: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def toggle_schedule(self, schedule_id: int) -> dict:
+        """Activar/desactivar una programación"""
+        try:
+            schedule = self.session.query(PanelSchedule).filter(PanelSchedule.id == schedule_id).first()
+            if not schedule:
+                return {'success': False, 'error': 'Programación no encontrada'}
+            
+            schedule.is_active = not schedule.is_active
+            schedule.updated_at = datetime.now()
+            self.session.commit()
+            
+            status = "activada" if schedule.is_active else "desactivada"
+            logger.info(f"Programación {status}: {schedule_id}")
+            return {'success': True, 'is_active': schedule.is_active}
+            
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error cambiando estado de programación: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def get_active_schedules_for_parking(self, parking_id: int) -> list:
+        """Obtener programaciones activas para un parking en el momento actual"""
+        try:
+            now = datetime.now()
+            current_time = now.strftime('%H:%M')
+            current_weekday = now.weekday()  # 0=lunes, 6=domingo
+            
+            # Mapear weekday a campos de la base de datos
+            weekday_fields = {
+                0: PanelSchedule.monday,
+                1: PanelSchedule.tuesday,
+                2: PanelSchedule.wednesday,
+                3: PanelSchedule.thursday,
+                4: PanelSchedule.friday,
+                5: PanelSchedule.saturday,
+                6: PanelSchedule.sunday
+            }
+            
+            current_weekday_field = weekday_fields.get(current_weekday, PanelSchedule.monday)
+            
+            schedules = self.session.query(PanelSchedule).filter(
+                and_(
+                    PanelSchedule.parking_id == parking_id,
+                    PanelSchedule.is_active == True,
+                    PanelSchedule.start_date <= now,
+                    PanelSchedule.end_date >= now,
+                    current_weekday_field == True,
+                    PanelSchedule.start_time <= current_time,
+                    PanelSchedule.end_time >= current_time
+                )
+            ).order_by(PanelSchedule.priority.desc()).all()
+            
+            return schedules
+            
+        except Exception as e:
+            logger.error(f"Error obteniendo programaciones activas: {e}")
+            return []
+    
+    def execute_schedule(self, schedule: PanelSchedule) -> dict:
+        """Ejecutar una programación enviando el mensaje a los paneles"""
+        try:
+            # Obtener paneles del parking
+            panels = self.session.query(Panel).filter(
+                and_(
+                    Panel.parking_id == schedule.parking_id,
+                    Panel.status == 'ONLINE'
+                )
+            ).all()
+            
+            if not panels:
+                return {'success': False, 'error': 'No hay paneles online para este parking'}
+            
+            # Preparar mensaje según el efecto
+            message_data = {
+                'texts': [schedule.message],
+                'colors': [schedule.color],
+                'fontSizes': [schedule.font_size],
+                'showEffects': [self._get_effect_code(schedule.effect)]
+            }
+            
+            # Enviar mensaje a todos los paneles
+            success_count = 0
+            for panel in panels:
+                try:
+                    result = self.panel_communication_service.send_message(
+                        panel.panel_name,
+                        panel.panel_ip,
+                        schedule.message,
+                        schedule.color,
+                        schedule.font_size
+                    )
+                    if result.get('success'):
+                        success_count += 1
+                except Exception as e:
+                    logger.error(f"Error enviando mensaje a panel {panel.id}: {e}")
+            
+            # Registrar log de ejecución
+            log = PanelScheduleLog(
+                schedule_id=schedule.id,
+                parking_id=schedule.parking_id,
+                execution_type='started',
+                message_sent=schedule.message,
+                panels_affected=success_count
+            )
+            self.session.add(log)
+            self.session.commit()
+            
+            logger.info(f"Programación ejecutada: {schedule.id} - {success_count}/{len(panels)} paneles")
+            return {'success': True, 'panels_affected': success_count}
+            
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error ejecutando programación: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def end_schedule(self, schedule: PanelSchedule) -> dict:
+        """Finalizar una programación restaurando el estado del parking"""
+        try:
+            # Obtener paneles del parking
+            panels = self.session.query(Panel).filter(
+                and_(
+                    Panel.parking_id == schedule.parking_id,
+                    Panel.status == 'ONLINE'
+                )
+            ).all()
+            
+            if not panels:
+                return {'success': False, 'error': 'No hay paneles online para este parking'}
+            
+            # Obtener estado actual del parking
+            parking = self.session.query(Parking).filter(Parking.id == schedule.parking_id).first()
+            if not parking:
+                return {'success': False, 'error': 'Parking no encontrado'}
+            
+            # Determinar mensaje según estado del parking
+            occupancy_percent = (parking.current_occupancy / parking.max_capacity) * 100
+            
+            if occupancy_percent < parking.threshold_dense:
+                message = "LLIURE"
+                color = 2  # Verde
+            elif occupancy_percent < parking.threshold_full:
+                message = "DENS"
+                color = 3  # Amarillo
+            else:
+                message = "COMPLET"
+                color = 1  # Rojo
+            
+            # Enviar mensaje de estado a todos los paneles
+            success_count = 0
+            for panel in panels:
+                try:
+                    result = self.panel_communication_service.send_message(
+                        panel.panel_name,
+                        panel.panel_ip,
+                        message,
+                        color,
+                        2  # font_size por defecto
+                    )
+                    if result.get('success'):
+                        success_count += 1
+                except Exception as e:
+                    logger.error(f"Error enviando mensaje de estado a panel {panel.id}: {e}")
+            
+            # Registrar log de finalización
+            log = PanelScheduleLog(
+                schedule_id=schedule.id,
+                parking_id=schedule.parking_id,
+                execution_type='ended',
+                message_sent=message,
+                panels_affected=success_count
+            )
+            self.session.add(log)
+            self.session.commit()
+            
+            logger.info(f"Programación finalizada: {schedule.id} - {success_count}/{len(panels)} paneles")
+            return {'success': True, 'panels_affected': success_count}
+            
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error finalizando programación: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def _get_effect_code(self, effect: str) -> int:
+        """Convertir efecto de texto a código numérico"""
+        effect_codes = {
+            'static': 1,
+            'scroll_left': 2,
+            'scroll_right': 3,
+            'center': 4
+        }
+        return effect_codes.get(effect, 1)
+    
+    def get_schedule_logs(self, schedule_id: int = None, parking_id: int = None, limit: int = 100) -> dict:
+        """Obtener logs de programaciones"""
+        try:
+            query = self.session.query(PanelScheduleLog)
+            
+            if schedule_id:
+                query = query.filter(PanelScheduleLog.schedule_id == schedule_id)
+            
+            if parking_id:
+                query = query.filter(PanelScheduleLog.parking_id == parking_id)
+            
+            logs = query.order_by(PanelScheduleLog.executed_at.desc()).limit(limit).all()
+            
+            result = []
+            for log in logs:
+                result.append({
+                    'id': log.id,
+                    'schedule_id': log.schedule_id,
+                    'parking_id': log.parking_id,
+                    'execution_type': log.execution_type,
+                    'message_sent': log.message_sent,
+                    'panels_affected': log.panels_affected,
+                    'executed_at': log.executed_at.isoformat()
+                })
+            
+            return {'success': True, 'logs': result}
+            
+        except Exception as e:
+            logger.error(f"Error obteniendo logs de programaciones: {e}")
+            return {'success': False, 'error': str(e)} 

@@ -10,7 +10,8 @@ import {
   Menu, 
   X,
   Building2,
-  Camera
+  Camera,
+  Calendar
 } from 'lucide-react'
 
 const Layout = ({ children }) => {
@@ -22,6 +23,7 @@ const Layout = ({ children }) => {
     { name: 'Dashboard', href: '/dashboard', current: location.pathname === '/dashboard', icon: Home },
     { name: 'Parkings', href: '/parkings', current: location.pathname === '/parkings', icon: Car },
     { name: 'Paneles', href: '/panels', current: location.pathname === '/panels', icon: Monitor },
+    { name: 'Programaciones', href: '/schedules', current: location.pathname === '/schedules', icon: Calendar },
     { name: 'Estadísticas', href: '/statistics', current: location.pathname === '/statistics', icon: BarChart3 },
     { name: 'Camera Logs', href: '/camera-logs', current: location.pathname === '/camera-logs', icon: Camera },
     { name: 'Perfil', href: '/profile', current: location.pathname === '/profile', icon: User },

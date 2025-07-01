@@ -12,8 +12,9 @@ from sqlalchemy.orm import sessionmaker
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from config import DB_URL, API_PORT
-from models import Base, User, Parking, Access, Panel, OccupancyHistory, ScheduledMessage, ActivityLog, PanelMessageLog, VehicleCount, CameraLog, UserParking, UserPanel, UserAccess
+from models import Base, User, Parking, Access, Panel, OccupancyHistory, ScheduledMessage, ActivityLog, PanelMessageLog, VehicleCount, CameraLog, UserParking, UserPanel, UserAccess, PanelSchedule, PanelScheduleLog
 from panel_client import send_to_panel, ping_panel
+from panel_schedule_service import PanelScheduleService
 from auth import (
     create_user, authenticate_user, delete_user, change_password, 
     get_user_permissions, assign_user_to_resources, require_auth
@@ -318,7 +319,8 @@ def get_parking(pid):
             'plazas_libres': p.max_capacity - p.current_occupancy,
             'estado': p.status,
             'threshold_dense': p.threshold_dense,
-            'threshold_full': p.threshold_full
+            'threshold_full': p.threshold_full,
+            'panel_display_text': p.panel_display_text
         }
         session.close()
         return jsonify(data)
@@ -1483,6 +1485,242 @@ def verify_all_panels():
         })
     except Exception as e:
         logger.error(f"Error verificando paneles: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+# ============================================================================
+# ENDPOINTS DE PROGRAMACIONES DE PANELES
+# ============================================================================
+
+@app.route('/schedules', methods=['GET'])
+def get_schedules():
+    """Obtener todas las programaciones"""
+    try:
+        parking_id = request.args.get('parking_id', type=int)
+        active_only = request.args.get('active_only', 'true').lower() == 'true'
+        
+        session = Session()
+        schedule_service = PanelScheduleService(session)
+        result = schedule_service.get_schedules(parking_id, active_only)
+        session.close()
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify({'error': result['error']}), 400
+            
+    except Exception as e:
+        logger.error(f"Error obteniendo programaciones: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/schedules', methods=['POST'])
+def create_schedule():
+    """Crear una nueva programación"""
+    try:
+        req = request.get_json(force=True)
+        
+        session = Session()
+        schedule_service = PanelScheduleService(session)
+        result = schedule_service.create_schedule(req)
+        session.close()
+        
+        if result['success']:
+            return jsonify(result), 201
+        else:
+            return jsonify({'error': result['error']}), 400
+            
+    except Exception as e:
+        logger.error(f"Error creando programación: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/schedules/<int:schedule_id>', methods=['GET'])
+def get_schedule(schedule_id):
+    """Obtener una programación específica"""
+    try:
+        session = Session()
+        schedule = session.query(PanelSchedule).filter(PanelSchedule.id == schedule_id).first()
+        session.close()
+        
+        if not schedule:
+            return jsonify({'error': 'Programación no encontrada'}), 404
+        
+        return jsonify({
+            'id': schedule.id,
+            'parking_id': schedule.parking_id,
+            'user_id': schedule.user_id,
+            'name': schedule.name,
+            'description': schedule.description,
+            'start_date': schedule.start_date.isoformat(),
+            'end_date': schedule.end_date.isoformat(),
+            'start_time': schedule.start_time,
+            'end_time': schedule.end_time,
+            'monday': schedule.monday,
+            'tuesday': schedule.tuesday,
+            'wednesday': schedule.wednesday,
+            'thursday': schedule.thursday,
+            'friday': schedule.friday,
+            'saturday': schedule.saturday,
+            'sunday': schedule.sunday,
+            'message': schedule.message,
+            'color': schedule.color,
+            'font_size': schedule.font_size,
+            'effect': schedule.effect,
+            'is_active': schedule.is_active,
+            'priority': schedule.priority,
+            'created_at': schedule.created_at.isoformat(),
+            'updated_at': schedule.updated_at.isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo programación: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/schedules/<int:schedule_id>', methods=['PUT'])
+def update_schedule(schedule_id):
+    """Actualizar una programación"""
+    try:
+        req = request.get_json(force=True)
+        
+        session = Session()
+        schedule_service = PanelScheduleService(session)
+        result = schedule_service.update_schedule(schedule_id, req)
+        session.close()
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify({'error': result['error']}), 400
+            
+    except Exception as e:
+        logger.error(f"Error actualizando programación: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/schedules/<int:schedule_id>', methods=['DELETE'])
+def delete_schedule(schedule_id):
+    """Eliminar una programación"""
+    try:
+        session = Session()
+        schedule_service = PanelScheduleService(session)
+        result = schedule_service.delete_schedule(schedule_id)
+        session.close()
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify({'error': result['error']}), 400
+            
+    except Exception as e:
+        logger.error(f"Error eliminando programación: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/schedules/<int:schedule_id>/toggle', methods=['POST'])
+def toggle_schedule(schedule_id):
+    """Activar/desactivar una programación"""
+    try:
+        session = Session()
+        schedule_service = PanelScheduleService(session)
+        result = schedule_service.toggle_schedule(schedule_id)
+        session.close()
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify({'error': result['error']}), 400
+            
+    except Exception as e:
+        logger.error(f"Error cambiando estado de programación: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/schedules/<int:schedule_id>/execute', methods=['POST'])
+def execute_schedule(schedule_id):
+    """Ejecutar una programación manualmente"""
+    try:
+        session = Session()
+        schedule = session.query(PanelSchedule).filter(PanelSchedule.id == schedule_id).first()
+        
+        if not schedule:
+            session.close()
+            return jsonify({'error': 'Programación no encontrada'}), 404
+        
+        schedule_service = PanelScheduleService(session)
+        result = schedule_service.execute_schedule(schedule)
+        session.close()
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify({'error': result['error']}), 400
+            
+    except Exception as e:
+        logger.error(f"Error ejecutando programación: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/schedules/logs', methods=['GET'])
+def get_schedule_logs():
+    """Obtener logs de programaciones"""
+    try:
+        schedule_id = request.args.get('schedule_id', type=int)
+        parking_id = request.args.get('parking_id', type=int)
+        limit = request.args.get('limit', 100, type=int)
+        
+        session = Session()
+        schedule_service = PanelScheduleService(session)
+        result = schedule_service.get_schedule_logs(schedule_id, parking_id, limit)
+        session.close()
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify({'error': result['error']}), 400
+            
+    except Exception as e:
+        logger.error(f"Error obteniendo logs de programaciones: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/parking/<int:pid>/schedules', methods=['GET'])
+def get_parking_schedules(pid):
+    """Obtener programaciones de un parking específico"""
+    try:
+        active_only = request.args.get('active_only', 'true').lower() == 'true'
+        
+        session = Session()
+        schedule_service = PanelScheduleService(session)
+        result = schedule_service.get_schedules(pid, active_only)
+        session.close()
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify({'error': result['error']}), 400
+            
+    except Exception as e:
+        logger.error(f"Error obteniendo programaciones del parking {pid}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/parking/<int:pid>/active-schedules', methods=['GET'])
+def get_parking_active_schedules(pid):
+    """Obtener programaciones activas para un parking en el momento actual"""
+    try:
+        session = Session()
+        schedule_service = PanelScheduleService(session)
+        schedules = schedule_service.get_active_schedules_for_parking(pid)
+        session.close()
+        
+        result = []
+        for schedule in schedules:
+            result.append({
+                'id': schedule.id,
+                'name': schedule.name,
+                'message': schedule.message,
+                'color': schedule.color,
+                'font_size': schedule.font_size,
+                'effect': schedule.effect,
+                'priority': schedule.priority
+            })
+        
+        return jsonify({'success': True, 'schedules': result})
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo programaciones activas del parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
