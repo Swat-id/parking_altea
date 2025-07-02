@@ -65,7 +65,12 @@ class ScheduleMonitorService:
         
         while self.running:
             try:
+                # Verificar y ejecutar programaciones activas
                 self._check_and_execute_schedules()
+                
+                # Verificar programaciones que han terminado y restaurar estado
+                self.check_schedule_endings()
+                
                 time.sleep(self.check_interval)
             except Exception as e:
                 logger.error(f"Error en bucle de monitorización: {e}")

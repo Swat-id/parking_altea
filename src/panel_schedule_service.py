@@ -55,7 +55,58 @@ class PanelScheduleService:
             self.session.commit()
             
             logger.info(f"Programación creada: {schedule.id} - {schedule.name}")
-            return {'success': True, 'schedule_id': schedule.id}
+            
+            # VERIFICAR SI LA PROGRAMACIÓN DEBE EJECUTARSE INMEDIATAMENTE
+            # Si la programación está activa y es operativa en el momento actual, ejecutarla
+            if schedule.is_active:
+                current_time = datetime.now()
+                current_time_str = current_time.strftime('%H:%M')
+                current_weekday = current_time.weekday()
+                
+                # Mapear weekday a campos de la base de datos
+                weekday_fields = {
+                    0: 'monday',
+                    1: 'tuesday', 
+                    2: 'wednesday',
+                    3: 'thursday',
+                    4: 'friday',
+                    5: 'saturday',
+                    6: 'sunday'
+                }
+                
+                current_weekday_field = weekday_fields.get(current_weekday, 'monday')
+                
+                # Verificar si debe ejecutarse ahora
+                should_execute_now = (
+                    schedule.start_date <= current_time <= schedule.end_date and
+                    getattr(schedule, current_weekday_field, False) and
+                    schedule.start_time <= current_time_str <= schedule.end_time
+                )
+                
+                if should_execute_now:
+                    logger.info(f"Programación {schedule.id} es operativa ahora, ejecutando automáticamente")
+                    execution_result = self.execute_schedule(schedule)
+                    
+                    if execution_result['success']:
+                        logger.info(f"Programación {schedule.id} ejecutada automáticamente: {execution_result['panels_affected']} paneles afectados")
+                        return {
+                            'success': True, 
+                            'schedule_id': schedule.id,
+                            'auto_executed': True,
+                            'panels_affected': execution_result['panels_affected']
+                        }
+                    else:
+                        logger.error(f"Error ejecutando programación {schedule.id} automáticamente: {execution_result['error']}")
+                        return {
+                            'success': True, 
+                            'schedule_id': schedule.id,
+                            'auto_executed': False,
+                            'execution_error': execution_result['error']
+                        }
+                else:
+                    logger.info(f"Programación {schedule.id} no es operativa ahora, se ejecutará en su horario programado")
+            
+            return {'success': True, 'schedule_id': schedule.id, 'auto_executed': False}
             
         except Exception as e:
             self.session.rollback()

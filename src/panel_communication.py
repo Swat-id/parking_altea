@@ -375,6 +375,7 @@ def update_parking_panels(parking_id: int, current_occupancy: int, total_spaces:
         from sqlalchemy import create_engine
         from sqlalchemy.orm import sessionmaker
         from models import Parking, Panel
+        from panel_schedule_service import PanelScheduleService
         import config
         
         engine = create_engine(config.DB_URL)
@@ -393,6 +394,19 @@ def update_parking_panels(parking_id: int, current_occupancy: int, total_spaces:
             if not panels:
                 logger.info(f"No panels found for parking {parking_id}")
                 return None
+            
+            # VERIFICAR SI HAY PROGRAMACIONES ACTIVAS
+            # Si hay una programación activa, NO actualizar los paneles con el estado del parking
+            schedule_service = PanelScheduleService(session)
+            active_schedules = schedule_service.get_active_schedules_for_parking(parking_id)
+            
+            if active_schedules:
+                logger.info(f"Active schedules found for parking {parking_id}, skipping panel update for occupancy change")
+                logger.info(f"Active schedules: {[s.name for s in active_schedules]}")
+                return "SCHEDULE_ACTIVE"  # Indicar que hay programación activa
+            
+            # Si no hay programaciones activas, proceder con la actualización normal
+            logger.info(f"No active schedules for parking {parking_id}, updating panels with occupancy status")
             
             # Convertir estado a valenciano según especificaciones
             valenciano_status = ""

@@ -27,6 +27,8 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
+const API_BASE_URL = 'http://157.180.91.63:6001'
+
 const Schedules = () => {
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
@@ -63,7 +65,7 @@ const Schedules = () => {
   // Obtener parkings
   const { data: parkings = [] } = useQuery(
     'parkings',
-    () => fetch('/api/parkings').then(res => res.json())
+    () => fetch(`${API_BASE_URL}/parkings`).then(res => res.json())
   )
 
   // Obtener programaciones
@@ -73,7 +75,7 @@ const Schedules = () => {
       const params = new URLSearchParams()
       if (selectedParking) params.append('parking_id', selectedParking)
       if (filterActive !== null) params.append('active_only', filterActive.toString())
-      return fetch(`/api/schedules?${params}`).then(res => res.json())
+      return fetch(`${API_BASE_URL}/schedules?${params}`).then(res => res.json())
     },
     {
       refetchInterval: 30000, // Refrescar cada 30 segundos
@@ -82,7 +84,7 @@ const Schedules = () => {
 
   // Mutaciones
   const createScheduleMutation = useMutation(
-    (data) => fetch('/api/schedules', {
+    (data) => fetch(`${API_BASE_URL}/schedules`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -105,7 +107,7 @@ const Schedules = () => {
   )
 
   const updateScheduleMutation = useMutation(
-    ({ id, data }) => fetch(`/api/schedules/${id}`, {
+    ({ id, data }) => fetch(`${API_BASE_URL}/schedules/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -129,7 +131,7 @@ const Schedules = () => {
   )
 
   const deleteScheduleMutation = useMutation(
-    (id) => fetch(`/api/schedules/${id}`, { method: 'DELETE' }).then(res => res.json()),
+    (id) => fetch(`${API_BASE_URL}/schedules/${id}`, { method: 'DELETE' }).then(res => res.json()),
     {
       onSuccess: (data) => {
         if (data.success) {
@@ -146,7 +148,7 @@ const Schedules = () => {
   )
 
   const toggleScheduleMutation = useMutation(
-    (id) => fetch(`/api/schedules/${id}/toggle`, { method: 'POST' }).then(res => res.json()),
+    (id) => fetch(`${API_BASE_URL}/schedules/${id}/toggle`, { method: 'POST' }).then(res => res.json()),
     {
       onSuccess: (data) => {
         if (data.success) {
@@ -164,7 +166,7 @@ const Schedules = () => {
   )
 
   const executeScheduleMutation = useMutation(
-    (id) => fetch(`/api/schedules/${id}/execute`, { method: 'POST' }).then(res => res.json()),
+    (id) => fetch(`${API_BASE_URL}/schedules/${id}/execute`, { method: 'POST' }).then(res => res.json()),
     {
       onSuccess: (data) => {
         if (data.success) {

@@ -319,8 +319,7 @@ def get_parking(pid):
             'plazas_libres': p.max_capacity - p.current_occupancy,
             'estado': p.status,
             'threshold_dense': p.threshold_dense,
-            'threshold_full': p.threshold_full,
-            'panel_display_text': p.panel_display_text
+            'threshold_full': p.threshold_full
         }
         session.close()
         return jsonify(data)
