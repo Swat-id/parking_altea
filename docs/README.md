@@ -1,230 +1,113 @@
-# Documentación del Proyecto - Parking Altea v2.3
+# 📚 Documentación Parking Altea v2.7.1
 
-## 📋 Índice de Documentación
+## 🎯 **Documentación Principal**
 
-### 📊 Estado del Proyecto
-- **[Estado de Desarrollo](development_status.md)** - Estado actual y progreso del proyecto
-- **[Estado v2.3](v2.3_status.md)** - Detalles específicos de la versión v2.3
-- **[Contexto del Proyecto](project_context.md)** - Información general y arquitectura
+### **Estado y Contexto del Proyecto**
+- **[Estado del Proyecto v2.7.1](project_status_v2.7.1.md)** - Estado completo del proyecto con todas las funcionalidades
+- **[Resumen Ejecutivo](executive_summary.md)** - Resumen ejecutivo del proyecto
+- **[Contexto del Proyecto](project_context.md)** - Contexto y objetivos del sistema
 
-### 🏗️ Arquitectura Técnica
-- **[API Endpoints](api_endpoints.md)** - Documentación completa de la API REST
-- **[Base de Datos](database.md)** - Esquema y estructura de datos
-- **[Cámaras](cameras.md)** - Configuración y funcionamiento de cámaras
-- **[Paneles](panels.md)** - Gestión de paneles informativos
+### **Manuales de Operación**
+- **[Manual de Mantenimiento y Despliegue](maintenance_deployment_manual_v2.7.1.md)** - Manual completo desde instalación hasta mantenimiento
+- **[Guía de Despliegue](deployment.md)** - Guía específica de despliegue
+- **[Manual de Mantenimiento](maintenance.md)** - Mantenimiento del sistema
 
-### 🚀 Despliegue y Operaciones
-- **[Despliegue](deployment.md)** - Instrucciones de instalación y configuración
-- **[Mantenimiento](maintenance.md)** - Tareas de mantenimiento y monitoreo
-- **[Instaladores de Cámaras](camera_installers.md)** - Configuración de cámaras
+## 🔧 **Documentación Técnica**
 
-### 📈 Funcionalidades
-- **[Logs de Cámaras](camera_logs.md)** - Sistema de auditoría y logs
-- **[Estadísticas](statistics_implementation.md)** - Implementación de estadísticas
-- **[Pruebas](test.md)** - Estrategia de pruebas y validación
+### **APIs y Endpoints**
+- **[Documentación de API](api.md)** - Documentación completa de la API REST
+- **[Endpoints de API](api_endpoints.md)** - Lista detallada de endpoints
+- **[Integración de Paneles](panel_integration.md)** - Integración con paneles LED
+- **[Protocolo CP5200](cp5200_protocol.md)** - Protocolo de comunicación con paneles
 
-## 🎯 Resumen del Proyecto
+### **Base de Datos**
+- **[Esquema de Base de Datos](database.md)** - Estructura y relaciones de la base de datos
+- **[Modelos de Datos](models.md)** - Modelos SQLAlchemy
 
-**Parking Altea** es un sistema integral de gestión de aparcamientos públicos que proporciona:
+### **Servicios y Componentes**
+- **[Servicio de Cámaras](cameras.md)** - Procesamiento de mensajes de cámaras
+- **[Servicio de Programaciones](panels_v2.6.md)** - Sistema de programaciones automáticas
+- **[Monitor de Programaciones](schedule_integration_summary.md)** - Monitor automático de programaciones
+- **[Integración de Programaciones](schedule_panel_integration.md)** - Integración completa
 
-- 📊 **Monitoreo en tiempo real** de ocupación de parkings
-- 📷 **Integración con cámaras** de conteo de vehículos
-- 📺 **Gestión de paneles** informativos
-- 📈 **Estadísticas avanzadas** y reportes
-- 🔐 **Sistema de autenticación** y control de acceso
-- 📝 **Auditoría completa** de operaciones
+## 🚀 **Guías de Desarrollo**
 
-## 🏗️ Arquitectura del Sistema
+### **Configuración y Desarrollo**
+- **[Configuración de Desarrollo](development_status.md)** - Estado del desarrollo
+- **[Instaladores de Cámaras](camera_installers.md)** - Instalación de cámaras
+- **[Configuración de Paneles](panels.md)** - Configuración de paneles LED
 
-### Backend (Python Flask)
-- **API Server** (Puerto 6001): Gestión de datos y endpoints REST
-- **Camera Server** (Puerto 6400): Recepción de mensajes de cámaras
-- **Base de Datos**: PostgreSQL con SQLAlchemy ORM
-- **Panel Client**: Comunicación con paneles informativos
+### **Testing y Validación**
+- **[Guía de Testing](test.md)** - Testing del sistema
+- **[Automatización de Tests](test_automation.md)** - Tests automatizados
+- **[Validación de Sistema](INSTRUCCIONES_TESTS.md)** - Instrucciones de testing
 
-### Frontend (React + Vite)
-- **Dashboard**: Vista general del sistema
-- **Parking Detail**: Gestión individual de parkings
-- **Camera Logs**: Visualización de logs de cámaras
-- **Statistics**: Estadísticas y reportes
-- **Profile**: Gestión de usuarios
+## 📊 **Reportes y Estadísticas**
 
-### Infraestructura
-- **Servidor**: Ubuntu en 157.180.91.63
-- **Proxy**: Nginx para frontend y balanceo
-- **Servicios**: Systemd para gestión de procesos
+### **Análisis y Reportes**
+- **[Análisis de SDK](sdk_analysis_summary.md)** - Análisis del SDK de paneles
+- **[Implementación de Estadísticas](statistics_implementation.md)** - Sistema de estadísticas
+- **[Reporte de Validación](parking_validation_report_20250626_152355.json)** - Reporte de validación
 
-## 🆕 Funcionalidades v2.3
+### **Estado de Versiones**
+- **[Estado v2.3](v2.3_status.md)** - Estado de la versión 2.3
+- **[Estado v2.4](v2.4_status.md)** - Estado de la versión 2.4
+- **[Estado v2.6](v2.6_status.md)** - Estado de la versión 2.6
+- **[Estado v2.7](v2.7_status.md)** - Estado de la versión 2.7
 
-### ✅ Fase 1: Auditoría y Logs
-- Tabla CameraLog para auditoría completa
-- Lógica de cálculo de aforo mejorada
-- Manejo de errores en ajustes manuales
-- Endpoints para logs de cámaras
-- Frontend para visualización de logs
+## 🔧 **Correcciones y Mejoras**
 
-### ✅ Fase 2: Estados de Cámaras
-- Estados ONLINE/OFFLINE de cámaras
-- Endpoints para gestión de cámaras
-- Script de verificación de conectividad
-- Frontend actualizado con estados de cámaras
+### **Correcciones Recientes**
+- **[Correcciones v2.7.1](v2.7.1_fixes_summary.md)** - Resumen de correcciones de la versión 2.7.1
+- **[Tareas Pendientes](tareas_pendientes.md)** - Lista de tareas pendientes
 
-### ✅ Fase 3: Protección Duplicados
-- Protección contra mensajes duplicados
-- Cache en memoria para verificación
-- Logging de duplicados detectados
-- Corrección de impacto en duplicados
+### **Actualizaciones Específicas**
+- **[Actualización Frontend Paneles v2.6](frontend_panels_v2.6_update.md)** - Actualización del frontend
+- **[Despliegue Paneles v2.6](panels_v2.6_deployment_summary.md)** - Resumen de despliegue
 
-### ✅ Fase 4: Modo Sin Login
-- Usuario superadmin por defecto
-- Bypass de autenticación para desarrollo
-- Compatibilidad con login normal
-- Acceso completo sin credenciales
+## 📋 **Información del Sistema**
 
-### ✅ Fase 5: Estadísticas Avanzadas
-- Estadísticas por hora de ocupación
-- Gráficos de tendencias temporales
-- Filtros avanzados por parking y fecha
-- Métricas de cámaras por hora
+### **Arquitectura**
+- **Frontend:** React + Vite (puerto 80, nginx)
+- **Backend API:** Python Flask + Gunicorn (puerto 6001)
+- **Servicio de Cámaras:** Python Flask + Gunicorn (puerto 6400)
+- **Monitor de Programaciones:** Python (servicio systemd)
+- **Base de Datos:** PostgreSQL
+- **Comunicación con Paneles:** API REST (puerto 5656)
 
-### ✅ Fase 6: Verificación de Paneles
-- Ping real ICMP a paneles
-- Actualización automática de estados
-- Logging detallado de verificación
-- Frontend con refetch automático
+### **Servicios Systemd**
+- `parking-api.service` - API principal
+- `parking-camera.service` - Procesamiento de cámaras
+- `parking-schedule-monitor.service` - Monitor de programaciones
 
-## 📊 Datos del Sistema
+### **Puertos Utilizados**
+- **80:** Frontend (nginx)
+- **6001:** API Principal
+- **6400:** API de Cámaras
+- **5656:** Servicio de Paneles
+- **5432:** PostgreSQL
 
-### Parkings (9 total)
-- **P. Ciutat Esportiva** - 500 plazas
-- **P. Poble antic/Belles Arts 1-5** - 45 plazas cada uno
-- **P. Port Altea** - 166 plazas
-- **P. Estació Altea** - 80 plazas
-- **P. Altea Hills** - 200 plazas
+## 🚨 **Estado Actual**
 
-### Usuarios (3 total)
-- **Superadmin** (info@swat-id.com) - Modo sin login
-- **Toni Alos** (atea.dti@altea.es)
-- **Iván Martí** (gerenciapstd@altea.es)
+### **Versión:** v2.7.1
+### **Estado:** ✅ **PRODUCCIÓN - OPERATIVO**
+### **Última Actualización:** Julio 2025
+### **Última Corrección:** Errores de zona horaria y comunicación con paneles
 
-### Paneles (10 total)
-- Configuración IP completada
-- Comunicación funcional
-- Estados monitoreados
-- Verificación por ping operativa
+### **Servicios Activos:**
+- ✅ **API Server** (puerto 6001) - Operativo
+- ✅ **Camera Server** (puerto 6400) - Operativo
+- ✅ **Schedule Monitor** - Operativo
+- ✅ **Frontend** (nginx puerto 80) - Operativo
+- ✅ **Base de Datos** (PostgreSQL) - Operativo
 
-### Cámaras (13 total)
-- Configuración completada
-- Recepción de datos funcional
-- Procesamiento automático activo
-- Estados ONLINE/OFFLINE implementados
-- Protección de duplicados activa
+## 📞 **Contacto y Soporte**
 
-## 🔧 Configuración de Producción
-
-### Servidor
-- **IP**: 157.180.91.63
-- **Ubicación**: Helsinki, Finlandia
-- **Sistema**: Ubuntu 22.04 LTS
-- **Rama activa**: `v2.3_no_login`
-
-### Servicios
-- **parking-api.service** (Puerto 6001)
-- **parking-camera.service** (Puerto 6400)
-- **nginx** (Puerto 5789)
-
-### Variables de Entorno
-```bash
-DATABASE_URL=postgresql://postgres@localhost:5432/parking_altea
-CAMERA_PORT=6400
-API_PORT=6001
-LOG_RETENTION_DAYS=15
-```
-
-## 📈 Métricas de Rendimiento
-
-### Backend
-- **Tiempo de respuesta**: < 200ms promedio
-- **Disponibilidad**: 99.9%
-- **Uso de memoria**: ~129MB API, ~50MB cámaras
-- **CPU**: 2 cores utilizados eficientemente
-- **Procesamiento de mensajes**: <50ms por mensaje
-- **Protección duplicados**: 100% efectiva
-- **Verificación de paneles**: <100ms por panel
-
-### Frontend
-- **Tiempo de carga inicial**: < 2s
-- **Tamaño del bundle**: ~500KB (estimado)
-- **Responsive**: Móvil y desktop
-- **Interactividad**: < 100ms
-
-## 🧪 Pruebas y Validación
-
-### Backend
-- **test_api.py** - Pruebas de endpoints (100% funcional)
-- **test_auth.py** - Pruebas de autenticación (100% funcional)
-- **Validación en producción** completada
-- **Pruebas de protección duplicados** (100% efectiva)
-- **Validación de estados de cámaras** completada
-- **Verificación de paneles** funcional
-
-### Frontend
-- **Configuración de Vitest** completada
-- **Setup de pruebas** configurado
-- **Pruebas unitarias** pendientes
-- **Pruebas de integración** pendientes
-
-## 🔮 Próximos Pasos
-
-### v2.4 (Planificada)
-- Dashboard con métricas en tiempo real
-- Alertas automáticas por cámaras offline
-- Reportes automáticos por email
-- API para integración con sistemas externos
-
-### v2.5 (Planificada)
-- Optimización de consultas de base de datos
-- Limpieza automática de logs antiguos
-- Backup automático de base de datos
-- Monitoreo de rendimiento avanzado
-
-## 📋 Estado Final v2.3
-
-### ✅ Completado
-- [x] Modo sin login funcional
-- [x] Protección de duplicados activa
-- [x] Estados de cámaras implementados
-- [x] Estadísticas avanzadas operativas
-- [x] Logs detallados disponibles
-- [x] Verificación de paneles funcional
-- [x] Despliegue en producción
-- [x] Validación completa
-
-### 🎯 Objetivos Cumplidos
-- **Desarrollo sin fricciones**: Acceso inmediato al sistema
-- **Datos limpios**: Sin procesamiento duplicado
-- **Visibilidad completa**: Estados y logs detallados
-- **Análisis avanzado**: Estadísticas temporales
-- **Sistema estable**: Alta disponibilidad y rendimiento
-
-## 🔗 Enlaces Útiles
-
-- **API Base URL**: http://157.180.91.63:6001
-- **Frontend**: http://157.180.91.63:5789
-- **Camera Server**: http://157.180.91.63:6400
-- **Documentación API**: [api_endpoints.md](api_endpoints.md)
-- **Estado del Sistema**: [development_status.md](development_status.md)
-
-## 📞 Contacto
-
-Para soporte técnico o consultas sobre el proyecto:
-- **Desarrollador**: SWAT-ID
-- **Email**: info@swat-id.com
-- **Cliente**: Ayuntamiento de Altea
-- **Responsable**: Toni Alos (atea.dti@altea.es)
+- **Desarrollador:** Equipo de desarrollo
+- **Documentación:** `/docs/`
+- **Logs:** `journalctl -u parking-*`
+- **Estado:** Todos los servicios operativos
 
 ---
 
-**Última actualización**: 26 de Junio de 2025  
-**Versión**: v2.3 - Modo Sin Login + Protección Duplicados + Estados Cámaras + Verificación Paneles  
-**Estado**: ✅ **COMPLETADO Y EN PRODUCCIÓN** 
+*Documentación Parking Altea v2.7.1 - Julio 2025* 
