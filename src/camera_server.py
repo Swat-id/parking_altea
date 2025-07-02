@@ -427,20 +427,20 @@ def handle_camera():
         previous_vehicle_in = access.last_vehicle_in
         previous_vehicle_out = access.last_vehicle_out
         
-            # Calcular deltas con manejo de reinicios
-    logger.info(f"Calculating deltas - Previous: In={previous_vehicle_in}, Out={previous_vehicle_out} -> New: In={veh_in}, Out={veh_out}")
-    delta_in, delta_out, is_reset, reset_info = calculate_deltas_with_reset_handling(
-        previous_vehicle_in, previous_vehicle_out, veh_in, veh_out
-    )
-    
-    # Log detallado de los deltas calculados
-    logger.info(f"Delta calculation result - Delta In: {delta_in}, Delta Out: {delta_out}, Is Reset: {is_reset}")
-    logger.info(f"Reset info: {reset_info}")
-    
-    # Si es un reinicio, logear información adicional
-    if is_reset:
-        logger.warning(f"CAMERA RESET PROCESSED - Device: {device}, IP: {ip}, Line: {original_line}")
-        logger.warning(f"Reset details: {reset_info}")
+        # Calcular deltas con manejo de reinicios
+        logger.info(f"Calculating deltas - Previous: In={previous_vehicle_in}, Out={previous_vehicle_out} -> New: In={veh_in}, Out={veh_out}")
+        delta_in, delta_out, is_reset, reset_info = calculate_deltas_with_reset_handling(
+            previous_vehicle_in, previous_vehicle_out, veh_in, veh_out
+        )
+        
+        # Log detallado de los deltas calculados
+        logger.info(f"Delta calculation result - Delta In: {delta_in}, Delta Out: {delta_out}, Is Reset: {is_reset}")
+        logger.info(f"Reset info: {reset_info}")
+        
+        # Si es un reinicio, logear información adicional
+        if is_reset:
+            logger.warning(f"CAMERA RESET PROCESSED - Device: {device}, IP: {ip}, Line: {original_line}")
+            logger.warning(f"Reset details: {reset_info}")
         
         # Actualizar contadores de acceso
         access.last_vehicle_in = veh_in
