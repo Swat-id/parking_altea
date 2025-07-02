@@ -20,6 +20,15 @@ class PanelScheduleService:
     def create_schedule(self, schedule_data: dict) -> dict:
         """Crear una nueva programación"""
         try:
+            # Asegurar que las fechas tengan zona horaria
+            start_date = schedule_data.get('start_date')
+            end_date = schedule_data.get('end_date')
+            
+            if isinstance(start_date, str):
+                start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            if isinstance(end_date, str):
+                end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            
             # Validar datos requeridos
             required_fields = ['parking_id', 'name', 'start_date', 'end_date', 'start_time', 'end_time', 'message']
             for field in required_fields:
@@ -29,11 +38,11 @@ class PanelScheduleService:
             # Crear la programación
             schedule = PanelSchedule(
                 parking_id=schedule_data['parking_id'],
-                user_id=schedule_data.get('user_id'),
+                user_id=schedule_data.get('user_id', 1),
                 name=schedule_data['name'],
                 description=schedule_data.get('description', ''),
-                start_date=datetime.fromisoformat(schedule_data['start_date']),
-                end_date=datetime.fromisoformat(schedule_data['end_date']),
+                start_date=start_date,
+                end_date=end_date,
                 start_time=schedule_data['start_time'],
                 end_time=schedule_data['end_time'],
                 monday=schedule_data.get('monday', False),
@@ -59,7 +68,7 @@ class PanelScheduleService:
             # VERIFICAR SI LA PROGRAMACIÓN DEBE EJECUTARSE INMEDIATAMENTE
             # Si la programación está activa y es operativa en el momento actual, ejecutarla
             if schedule.is_active:
-                current_time = datetime.now()
+                current_time = datetime.now().replace(tzinfo=start_date.tzinfo)
                 current_time_str = current_time.strftime('%H:%M')
                 current_weekday = current_time.weekday()
                 
@@ -245,19 +254,41 @@ class PanelScheduleService:
             
             current_weekday_field = weekday_fields.get(current_weekday, PanelSchedule.monday)
             
+            # Obtener programaciones y filtrar por zona horaria después
             schedules = self.session.query(PanelSchedule).filter(
                 and_(
                     PanelSchedule.parking_id == parking_id,
                     PanelSchedule.is_active == True,
-                    PanelSchedule.start_date <= now,
-                    PanelSchedule.end_date >= now,
                     current_weekday_field == True,
                     PanelSchedule.start_time <= current_time,
                     PanelSchedule.end_time >= current_time
                 )
             ).order_by(PanelSchedule.priority.desc()).all()
             
-            return schedules
+            # Filtrar por fechas con zona horaria
+            active_schedules = []
+            for schedule in schedules:
+                try:
+                    # Asegurar que las fechas tengan zona horaria
+                    start_date = schedule.start_date
+                    end_date = schedule.end_date
+                    
+                    if start_date.tzinfo is None:
+                        start_date = start_date.replace(tzinfo=datetime.now().astimezone().tzinfo)
+                    if end_date.tzinfo is None:
+                        end_date = end_date.replace(tzinfo=datetime.now().astimezone().tzinfo)
+                    
+                    # Asegurar que now tenga zona horaria
+                    if now.tzinfo is None:
+                        now = now.replace(tzinfo=start_date.tzinfo)
+                    
+                    if start_date <= now <= end_date:
+                        active_schedules.append(schedule)
+                except Exception as e:
+                    logger.error(f"Error verificando fechas de programación {schedule.id}: {e}")
+                    continue
+            
+            return active_schedules
             
         except Exception as e:
             logger.error(f"Error obteniendo programaciones activas: {e}")
@@ -277,24 +308,16 @@ class PanelScheduleService:
             if not panels:
                 return {'success': False, 'error': 'No hay paneles online para este parking'}
             
-            # Preparar mensaje según el efecto
-            message_data = {
-                'texts': [schedule.message],
-                'colors': [schedule.color],
-                'fontSizes': [schedule.font_size],
-                'showEffects': [self._get_effect_code(schedule.effect)]
-            }
-            
             # Enviar mensaje a todos los paneles
             success_count = 0
             for panel in panels:
                 try:
-                    result = self.panel_communication_service.send_message(
-                        panel.panel_name,
-                        panel.panel_ip,
-                        schedule.message,
-                        schedule.color,
-                        schedule.font_size
+                    result = self.panel_communication_service.send_custom_text(
+                        panel_ip=panel.panel_ip,
+                        text=schedule.message,
+                        color=schedule.color,
+                        font_size=schedule.font_size,
+                        effect=self._get_effect_code(schedule.effect)
                     )
                     if result.get('success'):
                         success_count += 1
@@ -356,12 +379,12 @@ class PanelScheduleService:
             success_count = 0
             for panel in panels:
                 try:
-                    result = self.panel_communication_service.send_message(
-                        panel.panel_name,
-                        panel.panel_ip,
-                        message,
-                        color,
-                        2  # font_size por defecto
+                    result = self.panel_communication_service.send_custom_text(
+                        panel_ip=panel.panel_ip,
+                        text=message,
+                        color=color,
+                        font_size=2,  # font_size por defecto
+                        effect=1  # Efecto estático
                     )
                     if result.get('success'):
                         success_count += 1

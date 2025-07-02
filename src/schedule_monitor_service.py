@@ -151,6 +151,10 @@ class ScheduleMonitorService:
             start_date = datetime.fromisoformat(schedule_data['start_date'].replace('Z', '+00:00'))
             end_date = datetime.fromisoformat(schedule_data['end_date'].replace('Z', '+00:00'))
             
+            # Asegurar que current_time tenga zona horaria
+            if current_time.tzinfo is None:
+                current_time = current_time.replace(tzinfo=start_date.tzinfo)
+            
             if not (start_date <= current_time <= end_date):
                 return False
             
@@ -249,6 +253,10 @@ class ScheduleMonitorService:
             # Verificar fechas de vigencia
             start_date = datetime.fromisoformat(schedule_data['start_date'].replace('Z', '+00:00'))
             end_date = datetime.fromisoformat(schedule_data['end_date'].replace('Z', '+00:00'))
+            
+            # Asegurar que current_time tenga zona horaria
+            if current_time.tzinfo is None:
+                current_time = current_time.replace(tzinfo=start_date.tzinfo)
             
             if not (start_date <= current_time <= end_date):
                 return False
