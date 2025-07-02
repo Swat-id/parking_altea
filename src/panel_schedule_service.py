@@ -237,7 +237,7 @@ class PanelScheduleService:
     def get_active_schedules_for_parking(self, parking_id: int) -> list:
         """Obtener programaciones activas para un parking en el momento actual"""
         try:
-            now = datetime.now()
+            now = datetime.now().astimezone()
             current_time = now.strftime('%H:%M')
             current_weekday = now.weekday()  # 0=lunes, 6=domingo
             
@@ -274,13 +274,9 @@ class PanelScheduleService:
                     end_date = schedule.end_date
                     
                     if start_date.tzinfo is None:
-                        start_date = start_date.replace(tzinfo=datetime.now().astimezone().tzinfo)
+                        start_date = start_date.replace(tzinfo=now.tzinfo)
                     if end_date.tzinfo is None:
-                        end_date = end_date.replace(tzinfo=datetime.now().astimezone().tzinfo)
-                    
-                    # Asegurar que now tenga zona horaria
-                    if now.tzinfo is None:
-                        now = now.replace(tzinfo=start_date.tzinfo)
+                        end_date = end_date.replace(tzinfo=now.tzinfo)
                     
                     if start_date <= now <= end_date:
                         active_schedules.append(schedule)

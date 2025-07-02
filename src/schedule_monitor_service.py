@@ -90,7 +90,7 @@ class ScheduleMonitorService:
                 session.close()
                 return
             
-            current_time = datetime.now()
+            current_time = datetime.now().astimezone()
             current_time_str = current_time.strftime('%H:%M')
             current_weekday = current_time.weekday()
             
@@ -195,7 +195,7 @@ class ScheduleMonitorService:
             session = self.Session()
             schedule_service = PanelScheduleService(session)
             
-            current_time = datetime.now()
+            current_time = datetime.now().astimezone()
             current_time_str = current_time.strftime('%H:%M')
             current_weekday = current_time.weekday()
             
