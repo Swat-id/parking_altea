@@ -110,7 +110,6 @@ def create_panel_schedule_tables():
                 ADD COLUMN IF NOT EXISTS panel_display_text TEXT
             """))
             
-            conn.commit()
             logger.info("✅ Tablas de programaciones de paneles creadas exitosamente")
             
     except Exception as e:
