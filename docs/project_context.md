@@ -92,7 +92,7 @@ Cámara → POST /camera → Camera Server → Base de Datos → Paneles
 **Verificación de duplicados:**
 - Clave: `{camera_ip}_{camera_line}_{vehicle_in}_{vehicle_out}`
 - Cache en memoria por 5 minutos
-- Logging de duplicados detectados
+- Logging de duplicados detectadosparking
 - Corrección de impacto en duplicados (mitad del delta)
 
 ### 5. Flujo de Verificación de Paneles

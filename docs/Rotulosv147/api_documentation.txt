@@ -1,0 +1,320 @@
+Control Card Development API Interface Manual (Java)
+Revision record:
+Part I: Overview
+Interface classification
+description of parameter
+1, color and gray level
+2,Coding of text and picture display effect
+Example of calling: ShowEffect.Random.getEffect ();
+3,Image scaling method coding
+4,Text size
+Note: the dot matrix size of the extended font supported by each control card is different,If the text is not displayed under a certain size, the dot matrix size is not supported
+5,Clock attributes
+Class: com.lumen.ledcenter3.protocol.clockattrib. 
+5.1,Attributes
+Year: displays the year
+Month: displays the month
+Day: display the day
+Hour: Displays the hour
+Min: displays the minutes
+Sec: display seconds
+Week: display the week
+TimeHand: display pointer
+TimeDegree: displays time scales and sub-scales
+Note: For the above attributes, passing 0 means not displaying, and passing 1 means displaying
+TransEnable: transparent display (0: opaque; 1: transparent)
+TweentyFour: time system (0: 12 hour system; 1: 24 hour system)
+TwoDigitYear: year digits (0: 4 digits; 1: 2 bits)
+Branch: branch (0: single line; 1: multiple lines). 
+TimePattern: time format and value, as follows
+5.2,Default options
+Check to display as shown in the following figure
+5.3,Instructions for use
+1,using an empty constructor is the default option
+6,Time zone adjustment value
+Target time zone minus local time zone. 
+For example, if the local time zone is +08:00 and the target time zone is +03:00, the adjusted value is -05:00 . 
+Part II: Interface Details
+1,generate and send program files
+1.1,API interface for generating programs
+The following interfaces are all in the com.lumen.ledcenter3.protocol.programcreator class. 
+1.1.1 overview of API interface for program generation
+The use steps of this kind of function are as follows:
+Step 1: Create program objects
+Step 2: Increase the playback window
+Step 3: Add play items to the designated play window
+Step 4: Create an Lpb file and save the program to the file
+1.1.2,Detailed description of API interface for program generation
+ProgramCreator
+addWindow
+Add text item (modified in v1.3.6)
+addTextItem (Expanded font library, new V1.4.0)
+addPicture
+addAnimator
+addClock
+addTemperature
+addHumidity
+createLpbFile
+addExtraTextItem
+addFormatTextItem
+addTextItemWithPictureBackground（Added in V1.3.6）
+addWorkCounter （Added in V1.4.3）
+Example of the method:
+addTimeCounter （Added in V1.4.3）
+Example of the method:
+setTextComplex（Added in V1.4.5）
+getTextComplex（Added in V1.4.5）
+1.1.3,Demo calling example
+1.2,API interface for generating program list
+Note: After the program file is generated, it can be sent directly by using the interface of "Send Program File", without having to create a program list. 
+The following interfaces are all in the com.lumen.ledcenter3.protocol.playbillcreator class
+1.2.1 overview of API interface for program list generation
+The use steps of this kind of function are as follows:
+Step 1: Create a program guide object
+Step 2: Add program files to the program list
+Step 3: Save the program to a file
+1.2.2,detailed description of API interface for program list generation
+PlaybillCreator constructor
+addLpbFile
+createLppFile
+1.2.3,Demo calling example
+1.3,interface for sending program files
+Network:
+com.lumen.ledcenter3.protocol.FileUploadProtocol
+com.lumen.ledcenter3.protocol.FileUploadProtocol.OnUploadListener
+Serial port: (added in V1.3.4)
+com.lumen.ledcenter3.protocol.FileUpload_COM
+com.lumen.ledcenter3.protocol.FileUpload_COM.OnUploadListener
+1.3.1,Overview of interface for sending program files
+FileUploadProtocol
+FileUploadProtocol.OnUploadListener
+FileUpload_COM
+FileUpload_COM.OnUploadListener
+1.3.2,Detailed description of program transmission interface
+Network:
+setListener
+uploadFile
+Upload file append (added in v1.3.3)
+uploadFileSegment（Segmented upload - New in V1.4.0）
+onStatus
+onProcess
+Serial port: (added in V1.3.4)
+setUploadListener
+uploadFile
+onStatus
+onProcess
+1.3.3,Demo calling example
+2.Operation Plan (added in V1.4.1)
+2.1 Overview of the Run Plan Interface
+Call example
+Operational plan details
+new CreateFile(int proSum, int attrib);
+void addItem(…params)
+int saveToFile(String fileName)；
+3,Multi-window protocol（Network）
+com.lumen.ledcenter3.protocol.ExtSendUtil
+Program sending process:
+Invoke initNetwork to initialize network communication parameters
+Call setListener to set listener and listen to communication status
+(Please call the following interface in the worker thread)
+Call splitScreen to split windows
+Call sendXXX to send programs
+com.lumen.ledcenter3.protocol.ExternalNetworkSendProtocol.OnTcpNetWorkListener
+Call  example
+3.1,overview
+ExtSendUtil. 
+OnTcpNetWorkListener
+3.2、Detail description
+initNetwork (Updated 1.4.2)
+setListener
+splitScreen
+sendText(Updated 1.4.3)
+sendText(Expanded library, new V1.4.0)
+sendTextRGB (Expanded font color, added V1.4.6)
+sendPicture
+sendPictureWithScale
+sendVideo
+saveSentDataToFlash
+clearSavedDataFromFlash
+getBrightness
+setBrightness
+setScreenOnAndOffTime
+getScreenOnAndOffTime
+exitSetScreenOnAndOffTime
+setScreenSwitch
+quitExternalScreen
+Selectplayprogram (added in v1.3.2)
+Exitselectplay (added in v1.3.2)
+Setvariablevalue (added in v1.3.2)
+readyToUseProgramTemplate（V1.3.7 added）
+sendTemplateProgram（V1.3.7 added）
+deleteTemplateProgram（V1.3.7 added）
+enterOrExitTemplateProgramMode（V1.3.7 added）
+setReceiveTimeout（Added in V1.4.0）
+getReceiveTimeout（Added in V1.4.0）
+createGlobalAreaWindow（Added in V1.4.4）
+clearAllGlobalArea（Added in V1.4.4）
+setIO（Added in V1.4.4）
+setTextComplex（Added in V1.4.5）
+getTextComplex（Added in V1.4.5）
+OnTcpNetWorkListener
+onSocketInit
+onStatus
+onBackBytes
+onTcpProcess
+breakSocket
+Multi-window Protocol (Serial port) (added in V1.3.4)
+com.lumen.ledcenter3.protocol.ExtSendUtil_COM
+Program delivery process:
+1. Call initCOM to initialize network communication parameters
+2. Call setListener to set the listener and monitor the communication status
+(Please make the following interface call in the worker thread)
+3. Call splitScreen to split Windows
+4. Call sendXXX to send the program
+com.lumen.ledcenter3.protocol.ExtSendUtil_COM.OnCOMListener
+Call example
+4.1. Overview
+3.1 Overview of Key Management Interface
+CypherManager
+3.2,Details of Key Management Interface
+setSecretKey
+4,Control (added in V1.3.0)
+com.lumen.ledcenter3.protocol.ControlUtil
+com.lumen.ledcenter3.protocol. ControlUtil.OnControlListener
+4.1,Overview
+ExtSendUtil_COM
+OnCOMListener
+4.2、Detail description
+initCOM
+setListener
+splitScreen
+sendText
+sendPicture
+sendPictureWithScale
+saveSentDataToFlash
+clearSavedDataFromFlash
+getBrightness
+setBrightness
+setScreenOnAndOffTime
+getScreenOnAndOffTime
+exitSetScreenOnAndOffTime
+setScreenSwitch
+quitExternalScreen
+selectPlayProgram
+exitSelectPlay
+setVariableValue
+createGlobalAreaWindow（Added in V1.4.4）
+clearAllGlobalArea（Added in V1.4.4）
+setTextComplex（Added in V1.4.5）
+getTextComplex（Added in V1.4.5）
+getSendTextData（Added in V1.4.7）
+	OnCOMListener
+onStatus
+onBackBytes
+onProcess
+5、Control (network)（Added in V1.3.0）
+com.lumen.ledcenter3.protocol.ControlUtil
+com.lumen.ledcenter3.protocol. ControlUtil.OnControlListener
+Call example
+5.1、overview
+ControlUtil
+OnControlListener
+5.2,Interface Details
+1、ControlUtil
+setOnControlListener
+Getcurrentplayprogramno (modified by v1.3.2)
+getCurrentProgramScreenshot
+getCurrentPlayProgramContent（Added in V1.4.2）
+getMultiWindowsData（Added in V1.4.2）
+Selectplayprogram (added in v1.3.2)
+Exitselectplay (added in v1.3.2)
+Getprogramfileinfos (added in v1.3.3)
+Getuserdiscremainspace (added in v1.3.3)
+Deletelpbfile (added in v1.3.3)
+Formatuserdisk (added in v1.3.4)
+Sendinstantmsg (added in v1.3.5)
+Getcurrentcardtimedate (added in v1.3.6)
+Setcardtimedatetonow (added in v1.3.6)
+Setcardtimedate (added in v1.3.6)
+restartApp（V1.4.3新增）
+restartHard（Added in V1.4.3）
+3、OnControlLisenter
+getGlobalVariable（Added in V1.4.3）
+setIO（Added in V1.4.4）
+getCardMacAndPort（Added in V1.4.7）
+setTextComplex（Added in V1.4.5）
+getTextComplex（Added in V1.4.5）
+Onbackdata (added in v1.3.2)
+Onbackinfos (modified by v1.3.6)
+Onnet status (modified by v1.3.6)
+onProcess
+breakSocket
+On result code (added in v1.3.6)
+6、Control (serial port)（Added in V1.3.4）
+com.lumen.ledcenter3.protocol. ControlUtil_COM
+com.lumen.ledcenter3.protocol. ControlUtil_COM.OnControlListener
+Call example
+6.1、overview
+ControlUtil_COM
+ControlUtil_COM.OnControlListener
+6.2、Interface Details
+1、ControlUtil_COM
+setOnControlListener
+getCurrentPlayProgramNo
+getCurrentProgramScreenshot
+selectPlayProgram
+exitSelectPlay
+getProgramFileInfos
+getUserDiscRemainingSpace
+deleteLpbFile
+formatUserDisk
+restartApp（Added in V1.4.3）
+restartHard（Added in V1.4.3）
+2、OnControlLisenter
+onBackData
+onBackInfos
+onStatus
+onProcess
+7,LMServer (added in v1.3.1)
+7.1 Overview of LmServerAPI Interface
+Example call
+The use steps of this kind of function are as follows:
+Step 1: User login
+Step 2: Lock the control card
+Step 3: Send communication data packet
+(Step 4: Receive communication packets) Called as needed
+Step 5: Unlock the control card
+Step 6: Exit the login
+Note: If the user needs to log in online for a long time, it is necessary to send heartbeat packets to the server regularly to maintain the long connection, and the longest interval between heartbeat packets is not more than 120 seconds. The interval time refers to the interval time between the application and LmServer without data exchange.   
+7.2,Detailed description of LmServerAPI interface
+LmServer_Login
+LmServer_Logout
+LmServer_LockCard
+LmServer_UnLockCard
+LmServer_SendPacketData_Net
+LmServer_SendPacketData_GPRS
+LmServer_RecvCommPacket
+LmServer_SendProgramFiles_Net
+Lmserver _ sendprogramfilesappend _ net (added in v1.3.3)
+LmServer_SendPacketFiles_GPRS
+Lmserver _ sendprogramfilesappend _ GPRS (added in v1.3.3)
+LmServer_SendHeartbeatPacket
+Lmserver _ select program (added in v1.3.2)
+Lmserver _ exitselectprogram (added in v1.3.2)
+Lmserver _ setvariablevalue (added in v1.3.2)
+Lmserver _ getlpbfileinfos (added in v1.3.3)
+Lmserver _ getfreespace (added in v1.3.3)
+LmServer_DeleteLpb(V1.3.3 (added in v1.3.3)
+Getcard devices (added in v1.3.5)
+Lmserver _ getscreenshot (added in v1.3.5)
+Getplaying program (added in v1.3.5)
+Getprogramcontent (added in v1.3.5)
+Getmultiprogramcontent (added in v1.3.5)
+sendSimpleText (Added in V1.4.3)
+setTextComplex（Added in V1.4.5）
+getTextComplex（Added in V1.4.5）
+8、Communication key management
+8.1、An overview of the key management interface
+CypherManager
+8.2、Key management interface details
+setSecretKey
