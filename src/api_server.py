@@ -12,7 +12,7 @@ from sqlalchemy.orm import sessionmaker
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from config import DB_URL, API_PORT
-from models import Base, User, Parking, Access, Panel, OccupancyHistory, ScheduledMessage, ActivityLog, PanelMessageLog, VehicleCount, CameraLog, UserParking, UserPanel, UserAccess, PanelSchedule, PanelScheduleLog
+from models import Base, User, Parking, Access, Panel, OccupancyHistory, ScheduledMessage, ActivityLog, PanelMessageLog, VehicleCount, CameraLog, UserParking, UserPanel, UserAccess, PanelSchedule, PanelScheduleLog, PanelType
 from panel_client import send_to_panel, ping_panel
 from panel_schedule_service import PanelScheduleService
 from auth import (
@@ -702,7 +702,14 @@ def get_all_panels():
                 'parking_name': panel.parking.name if panel.parking else None,
                 'status': getattr(panel, 'status', 'OFFLINE'),
                 'last_message': getattr(panel, 'last_message', None),
-                'last_update': getattr(panel, 'last_update', None)
+                'last_update': getattr(panel, 'last_update', None),
+                'panel_type_id': panel.panel_type_id,
+                'panel_type': {
+                    'id': panel.panel_type.id,
+                    'name': panel.panel_type.name,
+                    'manufacturer': panel.panel_type.manufacturer.name,
+                    'protocol': panel.panel_type.protocol_type
+                } if panel.panel_type else None
             }
             if panel_data['last_update']:
                 panel_data['last_update'] = panel_data['last_update'].isoformat()
@@ -824,6 +831,81 @@ def test_panel(panel_id):
         
     except Exception as e:
         logger.error(f"Error probando panel {panel_id}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/panel/<int:panel_id>/type', methods=['PUT'])
+def update_panel_type(panel_id):
+    """Actualizar el tipo de panel"""
+    try:
+        req = request.get_json(force=True)
+        panel_type_id = req.get('panel_type_id')
+        
+        if panel_type_id is None:
+            return jsonify({'error': 'Missing panel_type_id field'}), 400
+        
+        session = Session()
+        panel = session.query(Panel).get(panel_id)
+        
+        if not panel:
+            session.close()
+            return jsonify({'error': 'Panel not found'}), 404
+        
+        # Verificar que el tipo de panel existe
+        panel_type = session.query(PanelType).get(panel_type_id)
+        if not panel_type:
+            session.close()
+            return jsonify({'error': 'Panel type not found'}), 404
+        
+        # Actualizar el tipo de panel
+        panel.panel_type_id = panel_type_id
+        session.commit()
+        
+        # Obtener datos actualizados para la respuesta
+        updated_panel = session.query(Panel).get(panel_id)
+        panel_data = {
+            'id': updated_panel.id,
+            'name': updated_panel.name,
+            'panel_type_id': updated_panel.panel_type_id,
+            'panel_type': {
+                'id': updated_panel.panel_type.id,
+                'name': updated_panel.panel_type.name,
+                'manufacturer': updated_panel.panel_type.manufacturer.name,
+                'protocol': updated_panel.panel_type.protocol_type
+            } if updated_panel.panel_type else None
+        }
+        
+        session.close()
+        return jsonify(panel_data)
+        
+    except Exception as e:
+        logger.error(f"Error actualizando tipo de panel {panel_id}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/panel-types', methods=['GET'])
+def get_all_panel_types():
+    """Obtener todos los tipos de panel"""
+    try:
+        session = Session()
+        
+        panel_types = session.query(PanelType).filter(PanelType.is_active == True).all()
+        data = []
+        
+        for panel_type in panel_types:
+            panel_type_data = {
+                'id': panel_type.id,
+                'name': panel_type.name,
+                'manufacturer': panel_type.manufacturer.name,
+                'protocol': panel_type.protocol_type,
+                'description': panel_type.description,
+                'is_active': panel_type.is_active
+            }
+            data.append(panel_type_data)
+        
+        session.close()
+        return jsonify(data)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo tipos de panel: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/parking/<int:pid>/statistics', methods=['GET'])

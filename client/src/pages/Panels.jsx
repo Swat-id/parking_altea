@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { panelService } from '../services/panelService'
+import { panelTypeService } from '../services/panelTypeService'
 import { 
   Monitor, 
   Wifi, 
@@ -19,7 +20,10 @@ import {
   Eye,
   EyeOff,
   Server,
-  Globe
+  Globe,
+  Edit,
+  Save,
+  Type
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -33,6 +37,8 @@ const Panels = () => {
   const [messageResponse, setMessageResponse] = useState(null)
   const [showResponseDetails, setShowResponseDetails] = useState(false)
   const [selectedColor, setSelectedColor] = useState(1) // 1=Rojo, 2=Verde, 3=Amarillo
+  const [editingPanelId, setEditingPanelId] = useState(null)
+  const [editingPanelTypeId, setEditingPanelTypeId] = useState(null)
 
   // Obtener paneles
   const { data: panels = [], isLoading, refetch } = useQuery(
@@ -40,6 +46,15 @@ const Panels = () => {
     panelService.getAllPanels,
     {
       refetchInterval: 30000, // Refrescar cada 30 segundos
+    }
+  )
+
+  // Obtener tipos de panel
+  const { data: panelTypes = [], isLoading: panelTypesLoading } = useQuery(
+    'panelTypes',
+    panelTypeService.getAllPanelTypes,
+    {
+      refetchInterval: 60000, // Refrescar cada minuto
     }
   )
 
@@ -96,6 +111,23 @@ const Panels = () => {
         })
         setShowResponseDetails(true)
         toast.error('Error al probar el panel')
+      }
+    }
+  )
+
+  // Nueva mutación para actualizar tipo de panel
+  const updatePanelTypeMutation = useMutation(
+    ({ panelId, panelTypeId }) => panelService.updatePanelType(panelId, panelTypeId),
+    {
+      onSuccess: (data) => {
+        toast.success('Tipo de panel actualizado correctamente')
+        setEditingPanelId(null)
+        setEditingPanelTypeId(null)
+        queryClient.invalidateQueries('panels')
+      },
+      onError: (error) => {
+        toast.error('Error al actualizar el tipo de panel')
+        console.error('Error updating panel type:', error)
       }
     }
   )
@@ -196,6 +228,42 @@ const Panels = () => {
     setMessageText('')
     setMessageDuration(30)
     setSelectedColor(1)
+  }
+
+  // Funciones para manejar la edición del tipo de panel
+  const handleEditPanelType = (panelId, currentPanelTypeId) => {
+    setEditingPanelId(panelId)
+    setEditingPanelTypeId(currentPanelTypeId)
+  }
+
+  const handleSavePanelType = (panelId) => {
+    if (editingPanelTypeId) {
+      updatePanelTypeMutation.mutate({
+        panelId: panelId,
+        panelTypeId: editingPanelTypeId
+      })
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setEditingPanelId(null)
+    setEditingPanelTypeId(null)
+  }
+
+  const getPanelTypeDisplayName = (panelType) => {
+    if (!panelType) return 'Sin tipo'
+    return `${panelType.manufacturer} - ${panelType.name} (${panelType.protocol})`
+  }
+
+  const getProtocolDisplayName = (protocol) => {
+    switch (protocol) {
+      case 'new':
+        return 'Nuevo'
+      case 'old':
+        return 'Antiguo'
+      default:
+        return protocol
+    }
   }
 
   if (isLoading) {
@@ -460,6 +528,65 @@ const Panels = () => {
                     <div className="text-xs text-gray-500">
                       <span className="font-medium">Parking:</span> {panel.parking_name || 'No asignado'}
                     </div>
+                    
+                    {/* Información del tipo de panel */}
+                    <div className="text-xs text-gray-500">
+                      <span className="font-medium">Tipo:</span>
+                      {editingPanelId === panel.id ? (
+                        <div className="mt-1 space-y-2">
+                          <select
+                            value={editingPanelTypeId || ''}
+                            onChange={(e) => setEditingPanelTypeId(parseInt(e.target.value) || null)}
+                            className="w-full text-xs border border-gray-300 rounded px-2 py-1"
+                            disabled={updatePanelTypeMutation.isLoading}
+                          >
+                            <option value="">Seleccionar tipo...</option>
+                            {panelTypes.map((panelType) => (
+                              <option key={panelType.id} value={panelType.id}>
+                                {panelType.manufacturer} - {panelType.name} ({getProtocolDisplayName(panelType.protocol)})
+                              </option>
+                            ))}
+                          </select>
+                          <div className="flex space-x-1">
+                            <button
+                              onClick={() => handleSavePanelType(panel.id)}
+                              disabled={updatePanelTypeMutation.isLoading || !editingPanelTypeId}
+                              className="flex-1 bg-green-600 text-white text-xs px-2 py-1 rounded hover:bg-green-700 disabled:opacity-50"
+                            >
+                              {updatePanelTypeMutation.isLoading ? (
+                                <Loader className="h-3 w-3 mx-auto animate-spin" />
+                              ) : (
+                                <Save className="h-3 w-3 mx-auto" />
+                              )}
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              disabled={updatePanelTypeMutation.isLoading}
+                              className="flex-1 bg-gray-600 text-white text-xs px-2 py-1 rounded hover:bg-gray-700 disabled:opacity-50"
+                            >
+                              <X className="h-3 w-3 mx-auto" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <span>
+                            {panel.panel_type ? 
+                              `${panel.panel_type.manufacturer} - ${panel.panel_type.name} (${getProtocolDisplayName(panel.panel_type.protocol)})` : 
+                              'Sin tipo asignado'
+                            }
+                          </span>
+                          <button
+                            onClick={() => handleEditPanelType(panel.id, panel.panel_type_id)}
+                            className="text-blue-600 hover:text-blue-800 ml-1"
+                            title="Editar tipo de panel"
+                          >
+                            <Edit className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    
                     {panel.last_message && (
                       <div className="text-xs text-gray-500">
                         <span className="font-medium">Último mensaje:</span> {panel.last_message}
