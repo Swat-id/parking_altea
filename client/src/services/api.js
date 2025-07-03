@@ -1,6 +1,12 @@
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://157.180.91.63:6001'
+// Determinar la URL base según el entorno
+const isProduction = window.location.hostname === '157.180.91.63' || 
+                     window.location.hostname === 'localhost' ||
+                     window.location.port === '5789'
+const API_BASE_URL = isProduction 
+  ? '/api'  // Usar ruta relativa para nginx proxy
+  : (import.meta.env.VITE_API_URL || 'http://157.180.91.63:6001')
 
 const api = axios.create({
   baseURL: API_BASE_URL,

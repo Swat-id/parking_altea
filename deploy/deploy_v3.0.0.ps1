@@ -3,8 +3,8 @@
 # Este script ejecuta el deployment v3.0.0 desde Windows
 
 param(
-    [string]$RemoteHost = "parking-altea.com",
-    [string]$RemoteUser = "parking",
+    [string]$RemoteHost = "157.180.91.63",
+    [string]$RemoteUser = "root",
     [switch]$SkipBackup,
     [switch]$SkipVerification,
     [switch]$Force
