@@ -1,0 +1,122 @@
+server:
+  port: 5656
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: java-panel-service
+  profiles:
+    active: dev
+
+logging:
+  level:
+    com.parkingaltea.panelservice: INFO
+    org.springframework.web: INFO
+    root: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/java-panel-service.log
+    max-size: 10MB
+    max-history: 30
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+panel:
+  service:
+    library:
+      jar-path: /opt/parking_altea/panel_java/protocol-1.2.6.jar
+      timeout: 5000
+      retry-attempts: 3
+      retry-delay: 1000
+    default:
+      port: 5200
+      card-id: 1
+      window-no: 0
+      color: 1
+      font-size: 16
+      effect: 0
+      speed: 1
+      stay-time: 5
+    panels:
+      - ip: "172.20.5.50"
+        name: "PANEL BASSETA 1"
+        description: "P. Basseta Centre"
+        port: 5200
+        card-id: 1
+      - ip: "172.20.5.51"
+        name: "PANEL BASSETA 2"
+        description: "P. Basseta Centre"
+        port: 5200
+        card-id: 1
+      - ip: "172.20.4.50"
+        name: "PANEL PALAU"
+        description: "P. Poble antic/Palau Altea"
+        port: 5200
+        card-id: 1
+      - ip: "172.20.4.51"
+        name: "PANEL COCOLISO"
+        description: "P. Poble antic/Palau Altea"
+        port: 5200
+        card-id: 1
+      - ip: "172.20.4.52"
+        name: "BELLES ARTS 2"
+        description: "P. Poble antic/Belles Arts 2"
+        port: 5200
+        card-id: 1
+      - ip: "172.20.4.53"
+        name: "BELLES ARTS"
+        description: "P. Poble antic/Belles Arts 1"
+        port: 5200
+        card-id: 1
+      - ip: "172.20.17.50"
+        name: "PANEL C. ESPORTIVA"
+        description: "P. Ciutat Esportiva"
+        port: 5200
+        card-id: 1
+      - ip: "172.20.8.50"
+        name: "PANEL PITERES"
+        description: "P. Poble antic/Conservatori"
+        port: 5200
+        card-id: 1
+      - ip: "172.20.2.50"
+        name: "PANEL RENFE"
+        description: "P. Estació Altea"
+        port: 5200
+        card-id: 1
+      - ip: "172.20.1.50"
+        name: "PANEL ALTEA VELLA"
+        description: "P. Altea la Vella"
+        port: 5200
+        card-id: 1
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+logging:
+  level:
+    com.parkingaltea.panelservice: DEBUG
+    org.springframework.web: DEBUG
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+logging:
+  level:
+    com.parkingaltea.panelservice: WARN
+    org.springframework.web: WARN 

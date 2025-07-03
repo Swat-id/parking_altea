@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Script de prueba para el Java Panel Service v2.5
-Prueba todos los endpoints disponibles
+Script de prueba para el servicio Java de paneles v2.5
 """
 
 import requests
@@ -9,152 +8,205 @@ import json
 import time
 from datetime import datetime
 
-# Configuración
-BASE_URL = "http://localhost:5002/api/panels"
-TIMEOUT = 10
-
-def print_separator(title):
-    """Imprime un separador con título"""
-    print("\n" + "="*60)
-    print(f" {title}")
-    print("="*60)
-
-def test_endpoint(method, endpoint, data=None, description=""):
-    """Prueba un endpoint específico"""
-    url = f"{BASE_URL}{endpoint}"
+def test_java_panel_service():
+    """Probar el servicio Java de paneles"""
     
-    print(f"\n🔍 Probando: {description}")
-    print(f"   URL: {method} {url}")
+    print("🧪 PRUEBAS DEL SERVICIO JAVA DE PANELES v2.5")
+    print("=" * 50)
     
-    if data:
-        print(f"   Data: {json.dumps(data, indent=2)}")
+    # Configuración
+    base_url = "http://localhost:5656"
+    panel_ip = "172.20.4.52"  # BELLES ARTS 2
     
+    # Test 1: Health Check
+    print(f"\n1️⃣ Health Check")
+    print("-" * 20)
     try:
-        start_time = time.time()
-        
-        if method.upper() == "GET":
-            response = requests.get(url, timeout=TIMEOUT)
-        elif method.upper() == "POST":
-            response = requests.post(url, json=data, timeout=TIMEOUT)
-        else:
-            print("   ❌ Método no soportado")
-            return False
-        
-        response_time = (time.time() - start_time) * 1000
-        
-        print(f"   ⏱️  Tiempo de respuesta: {response_time:.2f}ms")
-        print(f"   📊 Status Code: {response.status_code}")
-        
+        response = requests.get(f"{base_url}/api/health", timeout=5)
         if response.status_code == 200:
-            try:
-                result = response.json()
-                print(f"   ✅ Respuesta: {json.dumps(result, indent=2, ensure_ascii=False)}")
-                return True
-            except json.JSONDecodeError:
-                print(f"   ⚠️  Respuesta no es JSON válido: {response.text}")
-                return False
+            data = response.json()
+            print(f"   ✅ Servicio respondiendo: {data.get('status')}")
+            print(f"   📋 Versión: {data.get('service')}")
+            print(f"   🔧 Librería inicializada: {data.get('library_initialized')}")
         else:
-            print(f"   ❌ Error: {response.status_code} - {response.text}")
+            print(f"   ❌ Error HTTP: {response.status_code}")
             return False
-            
-    except requests.exceptions.Timeout:
-        print(f"   ⏰ Timeout después de {TIMEOUT}s")
-        return False
-    except requests.exceptions.ConnectionError:
-        print(f"   🔌 Error de conexión - ¿Está el servicio ejecutándose?")
-        return False
     except Exception as e:
-        print(f"   💥 Error inesperado: {str(e)}")
+        print(f"   ❌ Error conectando al servicio: {e}")
         return False
+    
+    # Test 2: Estado de paneles
+    print(f"\n2️⃣ Estado de paneles")
+    print("-" * 20)
+    try:
+        response = requests.get(f"{base_url}/api/panels/status", timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            print(f"   ✅ Estado: {data.get('status')}")
+            print(f"   📊 Paneles: {data.get('panels_count')}")
+            print(f"   🔧 Versión: {data.get('service_version')}")
+        else:
+            print(f"   ❌ Error HTTP: {response.status_code}")
+    except Exception as e:
+        print(f"   ❌ Error: {e}")
+    
+    # Test 3: Lista de paneles
+    print(f"\n3️⃣ Lista de paneles")
+    print("-" * 20)
+    try:
+        response = requests.get(f"{base_url}/api/panels/list", timeout=5)
+        if response.status_code == 200:
+            panels = response.json()
+            print(f"   ✅ Paneles encontrados: {len(panels)}")
+            for panel in panels[:3]:  # Mostrar solo los primeros 3
+                print(f"   📺 {panel.get('name')} ({panel.get('ip')}) - {panel.get('status')}")
+        else:
+            print(f"   ❌ Error HTTP: {response.status_code}")
+    except Exception as e:
+        print(f"   ❌ Error: {e}")
+    
+    # Test 4: Test de conectividad
+    print(f"\n4️⃣ Test de conectividad")
+    print("-" * 20)
+    try:
+        payload = {"ip": panel_ip}
+        response = requests.post(f"{base_url}/api/panels/test", 
+                               json=payload, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            print(f"   ✅ Panel {panel_ip}: {data.get('message')}")
+            print(f"   ⏱️  Tiempo de respuesta: {data.get('response_time')}ms")
+        else:
+            print(f"   ❌ Error HTTP: {response.status_code}")
+    except Exception as e:
+        print(f"   ❌ Error: {e}")
+    
+    # Test 5: Envío de mensaje individual
+    print(f"\n5️⃣ Envío de mensaje individual")
+    print("-" * 20)
+    try:
+        payload = {
+            "text": "PROVA JAVA",
+            "color": 1,
+            "fontSize": 16,
+            "windowNo": 0,
+            "effect": 0,
+            "speed": 1,
+            "stayTime": 5
+        }
+        response = requests.post(f"{base_url}/api/panels/send", 
+                               json=payload, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            print(f"   ✅ Mensaje enviado: {data.get('message')}")
+            print(f"   📺 Panel: {data.get('panelIp')}")
+            print(f"   🔧 Protocolo: {data.get('protocol')}")
+        else:
+            print(f"   ❌ Error HTTP: {response.status_code}")
+            print(f"   📋 Respuesta: {response.text}")
+    except Exception as e:
+        print(f"   ❌ Error: {e}")
+    
+    # Test 6: Envío múltiple (formato antiguo)
+    print(f"\n6️⃣ Envío múltiple (formato antiguo)")
+    print("-" * 20)
+    try:
+        payload = {
+            "ip": panel_ip,
+            "itemNum": 1,
+            "texts": ["MULTI TEST"],
+            "colors": [1],
+            "fontSizes": [16],
+            "showEffects": [0]
+        }
+        response = requests.post(f"{base_url}/sendMulti", 
+                               json=payload, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            print(f"   ✅ Envío múltiple: {data.get('message')}")
+            print(f"   📺 Panel: {data.get('panel_ip')}")
+            print(f"   🔧 Protocolo: {data.get('protocol')}")
+        else:
+            print(f"   ❌ Error HTTP: {response.status_code}")
+            print(f"   📋 Respuesta: {response.text}")
+    except Exception as e:
+        print(f"   ❌ Error: {e}")
+    
+    # Test 7: Mensaje de ocupación
+    print(f"\n7️⃣ Mensaje de ocupación")
+    print("-" * 20)
+    try:
+        payload = {
+            "ip": panel_ip,
+            "parkingNumber": 4,
+            "parkingName": "P. Poble antic/Belles Arts 2",
+            "freeSpaces": 25,
+            "totalSpaces": 50,
+            "status": "LIBRE",
+            "language": "es"
+        }
+        response = requests.post(f"{base_url}/api/panels/occupancy", 
+                               json=payload, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            print(f"   ✅ Ocupación enviada: {data.get('message')}")
+            print(f"   📺 Panel: {data.get('panelIp')}")
+            print(f"   🔧 Protocolo: {data.get('protocol')}")
+        else:
+            print(f"   ❌ Error HTTP: {response.status_code}")
+            print(f"   📋 Respuesta: {response.text}")
+    except Exception as e:
+        print(f"   ❌ Error: {e}")
+    
+    print(f"\n✅ PRUEBAS COMPLETADAS")
+    print("=" * 50)
+    return True
 
-def main():
-    """Función principal de pruebas"""
-    print_separator("PRUEBAS JAVA PANEL SERVICE v2.5")
-    print(f"Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"URL Base: {BASE_URL}")
+def test_panel_communication():
+    """Probar comunicación directa con el panel"""
     
-    # Contador de pruebas
-    total_tests = 0
-    passed_tests = 0
+    print(f"\n🔌 PRUEBA DE COMUNICACIÓN DIRECTA CON PANEL")
+    print("=" * 50)
     
-    # 1. Health Check
-    print_separator("1. HEALTH CHECK")
-    total_tests += 1
-    if test_endpoint("GET", "/health", description="Health Check del servicio"):
-        passed_tests += 1
+    panel_ip = "172.20.4.52"
     
-    # 2. Lista de Paneles
-    print_separator("2. LISTA DE PANELES")
-    total_tests += 1
-    if test_endpoint("GET", "/list", description="Obtener lista de paneles disponibles"):
-        passed_tests += 1
+    # Test de ping
+    print(f"\n📡 Test de conectividad con {panel_ip}")
+    print("-" * 40)
     
-    # 3. Estado de Paneles
-    print_separator("3. ESTADO DE PANELES")
-    total_tests += 1
-    if test_endpoint("GET", "/status", description="Obtener estado de la cache de paneles"):
-        passed_tests += 1
+    import subprocess
+    try:
+        result = subprocess.run(['ping', '-c', '3', panel_ip], 
+                              capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            print(f"   ✅ Panel responde al ping")
+            # Extraer tiempo de respuesta
+            lines = result.stdout.split('\n')
+            for line in lines:
+                if 'time=' in line:
+                    time_str = line.split('time=')[1].split()[0]
+                    print(f"   ⏱️  Tiempo de respuesta: {time_str}")
+                    break
+        else:
+            print(f"   ❌ Panel no responde al ping")
+            print(f"   📋 Salida: {result.stderr}")
+    except Exception as e:
+        print(f"   ❌ Error en ping: {e}")
     
-    # 4. Colores Disponibles
-    print_separator("4. COLORES DISPONIBLES")
-    total_tests += 1
-    if test_endpoint("GET", "/colors", description="Obtener colores disponibles"):
-        passed_tests += 1
-    
-    # 5. Prueba de Panel Individual
-    print_separator("5. PRUEBA DE PANEL INDIVIDUAL")
-    test_data = {"ip": "172.20.5.50"}
-    total_tests += 1
-    if test_endpoint("POST", "/test", test_data, description="Probar conectividad con panel 172.20.5.50"):
-        passed_tests += 1
-    
-    # 6. Envío de Mensaje Individual
-    print_separator("6. ENVÍO DE MENSAJE INDIVIDUAL")
-    message_data = {
-        "panelIP": "172.20.5.50",
-        "message": "PRUEBA TEST " + datetime.now().strftime("%H:%M:%S"),
-        "color": 2,  # Verde
-        "fontSize": 16,
-        "windowNo": 0,
-        "itemNum": 0,
-        "effect": 0
-    }
-    total_tests += 1
-    if test_endpoint("POST", "/send", message_data, description="Enviar mensaje a panel individual"):
-        passed_tests += 1
-    
-    # 7. Envío de Mensaje Múltiple
-    print_separator("7. ENVÍO DE MENSAJE MÚLTIPLE")
-    multi_message_data = {
-        "ips": ["172.20.5.50", "172.20.5.51"],
-        "message": "MULTI TEST " + datetime.now().strftime("%H:%M:%S"),
-        "color": 3,  # Amarillo
-        "fontSize": 16,
-        "windowNo": 0
-    }
-    total_tests += 1
-    if test_endpoint("POST", "/send-multi", multi_message_data, description="Enviar mensaje a múltiples paneles"):
-        passed_tests += 1
-    
-    # 8. Limpiar Cache
-    print_separator("8. LIMPIAR CACHE")
-    total_tests += 1
-    if test_endpoint("POST", "/clear-cache", description="Limpiar cache de paneles"):
-        passed_tests += 1
-    
-    # Resumen final
-    print_separator("RESUMEN DE PRUEBAS")
-    print(f"📊 Total de pruebas: {total_tests}")
-    print(f"✅ Pruebas exitosas: {passed_tests}")
-    print(f"❌ Pruebas fallidas: {total_tests - passed_tests}")
-    print(f"📈 Porcentaje de éxito: {(passed_tests/total_tests)*100:.1f}%")
-    
-    if passed_tests == total_tests:
-        print("\n🎉 ¡TODAS LAS PRUEBAS PASARON EXITOSAMENTE!")
-    else:
-        print(f"\n⚠️  {total_tests - passed_tests} prueba(s) fallaron")
-    
-    print(f"\n⏰ Finalizado: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    return True
 
 if __name__ == "__main__":
-    main() 
+    print(f"🚀 Iniciando pruebas del servicio Java de paneles v2.5")
+    print(f"⏰ Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print()
+    
+    # Ejecutar pruebas
+    success = test_java_panel_service()
+    test_panel_communication()
+    
+    if success:
+        print(f"\n🎉 TODAS LAS PRUEBAS COMPLETADAS EXITOSAMENTE")
+    else:
+        print(f"\n❌ ALGUNAS PRUEBAS FALLARON")
+    
+    print(f"\n⏰ Fin de pruebas: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}") 
