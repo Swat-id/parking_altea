@@ -195,7 +195,7 @@ class PanelCommunicationService:
                 panel_ip=panel_ip,
                 texts=[text],
                 colors=[color],
-                font_sizes=[2],  # Tamaño 2
+                font_sizes=[8],  # Tamaño 8 (mínimo requerido)
                 show_effects=[1]  # Efecto centrado
             )
             
@@ -209,7 +209,7 @@ class PanelCommunicationService:
             }
     
     def send_custom_text(self, panel_ip: str, text: str, 
-                        color: int = 1, font_size: int = 2, 
+                        color: int = 1, font_size: int = 8, 
                         effect: int = 1) -> Dict:
         """
         Enviar texto personalizado a un panel
@@ -218,12 +218,17 @@ class PanelCommunicationService:
             panel_ip: IP del panel
             text: Texto a mostrar
             color: Color (1-7)
-            font_size: Tamaño de fuente
+            font_size: Tamaño de fuente (mínimo 8 según servicio Java)
             effect: Efecto de visualización
             
         Returns:
             Dict con resultado de la operación
         """
+        # Asegurar que el font_size sea al menos 8 (requerimiento del servicio Java)
+        if font_size < 8:
+            font_size = 8
+            logger.warning(f"Font size ajustado a 8 (mínimo requerido por servicio Java) para panel {panel_ip}")
+        
         return self.send_text_to_panel(
             panel_ip=panel_ip,
             texts=[text],
