@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    Column, Integer, String, Boolean, ForeignKey, DateTime, Text, func, Float
+    Column, Integer, String, Boolean, ForeignKey, DateTime, Text, func, Float, JSON
 )
 from sqlalchemy.orm import relationship, declarative_base
 Base = declarative_base()
@@ -62,9 +62,20 @@ class Panel(Base):
     status = Column(String, default='OFFLINE', nullable=False)  # ONLINE, OFFLINE
     last_message = Column(Text)
     last_update = Column(DateTime(timezone=True), server_default=func.now())
-    parking = relationship('Parking', back_populates='panels')
     
-    # Relación con usuarios a través de tabla intermedia
+    # Nuevos campos para tipos de paneles
+    panel_type_id = Column(Integer, ForeignKey('panel_types.id'), nullable=True)
+    port = Column(Integer, default=5200)
+    window_config = Column(JSON)  # Configuración de ventanas en JSON
+    protocol_version = Column(String(20), default='old')  # 'old', 'new'
+    service_endpoint = Column(String(255))  # URL del servicio a usar
+    is_active = Column(Boolean, default=True)
+    last_protocol_check = Column(DateTime(timezone=True))
+    protocol_status = Column(String(20), default='unknown')  # 'online', 'offline', 'unknown'
+    
+    # Relaciones
+    parking = relationship('Parking', back_populates='panels')
+    panel_type = relationship('PanelType', back_populates='panels')
     user_panels = relationship('UserPanel', back_populates='panel')
 
 # Tablas intermedias para relaciones muchos a muchos
@@ -317,3 +328,39 @@ class PanelScheduleLog(Base):
     # Relaciones
     schedule = relationship('PanelSchedule')
     parking = relationship('Parking')
+
+# Nuevas tablas para fabricantes y tipos de paneles
+class Manufacturer(Base):
+    __tablename__ = 'manufacturers'
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), unique=True, nullable=False)
+    description = Column(Text)
+    website = Column(String(255))
+    contact_email = Column(String(255))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relaciones
+    panel_types = relationship('PanelType', back_populates='manufacturer')
+
+class PanelType(Base):
+    __tablename__ = 'panel_types'
+    id = Column(Integer, primary_key=True)
+    manufacturer_id = Column(Integer, ForeignKey('manufacturers.id'), nullable=False)
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    protocol_type = Column(String(50), nullable=False)  # 'old', 'new'
+    windows_count = Column(Integer, nullable=False, default=1)
+    window_width = Column(Integer, nullable=False)  # Ancho de cada ventana
+    window_height = Column(Integer, nullable=False)  # Alto de cada ventana
+    total_width = Column(Integer, nullable=False)  # Ancho total del panel
+    total_height = Column(Integer, nullable=False)  # Alto total del panel
+    port = Column(Integer, nullable=False, default=5200)
+    service_endpoint = Column(String(255))  # URL del servicio a usar
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relaciones
+    manufacturer = relationship('Manufacturer', back_populates='panel_types')
+    panels = relationship('Panel', back_populates='panel_type')
