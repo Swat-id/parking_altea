@@ -421,13 +421,28 @@ def get_parking(pid):
 def set_occupancy(pid):
     """Establecer ocupación de un parking"""
     try:
-        req = request.get_json(force=True)
+        # Log de debugging
+        logger.info(f"Received occupancy update request for parking {pid}")
+        logger.info(f"Request headers: {dict(request.headers)}")
+        logger.info(f"Request data: {request.get_data()}")
+        
+        # Manejar JSON de forma más robusta
+        try:
+            req = request.get_json(force=True)
+        except Exception as json_error:
+            logger.error(f"Error parsing JSON: {json_error}")
+            return jsonify({'error': 'Invalid JSON format'}), 400
+        
+        logger.info(f"Parsed JSON: {req}")
+        
         occupancy = req.get('occupancy')
         
         if occupancy is None:
+            logger.error("Missing occupancy field in request")
             return jsonify({'error': 'Missing occupancy field'}), 400
         
         if not isinstance(occupancy, int) or occupancy < 0:
+            logger.error(f"Invalid occupancy value: {occupancy} (type: {type(occupancy)})")
             return jsonify({'error': 'Occupancy must be a non-negative integer'}), 400
         
         session = Session()
