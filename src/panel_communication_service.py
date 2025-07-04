@@ -79,10 +79,11 @@ class PanelCommunicationService:
             if show_effects is None:
                 show_effects = [0] * len(texts)  # Sin efecto por defecto
                 
-            # Preparar payload para servicio Java
+            # Preparar URL con parámetros de query
+            url = f"{self.java_api_url}?ip={panel_ip}&itemNum={len(texts)}"
+            
+            # Preparar arrays como JSON en el body
             payload = {
-                "ip": panel_ip,
-                "itemNum": len(texts),
                 "texts": texts,
                 "colors": colors,
                 "fontSizes": font_sizes,
@@ -95,7 +96,7 @@ class PanelCommunicationService:
             for attempt in range(self.retry_attempts):
                 try:
                     response = requests.post(
-                        self.java_api_url,
+                        url,
                         json=payload,
                         headers={'Content-Type': 'application/json'},
                         timeout=self.timeout
@@ -151,7 +152,7 @@ class PanelCommunicationService:
                         }
                         
                 except requests.exceptions.ConnectionError:
-                    logger.error(f"🔌 Error de conexión con API Java en {self.java_api_url}")
+                    logger.error(f"🔌 Error de conexión con API Java en {url}")
                     return {
                         'success': False,
                         'message': 'Error de conexión con la API Java de paneles',
