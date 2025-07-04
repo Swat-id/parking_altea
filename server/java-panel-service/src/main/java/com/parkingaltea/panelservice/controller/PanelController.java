@@ -2,6 +2,7 @@ package com.parkingaltea.panelservice.controller;
 
 import com.parkingaltea.panelservice.model.PanelMessage;
 import com.parkingaltea.panelservice.model.PanelResponse;
+import com.parkingaltea.panelservice.model.SendMultiRequest;
 import com.parkingaltea.panelservice.service.PanelCommunicationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,8 +36,8 @@ public class PanelController {
      */
     @GetMapping("/health")
     public ResponseEntity<String> health() {
-        log.info("Health check solicitado");
-        return ResponseEntity.ok("Panel Service OK - " + System.currentTimeMillis());
+        log.info("✅ Health check solicitado");
+        return ResponseEntity.ok("Panel Service OK - Protocolo Antiguo");
     }
 
     /**
@@ -49,63 +50,45 @@ public class PanelController {
     }
 
     /**
-     * Enviar mensaje múltiple usando sendMulti
+     * Enviar mensaje múltiple a panel (protocolo antiguo)
      * 
-     * Parámetros según protocolo:
-     * - itemNum: número de elementos
-     * - texts: array de textos
-     * - colors: array de colores (1=rojo, 2=verde, 3=amarillo, 4=azul, 5=púrpura, 6=azul, 7=blanco)
-     * - fontSizes: array de tamaños de fuente (0=8px, 1=12px, 2=16px, 3=24px, 4=32px, 5=40px, 6=48px, 7=56px)
-     * - showEffects: array de efectos
+     * @param ip IP del panel
+     * @param itemNum Número de item
+     * @param request DTO con arrays de textos, colores, tamaños y efectos
+     * @return Respuesta del envío
      */
     @PostMapping("/sendMulti")
     public ResponseEntity<PanelResponse> sendMulti(
             @RequestParam String ip,
-            @RequestParam(defaultValue = "1") int itemNum,
-            @RequestBody String[] texts,
-            @RequestBody int[] colors,
-            @RequestBody int[] fontSizes,
-            @RequestBody int[] showEffects) {
+            @RequestParam int itemNum,
+            @RequestBody SendMultiRequest request) {
         
-        log.info("Enviando mensaje múltiple a {}: {} elementos", ip, itemNum);
+        log.info("📤 Enviando mensaje múltiple a panel {}:{} - itemNum: {}", ip, 5000, itemNum);
+        log.info("📝 Textos: {}", request.getTexts());
+        log.info("🎨 Colores: {}", request.getColors());
+        log.info("📏 Tamaños: {}", request.getFontSizes());
+        log.info("✨ Efectos: {}", request.getShowEffects());
         
         try {
-            // Validar arrays
-            if (texts == null || colors == null || fontSizes == null || showEffects == null) {
-                return ResponseEntity.badRequest().body(
-                    PanelResponse.error("Arrays requeridos", ip, "old", "Arrays no pueden ser null")
-                );
-            }
+            PanelResponse response = panelService.sendMultiMessage(
+                ip, 
+                itemNum,
+                request.getTexts(),
+                request.getColors(),
+                request.getFontSizes(),
+                request.getShowEffects()
+            );
             
-            if (texts.length != itemNum || colors.length != itemNum || 
-                fontSizes.length != itemNum || showEffects.length != itemNum) {
-                return ResponseEntity.badRequest().body(
-                    PanelResponse.error("Arrays inconsistentes", ip, "old", "Todos los arrays deben tener el mismo tamaño")
-                );
-            }
-            
-            // Crear mensaje principal (usamos el primer elemento)
-            PanelMessage message = PanelMessage.builder()
-                    .text(texts[0])
-                    .color(colors[0])
-                    .fontSize(fontSizes[0])
-                    .windowNo(0)
-                    .effect(showEffects[0])
-                    .speed(1)
-                    .stayTime(5)
-                    .build();
-            
-            // Enviar mensaje
-            CompletableFuture<PanelResponse> future = panelService.sendMessage(ip, message);
-            PanelResponse response = future.get();
-            
-            log.info("Respuesta del envío: {}", response.getMessage());
+            log.info("✅ Mensaje enviado exitosamente a panel {}", ip);
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
-            log.error("Error enviando mensaje múltiple: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError().body(
-                PanelResponse.error("Error interno", ip, "old", e.getMessage())
+            log.error("❌ Error enviando mensaje a panel {}: {}", ip, e.getMessage(), e);
+            return ResponseEntity.badRequest().body(
+                PanelResponse.builder()
+                    .success(false)
+                    .message("Error: " + e.getMessage())
+                    .build()
             );
         }
     }
@@ -177,19 +160,20 @@ public class PanelController {
             @RequestParam String ip,
             @Valid @RequestBody PanelMessage message) {
         
-        log.info("Enviando mensaje a {}: '{}'", ip, message.getText());
+        log.info("📤 Enviando mensaje simple a panel {}: {}", ip, message.getText());
         
         try {
-            CompletableFuture<PanelResponse> future = panelService.sendMessage(ip, message);
-            PanelResponse response = future.get();
-            
-            log.info("Respuesta del envío: {}", response.getMessage());
+            PanelResponse response = panelService.sendTextMessage(message);
+            log.info("✅ Mensaje enviado exitosamente");
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
-            log.error("Error enviando mensaje: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError().body(
-                PanelResponse.error("Error interno", ip, "old", e.getMessage())
+            log.error("❌ Error enviando mensaje: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(
+                PanelResponse.builder()
+                    .success(false)
+                    .message("Error: " + e.getMessage())
+                    .build()
             );
         }
     }
