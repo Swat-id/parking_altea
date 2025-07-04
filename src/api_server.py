@@ -727,7 +727,7 @@ def set_panel_message(ip):
             text=message,
             color=color_code,
             font_size=2,  # Tamaño 16 píxeles (código 2) - CORREGIDO
-            effect=2  # Fijo por defecto (valor 2) - CORREGIDO
+            effect="fijo"  # Fijo por defecto - CORREGIDO
         )
         
         if result.get('success'):
@@ -861,7 +861,7 @@ def send_message_to_panel(panel_id):
         duration = req.get('duration', 30)
         color = req.get('color', 1)
         fontSize = req.get('fontSize', 16)  # Recibir píxeles
-        showEffect = req.get('showEffect', 2)  # Fijo por defecto (valor 2) - CORREGIDO
+        showEffect = req.get('showEffect', "fijo")  # Fijo por defecto - CORREGIDO
         
         if not message:
             return jsonify({'error': 'Missing message field'}), 400
@@ -943,7 +943,7 @@ def test_panel(panel_id):
             text='PRUEBA',
             color=2,  # Verde para prueba
             font_size=2,  # Tamaño 16 píxeles (código 2) - CORREGIDO
-            effect=2  # Fijo por defecto (valor 2) - CORREGIDO
+            effect="fijo"  # Fijo por defecto - CORREGIDO
         )
         response_time = (datetime.now() - start_time).total_seconds() * 1000
         

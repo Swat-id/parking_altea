@@ -65,7 +65,7 @@ class PanelCommunicationService:
     """Servicio para comunicación con paneles LED a través de API REST unificada"""
     
     def __init__(self, 
-                 api_url: str = "http://127.0.0.1:8888/api/v1/panels/send",
+                 api_url: str = "http://localhost:8888/api/v1/panels/send",
                  timeout: int = 30, retry_attempts: int = 3, retry_delay: int = 5):
         self.api_url = api_url
         self.timeout = timeout
