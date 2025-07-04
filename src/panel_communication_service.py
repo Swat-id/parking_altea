@@ -134,7 +134,7 @@ class PanelCommunicationService:
                     "color": colors[i] if i < len(colors) else 1,
                     "fontSize": font_sizes[i] if i < len(font_sizes) else 2,
                     "speed": 100,
-                    "effect": show_effects[i] if i < len(show_effects) else 2,  # CORREGIDO: 2 en lugar de 1
+                    "effect": str(show_effects[i]) if i < len(show_effects) else "static",  # Convertir a string
                     "stayTime": 50,
                     "alignmentH": 1,
                     "alignmentV": 1
