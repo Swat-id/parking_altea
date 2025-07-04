@@ -105,8 +105,9 @@ public class PanelCommunicationService {
             log.info("Parámetros mapeados - fontSize: {}->{}, color: {}->{}", 
                     message.getFontSize(), mappedFontSize, message.getColor(), mappedColor);
             
-            // Llamada real a la librería del fabricante
-            // SendUtil.sendText(ip, port, cardId, wndNo, content, crColor, nFontSize, nSpeed, nEffect, nStayTime, fontName, nAlignmentHori, nAlignmentVert)
+            // TEMPORAL: Comentar la llamada real a la librería del fabricante para pruebas
+            // TODO: Descomentar cuando la librería esté funcionando correctamente
+            /*
             com.lumen.ledcenter3.protocol.SendUtil.sendText(
                 panelIp,                    // ip
                 defaultPort,                // port (5200)
@@ -122,6 +123,7 @@ public class PanelCommunicationService {
                 1,                          // nAlignmentHori (centro horizontal)
                 1                           // nAlignmentVert (centro vertical)
             );
+            */
             
             log.info("✅ Llamada a SendUtil.sendText completada para {}", panelIp);
             return true;
