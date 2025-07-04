@@ -26,13 +26,9 @@ Base.metadata.create_all(engine)
 # Cache para verificar duplicados recientes (últimos 5 minutos)
 recent_messages = {}
 
-def is_duplicate_message(device, line, vehicle_in, vehicle_out, timestamp):
-    """
-    Verificar si un mensaje es duplicado basado en device, línea y contadores.
-    
-    UNIFICACIÓN: Usar device + line en lugar de IP + line para mejor detección
-    """
-    key = f"{device}_{line}_{vehicle_in}_{vehicle_out}"
+def is_duplicate_message(camera_ip, camera_line, vehicle_in, vehicle_out, timestamp):
+    """Verificar si un mensaje es duplicado basado en IP, línea y contadores"""
+    key = f"{camera_ip}_{camera_line}_{vehicle_in}_{vehicle_out}"
     
     # Limpiar mensajes antiguos (más de 5 minutos)
     current_time = time.time()
@@ -43,7 +39,7 @@ def is_duplicate_message(device, line, vehicle_in, vehicle_out, timestamp):
     
     # Verificar si ya existe este mensaje
     if key in recent_messages:
-        logger.warning(f"DUPLICATE MESSAGE DETECTED - Device: {device}, Line: {line}, In: {vehicle_in}, Out: {vehicle_out}")
+        logger.warning(f"DUPLICATE MESSAGE DETECTED - IP: {camera_ip}, Line: {camera_line}, In: {vehicle_in}, Out: {vehicle_out}")
         return True
     
     # Registrar este mensaje
@@ -109,7 +105,14 @@ def detect_camera_reset(previous_in, previous_out, new_in, new_out):
     """
     Detectar si la cámara se ha reiniciado basándose en los contadores.
     
-    UNIFICACIÓN: Lógica mejorada para reinicios que evita cálculos incorrectos
+    Args:
+        previous_in: Contador anterior de vehículos entrando
+        previous_out: Contador anterior de vehículos saliendo
+        new_in: Nuevo contador de vehículos entrando
+        new_out: Nuevo contador de vehículos saliendo
+    
+    Returns:
+        tuple: (is_reset, adjusted_previous_in, adjusted_previous_out)
     """
     # Si es la primera vez (contadores anteriores son None), no es reinicio
     if previous_in is None or previous_out is None:
@@ -122,12 +125,13 @@ def detect_camera_reset(previous_in, previous_out, new_in, new_out):
     if is_reset:
         logger.info(f"CAMERA RESET DETECTED - Previous: In={previous_in}, Out={previous_out} -> New: In={new_in}, Out={new_out}")
         
-        # UNIFICACIÓN: En caso de reinicio, usar los nuevos valores como base
-        # No ajustar a 0, sino usar los nuevos valores directamente
-        adjusted_previous_in = new_in
-        adjusted_previous_out = new_out
+        # En caso de reinicio, ajustar los contadores anteriores
+        # CORRECCIÓN: Si hay reinicio, siempre usar 0 como contador anterior
+        # para calcular correctamente el delta desde el nuevo valor
+        adjusted_previous_in = 0
+        adjusted_previous_out = 0
         
-        logger.info(f"Reset adjustment - Using new values as base: In={adjusted_previous_in}, Out={adjusted_previous_out}")
+        logger.info(f"Reset adjustment - Adjusted previous: In={adjusted_previous_in}, Out={adjusted_previous_out}")
         return True, adjusted_previous_in, adjusted_previous_out
     
     return False, previous_in, previous_out
@@ -136,7 +140,14 @@ def calculate_deltas_with_reset_handling(previous_in, previous_out, new_in, new_
     """
     Calcular deltas considerando posibles reinicios de cámara.
     
-    UNIFICACIÓN: Lógica mejorada para evitar cálculos incorrectos
+    Args:
+        previous_in: Contador anterior de vehículos entrando
+        previous_out: Contador anterior de vehículos saliendo
+        new_in: Nuevo contador de vehículos entrando
+        new_out: Nuevo contador de vehículos saliendo
+    
+    Returns:
+        tuple: (delta_in, delta_out, is_reset, reset_info)
     """
     # Detectar si hay reinicio
     is_reset, adjusted_previous_in, adjusted_previous_out = detect_camera_reset(
@@ -146,13 +157,6 @@ def calculate_deltas_with_reset_handling(previous_in, previous_out, new_in, new_
     # Calcular deltas usando los contadores ajustados
     delta_in = new_in - adjusted_previous_in
     delta_out = new_out - adjusted_previous_out
-    
-    # UNIFICACIÓN: En caso de reinicio, los deltas deben ser 0
-    # porque estamos usando los nuevos valores como base
-    if is_reset:
-        delta_in = 0
-        delta_out = 0
-        logger.info(f"Reset detected - Setting deltas to 0 to avoid incorrect calculations")
     
     # Validar que los deltas sean positivos (excepto en reinicios)
     if not is_reset:
@@ -309,10 +313,9 @@ def handle_camera():
         line = line + 1
         logger.info(f"Line number adjusted - Received: {original_line}, Adjusted for DB: {line}")
         
-        # UNIFICACIÓN: Verificar duplicados ANTES de buscar el acceso
-        # Usar device + line en lugar de IP + line
-        if is_duplicate_message(device, original_line, veh_in, veh_out, time.time()):
-            logger.warning(f"DUPLICATE MESSAGE IGNORED - Device: {device}, Line: {original_line}, In: {veh_in}, Out: {veh_out}")
+        # VERIFICAR DUPLICADOS ANTES DE PROCESAR
+        if is_duplicate_message(ip, original_line, veh_in, veh_out, time.time()):
+            logger.warning(f"DUPLICATE MESSAGE IGNORED - IP: {ip}, Line: {original_line}, In: {veh_in}, Out: {veh_out}")
             
             # Registrar log de duplicado
             log_camera_message(
@@ -330,43 +333,86 @@ def handle_camera():
             
             return jsonify({'status': 'duplicate_ignored', 'message': 'Duplicate message ignored'}), 200
         
-        # UNIFICACIÓN: Buscar acceso por device + línea (método principal)
-        # Usar comparación insensible a mayúsculas/minúsculas
-        access = session.query(Access).filter(
-            func.lower(Access.name) == func.lower(device),
-            Access.line == line
-        ).first()
+        # Buscar acceso por IP y línea (método principal)
+        access = session.query(Access).filter_by(ip=ip, line=line).first()
+        
+        # Si no se encuentra por IP+línea, intentar buscar por nombre de dispositivo Y línea (insensible a mayúsculas/minúsculas)
+        if not access and device:
+            # Usar func.lower() para comparación insensible a mayúsculas/minúsculas
+            access = session.query(Access).filter(
+                func.lower(Access.name) == func.lower(device),
+                Access.line == line
+            ).first()
+            if access:
+                logger.info(f"Found access by device name (case-insensitive) and line: {device}, line: {line} (original: {original_line})")
+                logger.info(f"Database device name: {access.name}, Received device name: {device}")
+            else:
+                # Si no encuentra por nombre+línea, buscar solo por nombre para logging (también insensible a mayúsculas/minúsculas)
+                device_access = session.query(Access).filter(
+                    func.lower(Access.name) == func.lower(device)
+                ).first()
+                if device_access:
+                    error_msg = f"Device found but line mismatch - Expected: {device_access.line}, Received: {original_line}"
+                    logger.warning(f"{error_msg} - Device: {device}, DB Device: {device_access.name}")
+                    logger.warning(f"Message logged but not processed - line validation failed")
+                    
+                    # Registrar log de error
+                    log_camera_message(
+                        session=session,
+                        camera_ip=ip,
+                        camera_line=original_line,
+                        camera_name=device,
+                        raw_message=raw_data,
+                        vehicle_in=veh_in,
+                        vehicle_out=veh_out,
+                        status="error",
+                        error_message=error_msg,
+                        processing_time=(time.time() - start_time) * 1000
+                    )
+                    
+                    return jsonify({'error': 'Line mismatch for device'}), 400
+                else:
+                    error_msg = f"Device not found in database: {device}"
+                    logger.warning(f"{error_msg}")
+                    # Log adicional para debugging - mostrar todos los dispositivos disponibles
+                    all_devices = session.query(Access.name).distinct().all()
+                    device_names = [d[0] for d in all_devices]
+                    logger.warning(f"Available devices in database: {device_names}")
+                    
+                    # Registrar log de error
+                    log_camera_message(
+                        session=session,
+                        camera_ip=ip,
+                        camera_line=original_line,
+                        camera_name=device,
+                        raw_message=raw_data,
+                        vehicle_in=veh_in,
+                        vehicle_out=veh_out,
+                        status="error",
+                        error_message=error_msg,
+                        processing_time=(time.time() - start_time) * 1000
+                    )
         
         if not access:
-            # Si no se encuentra por device+línea, intentar buscar por IP+línea como fallback
-            access = session.query(Access).filter_by(ip=ip, line=line).first()
-            if access:
-                logger.info(f"Found access by IP and line (fallback): {ip}, line: {line}")
-            else:
-                error_msg = f"Device not found in database: {device} (line: {original_line})"
-                logger.warning(f"{error_msg}")
-                # Log adicional para debugging - mostrar todos los dispositivos disponibles
-                all_devices = session.query(Access.name).distinct().all()
-                device_names = [d[0] for d in all_devices]
-                logger.warning(f"Available devices in database: {device_names}")
-                
-                # Registrar log de error
-                log_camera_message(
-                    session=session,
-                    camera_ip=ip,
-                    camera_line=original_line,
-                    camera_name=device,
-                    raw_message=raw_data,
-                    vehicle_in=veh_in,
-                    vehicle_out=veh_out,
-                    status="error",
-                    error_message=error_msg,
-                    processing_time=(time.time() - start_time) * 1000
-                )
-                
-                return jsonify({'error': 'Device not found'}), 404
-        else:
-            logger.info(f"Found access by device name and line: {device}, line: {line}")
+            error_msg = f"Access not found for IP: {ip}, Line: {original_line} (adjusted: {line}), Device: {device}"
+            logger.warning(f"{error_msg}")
+            logger.warning(f"JSON completo que no pudo ser procesado: {json.dumps(data, indent=2)}")
+            
+            # Registrar log de error
+            log_camera_message(
+                session=session,
+                camera_ip=ip,
+                camera_line=original_line,
+                camera_name=device,
+                raw_message=raw_data,
+                vehicle_in=veh_in,
+                vehicle_out=veh_out,
+                status="error",
+                error_message=error_msg,
+                processing_time=(time.time() - start_time) * 1000
+            )
+            
+            return jsonify({'error': 'Access not found'}), 404
         
         # Log de información del acceso encontrado
         logger.info(f"Access found - ID: {access.id}, Parking ID: {access.parking_id}, Name: {access.name}")
@@ -375,7 +421,7 @@ def handle_camera():
         # Actualizar estado de la cámara a ONLINE y timestamp de último mensaje
         access.status = 'ONLINE'
         access.last_message_received = datetime.now()
-        logger.info(f"Camera status updated to ONLINE - Device: {device}, Line: {original_line}")
+        logger.info(f"Camera status updated to ONLINE - IP: {ip}, Line: {original_line}")
         
         # Guardar contadores anteriores para el log
         previous_vehicle_in = access.last_vehicle_in
@@ -393,26 +439,17 @@ def handle_camera():
         
         # Si es un reinicio, logear información adicional
         if is_reset:
-            logger.warning(f"CAMERA RESET PROCESSED - Device: {device}, Line: {original_line}")
+            logger.warning(f"CAMERA RESET PROCESSED - Device: {device}, IP: {ip}, Line: {original_line}")
             logger.warning(f"Reset details: {reset_info}")
         
-        # UNIFICACIÓN: Actualizar contadores de acceso ANTES de calcular ocupación
-        # Esto es crucial para evitar duplicados
+        # Actualizar contadores de acceso
         access.last_vehicle_in = veh_in
         access.last_vehicle_out = veh_out
         
         # Actualizar parking
         parking = access.parking
         previous_occupancy = parking.current_occupancy
-        
-        # UNIFICACIÓN: Calcular ocupación correctamente
-        # Solo aplicar deltas si NO es un reinicio
-        if not is_reset:
-            parking.current_occupancy += (delta_in - delta_out)
-            logger.info(f"Occupancy updated - Previous: {previous_occupancy}, Delta: +{delta_in} -{delta_out} = {delta_in - delta_out}, New: {parking.current_occupancy}")
-        else:
-            # En caso de reinicio, mantener la ocupación actual
-            logger.info(f"Reset detected - Keeping current occupancy: {parking.current_occupancy}")
+        parking.current_occupancy += (delta_in - delta_out)
         
         # PERMITIR OCUPACIÓN POR ENCIMA DEL MÁXIMO Y VALORES NEGATIVOS
         # No limitar la ocupación al máximo de capacidad
@@ -556,7 +593,7 @@ def handle_camera():
 @app.route('/camera', methods=['GET'])
 def camera_status():
     """Endpoint para verificar el estado del servidor de cámaras"""
-    return jsonify({'status': 'ok', 'service': 'camera_server_unified'})
+    return jsonify({'status': 'ok', 'service': 'camera_server'})
 
 class CameraMonitor:
     """Monitor para verificar el estado de las cámaras periódicamente"""
@@ -598,65 +635,76 @@ class CameraMonitor:
         """Verificar el estado de todas las cámaras"""
         session = self.session_factory()
         try:
+            # Obtener todas las cámaras
             cameras = session.query(Access).all()
+            
             for camera in cameras:
-                self._check_camera_status(camera, session)
-        except Exception as e:
-            logger.error(f"Error checking cameras: {e}")
+                try:
+                    self._check_camera_status(camera, session)
+                except Exception as e:
+                    logger.error(f"Error verificando cámara {camera.ip}: {e}")
+                    
         finally:
             session.close()
             
     def _check_camera_status(self, camera, session):
         """Verificar el estado de una cámara específica"""
-        try:
-            # Verificar si la cámara ha enviado mensajes recientemente
-            if camera.last_message_received:
-                time_since_last = datetime.now() - camera.last_message_received
-                if time_since_last > timedelta(minutes=10):  # 10 minutos sin mensajes
-                    if camera.status != 'OFFLINE':
-                        camera.status = 'OFFLINE'
-                        session.commit()
-                        logger.warning(f"Camera {camera.name} marked as OFFLINE - No messages for {time_since_last}")
-                else:
-                    if camera.status != 'ONLINE':
-                        camera.status = 'ONLINE'
-                        session.commit()
-                        logger.info(f"Camera {camera.name} marked as ONLINE")
+        # Verificar por ping
+        ping_status = self._ping_camera(camera.ip)
+        
+        # Verificar por último mensaje
+        message_status = self._check_message_status(camera)
+        
+        # Determinar estado final
+        if ping_status == 'ONLINE' or message_status == 'ONLINE':
+            final_status = 'ONLINE'
+        else:
+            final_status = 'OFFLINE'
             
-            # Verificar conectividad de red (ping)
-            if camera.ip:
-                is_reachable = self._ping_camera(camera.ip)
-                if not is_reachable and camera.status == 'ONLINE':
-                    logger.warning(f"Camera {camera.name} ({camera.ip}) not responding to ping")
-                    
-        except Exception as e:
-            logger.error(f"Error checking camera {camera.name}: {e}")
-            
+        # Actualizar estado en la base de datos
+        camera.ping_status = ping_status
+        camera.status = final_status
+        camera.last_ping_check = datetime.now()
+        
+        session.commit()
+        
+        logger.info(f"Cámara {camera.ip} ({camera.name}): Ping={ping_status}, Mensaje={message_status}, Estado={final_status}")
+        
     def _ping_camera(self, ip):
-        """Hacer ping a una cámara para verificar conectividad"""
+        """Realizar ping a una cámara"""
         try:
-            result = subprocess.run(['ping', '-c', '1', '-W', '3', ip], 
-                                  capture_output=True, text=True, timeout=5)
-            return result.returncode == 0
+            result = subprocess.run(
+                ['ping', '-c', '1', '-W', '3', ip],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            return 'ONLINE' if result.returncode == 0 else 'OFFLINE'
         except Exception as e:
-            logger.error(f"Error pinging {ip}: {e}")
-            return False
+            logger.debug(f"Error haciendo ping a {ip}: {e}")
+            return 'UNKNOWN'
             
     def _check_message_status(self, camera):
-        """Verificar el estado de los mensajes de una cámara"""
-        try:
-            # Aquí se pueden agregar verificaciones adicionales
-            # como validar la integridad de los datos recibidos
-            pass
-        except Exception as e:
-            logger.error(f"Error checking message status for {camera.name}: {e}")
+        """Verificar estado basado en último mensaje"""
+        if not camera.last_message_received:
+            return 'OFFLINE'
+            
+        # Si el último mensaje es de hace más de 10 minutos, considerar offline
+        time_since_last = datetime.now() - camera.last_message_received
+        if time_since_last > timedelta(minutes=10):
+            return 'OFFLINE'
+        else:
+            return 'ONLINE'
 
-# Inicializar monitor de cámaras
+# Crear instancia del monitor
 camera_monitor = CameraMonitor(Session)
 
 if __name__ == '__main__':
-    # Iniciar monitor de cámaras
+    # Iniciar el monitor de cámaras
     camera_monitor.start()
     
-    # Iniciar servidor Flask
-    app.run(host='0.0.0.0', port=6400, debug=False) 
+    try:
+        app.run(host='0.0.0.0', port=config.CAMERA_PORT, debug=False)
+    finally:
+        # Detener el monitor al salir
+        camera_monitor.stop()
