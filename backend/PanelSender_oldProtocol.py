@@ -56,7 +56,7 @@ class PanelSenderOldProtocol:
                   font_size: int, speed: int, effect: int, stay_time: int,
                   alignment_hori: int = 1, alignment_vert: int = 1) -> bool:
         """
-        Enviar texto a un panel
+        Enviar texto a un panel usando el flujo correcto del fabricante
         
         Args:
             ip: IP del panel
@@ -75,33 +75,59 @@ class PanelSenderOldProtocol:
         """
         try:
             with self.lock:
-                # Crear script Java temporal para enviar texto
+                # Crear script Java temporal para enviar texto con flujo correcto
                 java_code = f"""
+import com.lumen.ledcenter3.protocol.ExternalNetworkSendProtocol;
 import com.lumen.ledcenter3.protocol.SendUtil;
 
-public class PanelSendText {{
+public class PanelSendTextCorrect {{
     public static void main(String[] args) {{
         try {{
-            // Enviar texto usando la firma correcta del SDK
+            String ip = "{ip}";
+            int port = 5200;
+            
+            System.out.println("1. Creando ExternalNetworkSendProtocol...");
+            ExternalNetworkSendProtocol protocol = new ExternalNetworkSendProtocol(ip, port);
+            
+            System.out.println("2. Inicializando socket TCP...");
+            boolean socketOk = protocol.initSocket();
+            if (!socketOk) {{
+                System.err.println("ERROR: No se pudo inicializar el socket");
+                System.exit(1);
+            }}
+            
+            System.out.println("3. Configurando listener...");
+            protocol.setListener(new ExternalNetworkSendProtocol.OnTcpNetWorkListener() {{
+                public void onTcpNetWorkListener(int status, String message) {{
+                    System.out.println("Listener: Status=" + status + ", Message=" + message);
+                }}
+            }});
+            
+            System.out.println("4. Enviando texto con SendUtil...");
             SendUtil.sendText(
-                "{ip}",                // ip
-                5200,                  // port
-                1,                     // cardId
-                {window_no},           // windowNo
-                "{content}",           // content
-                {color},               // color
-                {font_size},           // fontSize
-                {speed},               // speed
-                {effect},              // effect
-                {stay_time},           // stayTime
-                "Arial",               // fontName
-                {alignment_hori},      // alignmentHori
-                {alignment_vert}       // alignmentVert
+                ip,        // ip
+                port,      // port
+                1,         // cardId
+                {window_no}, // windowNo
+                "{content}", // content
+                {color},     // color
+                {font_size}, // fontSize
+                {speed},     // speed
+                {effect},    // effect
+                {stay_time}, // stayTime
+                "Arial",     // fontName
+                {alignment_hori}, // alignmentHori
+                {alignment_vert}  // alignmentVert
             );
             
-            System.out.println("SUCCESS: Text sent to {ip}");
+            System.out.println("SUCCESS: Text sent to " + ip);
+            
+            // Cerrar socket
+            protocol.uninstallSocket();
+            
         }} catch (Exception e) {{
             System.err.println("ERROR: " + e.getMessage());
+            e.printStackTrace();
             System.exit(1);
         }}
     }}
@@ -130,7 +156,7 @@ public class PanelSendText {{
                     # Ejecutar
                     run_cmd = [
                         'java', '-cp', f"{os.path.dirname(java_file)}:{self.java_jar_path}", 
-                        'PanelSendText'
+                        'PanelSendTextCorrect'
                     ]
                     result = subprocess.run(run_cmd, capture_output=True, text=True)
                     
