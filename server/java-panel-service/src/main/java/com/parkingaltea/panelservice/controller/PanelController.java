@@ -3,231 +3,246 @@ package com.parkingaltea.panelservice.controller;
 import com.parkingaltea.panelservice.model.PanelMessage;
 import com.parkingaltea.panelservice.model.PanelResponse;
 import com.parkingaltea.panelservice.service.PanelCommunicationService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Controlador REST para la API de paneles
+ * Controlador REST para comunicación con paneles LED
  * 
  * Endpoints disponibles:
- * - GET /health - Health check
- * - GET /panels/status - Estado de paneles
- * - GET /panels/list - Lista de paneles
- * - POST /panels/test - Test de conectividad
- * - POST /panels/send - Enviar mensaje individual
- * - POST /sendMulti - Enviar mensaje múltiple (compatibilidad)
+ * - POST /sendMulti - Enviar mensaje múltiple usando sendMulti
+ * - POST /sendText - Enviar mensaje simple usando sendText
+ * - GET /health - Estado del servicio
+ * - GET /status - Estado de conexión con paneles
  */
 @Slf4j
 @RestController
-@RequestMapping("/api")
-@RequiredArgsConstructor
+@RequestMapping("/api/v1/panels")
 @CrossOrigin(origins = "*")
 public class PanelController {
 
-    private final PanelCommunicationService panelService;
+    @Autowired
+    private PanelCommunicationService panelService;
 
     /**
-     * Health check del servicio
+     * Endpoint de salud del servicio
      */
     @GetMapping("/health")
-    public ResponseEntity<Map<String, Object>> health() {
-        log.debug("Health check solicitado");
-        
-        Map<String, Object> response = Map.of(
-            "status", "UP",
-            "service", "Java Panel Service v2.5",
-            "timestamp", System.currentTimeMillis(),
-            "library_initialized", true
-        );
-        
-        return ResponseEntity.ok(response);
+    public ResponseEntity<String> health() {
+        log.info("Health check solicitado");
+        return ResponseEntity.ok("Panel Service OK - " + System.currentTimeMillis());
     }
 
     /**
-     * Obtener estado de todos los paneles
+     * Endpoint de estado del servicio
      */
-    @GetMapping("/panels/status")
-    public ResponseEntity<Map<String, Object>> getPanelsStatus() {
-        log.info("Solicitando estado de paneles");
-        
-        Map<String, Object> response = Map.of(
-            "status", "online",
-            "panels_count", 10,
-            "service_version", "2.5",
-            "library_version", "1.2.6",
-            "timestamp", System.currentTimeMillis()
-        );
-        
-        return ResponseEntity.ok(response);
+    @GetMapping("/status")
+    public ResponseEntity<String> status() {
+        log.info("Status check solicitado");
+        return ResponseEntity.ok("Panel Service Running - Protocol: OLD (Java Library)");
     }
 
     /**
-     * Obtener lista de paneles configurados
-     */
-    @GetMapping("/panels/list")
-    public ResponseEntity<List<Map<String, Object>>> getPanelsList() {
-        log.info("Solicitando lista de paneles");
-        
-        List<Map<String, Object>> panels = List.of(
-            Map.of("ip", "172.20.5.50", "name", "PANEL BASSETA 1", "status", "online"),
-            Map.of("ip", "172.20.5.51", "name", "PANEL BASSETA 2", "status", "online"),
-            Map.of("ip", "172.20.4.50", "name", "PANEL PALAU", "status", "online"),
-            Map.of("ip", "172.20.4.51", "name", "PANEL COCOLISO", "status", "online"),
-            Map.of("ip", "172.20.4.52", "name", "BELLES ARTS 2", "status", "online"),
-            Map.of("ip", "172.20.4.53", "name", "BELLES ARTS", "status", "online"),
-            Map.of("ip", "172.20.17.50", "name", "PANEL C. ESPORTIVA", "status", "online"),
-            Map.of("ip", "172.20.8.50", "name", "PANEL PITERES", "status", "online"),
-            Map.of("ip", "172.20.2.50", "name", "PANEL RENFE", "status", "online"),
-            Map.of("ip", "172.20.1.50", "name", "PANEL ALTEA VELLA", "status", "online")
-        );
-        
-        return ResponseEntity.ok(panels);
-    }
-
-    /**
-     * Test de conectividad con un panel
-     */
-    @PostMapping("/panels/test")
-    public ResponseEntity<Map<String, Object>> testPanelConnectivity(@RequestBody Map<String, String> request) {
-        String panelIp = request.get("ip");
-        log.info("Test de conectividad solicitado para panel: {}", panelIp);
-        
-        Map<String, Object> response = Map.of(
-            "success", true,
-            "message", "Panel responde correctamente",
-            "panel_ip", panelIp,
-            "response_time", 50,
-            "timestamp", System.currentTimeMillis()
-        );
-        
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Enviar mensaje individual a un panel
-     */
-    @PostMapping("/panels/send")
-    public ResponseEntity<PanelResponse> sendMessage(@Valid @RequestBody PanelMessage message) {
-        log.info("Enviando mensaje individual: {}", message.getText());
-        
-        // Por defecto usar panel de prueba
-        String panelIp = "172.20.4.52"; // BELLES ARTS 2
-        
-        CompletableFuture<PanelResponse> future = panelService.sendMessage(panelIp, message);
-        
-        try {
-            PanelResponse response = future.get();
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("Error enviando mensaje: {}", e.getMessage(), e);
-            PanelResponse errorResponse = PanelResponse.error(
-                "Error enviando mensaje: " + e.getMessage(),
-                panelIp,
-                "old",
-                e.getMessage()
-            );
-            return ResponseEntity.internalServerError().body(errorResponse);
-        }
-    }
-
-    /**
-     * Endpoint de compatibilidad para envío múltiple (formato antiguo)
+     * Enviar mensaje múltiple usando sendMulti
+     * 
+     * Parámetros según protocolo:
+     * - itemNum: número de elementos
+     * - texts: array de textos
+     * - colors: array de colores (1=rojo, 2=verde, 3=amarillo, 4=azul, 5=púrpura, 6=azul, 7=blanco)
+     * - fontSizes: array de tamaños de fuente (0=8px, 1=12px, 2=16px, 3=24px, 4=32px, 5=40px, 6=48px, 7=56px)
+     * - showEffects: array de efectos
      */
     @PostMapping("/sendMulti")
-    public ResponseEntity<Map<String, Object>> sendMulti(@RequestBody Map<String, Object> request) {
-        log.info("Envío múltiple solicitado: {}", request);
+    public ResponseEntity<PanelResponse> sendMulti(
+            @RequestParam String ip,
+            @RequestParam(defaultValue = "1") int itemNum,
+            @RequestBody String[] texts,
+            @RequestBody int[] colors,
+            @RequestBody int[] fontSizes,
+            @RequestBody int[] showEffects) {
+        
+        log.info("Enviando mensaje múltiple a {}: {} elementos", ip, itemNum);
         
         try {
-            String panelIp = (String) request.get("ip");
-            Integer itemNum = (Integer) request.get("itemNum");
-            @SuppressWarnings("unchecked")
-            List<String> texts = (List<String>) request.get("texts");
-            @SuppressWarnings("unchecked")
-            List<Integer> colors = (List<Integer>) request.get("colors");
-            @SuppressWarnings("unchecked")
-            List<Integer> fontSizes = (List<Integer>) request.get("fontSizes");
-            @SuppressWarnings("unchecked")
-            List<Integer> showEffects = (List<Integer>) request.get("showEffects");
-            
-            if (texts == null || texts.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "No se proporcionaron textos"
-                ));
+            // Validar arrays
+            if (texts == null || colors == null || fontSizes == null || showEffects == null) {
+                return ResponseEntity.badRequest().body(
+                    PanelResponse.error("Arrays requeridos", ip, "old", "Arrays no pueden ser null")
+                );
             }
             
-            // Crear mensaje con el primer texto
+            if (texts.length != itemNum || colors.length != itemNum || 
+                fontSizes.length != itemNum || showEffects.length != itemNum) {
+                return ResponseEntity.badRequest().body(
+                    PanelResponse.error("Arrays inconsistentes", ip, "old", "Todos los arrays deben tener el mismo tamaño")
+                );
+            }
+            
+            // Crear mensaje principal (usamos el primer elemento)
             PanelMessage message = PanelMessage.builder()
-                    .text(texts.get(0))
-                    .color(colors != null && !colors.isEmpty() ? colors.get(0) : 1)
-                    .fontSize(fontSizes != null && !fontSizes.isEmpty() ? fontSizes.get(0) : 16)
+                    .text(texts[0])
+                    .color(colors[0])
+                    .fontSize(fontSizes[0])
                     .windowNo(0)
-                    .effect(showEffects != null && !showEffects.isEmpty() ? showEffects.get(0) : 0)
+                    .effect(showEffects[0])
                     .speed(1)
                     .stayTime(5)
                     .build();
             
-            CompletableFuture<PanelResponse> future = panelService.sendMessage(panelIp, message);
+            // Enviar mensaje
+            CompletableFuture<PanelResponse> future = panelService.sendMessage(ip, message);
             PanelResponse response = future.get();
             
-            Map<String, Object> result = Map.of(
-                "success", response.isSuccess(),
-                "message", response.getMessage(),
-                "panel_ip", response.getPanelIp(),
-                "protocol", response.getProtocol(),
-                "timestamp", System.currentTimeMillis()
-            );
-            
-            return ResponseEntity.ok(result);
+            log.info("Respuesta del envío: {}", response.getMessage());
+            return ResponseEntity.ok(response);
             
         } catch (Exception e) {
-            log.error("Error en envío múltiple: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError().body(Map.of(
-                "success", false,
-                "message", "Error: " + e.getMessage()
-            ));
+            log.error("Error enviando mensaje múltiple: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(
+                PanelResponse.error("Error interno", ip, "old", e.getMessage())
+            );
+        }
+    }
+
+    /**
+     * Enviar mensaje simple usando sendText
+     * 
+     * Parámetros según protocolo:
+     * - nWndNo: número de ventana (0-7)
+     * - content: texto
+     * - crColor: color (1=rojo, 2=verde, 3=amarillo, 4=azul, 5=púrpura, 6=azul, 7=blanco)
+     * - nFontSize: tamaño de fuente (0=8px, 2=16px, 3=24px, 4=32px, 5=40px, 6=48px, 7=56px)
+     * - nSpeed: velocidad (1-100)
+     * - nEffect: efecto
+     * - nStayTime: tiempo de permanencia en segundos
+     * - nAlignmentHori: alineación horizontal (0=izquierda, 1=centro, 2=derecha)
+     * - nAlignmentVert: alineación vertical (0=arriba, 1=centro, 2=abajo)
+     */
+    @PostMapping("/sendText")
+    public ResponseEntity<PanelResponse> sendText(
+            @RequestParam String ip,
+            @RequestParam(defaultValue = "0") int nWndNo,
+            @RequestParam String content,
+            @RequestParam(defaultValue = "1") int crColor,
+            @RequestParam(defaultValue = "2") int nFontSize,
+            @RequestParam(defaultValue = "1") int nSpeed,
+            @RequestParam(defaultValue = "0") int nEffect,
+            @RequestParam(defaultValue = "5") int nStayTime,
+            @RequestParam(defaultValue = "1") int nAlignmentHori,
+            @RequestParam(defaultValue = "1") int nAlignmentVert) {
+        
+        log.info("Enviando mensaje simple a {}: '{}'", ip, content);
+        
+        try {
+            // Mapear nFontSize del protocolo a píxeles
+            int fontSizePixels = mapProtocolFontSizeToPixels(nFontSize);
+            
+            // Crear mensaje
+            PanelMessage message = PanelMessage.builder()
+                    .text(content)
+                    .color(crColor)
+                    .fontSize(fontSizePixels)
+                    .windowNo(nWndNo)
+                    .effect(nEffect)
+                    .speed(nSpeed)
+                    .stayTime(nStayTime)
+                    .build();
+            
+            // Enviar mensaje
+            CompletableFuture<PanelResponse> future = panelService.sendMessage(ip, message);
+            PanelResponse response = future.get();
+            
+            log.info("Respuesta del envío: {}", response.getMessage());
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("Error enviando mensaje simple: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(
+                PanelResponse.error("Error interno", ip, "old", e.getMessage())
+            );
+        }
+    }
+
+    /**
+     * Enviar mensaje usando el modelo PanelMessage
+     */
+    @PostMapping("/send")
+    public ResponseEntity<PanelResponse> sendMessage(
+            @RequestParam String ip,
+            @Valid @RequestBody PanelMessage message) {
+        
+        log.info("Enviando mensaje a {}: '{}'", ip, message.getText());
+        
+        try {
+            CompletableFuture<PanelResponse> future = panelService.sendMessage(ip, message);
+            PanelResponse response = future.get();
+            
+            log.info("Respuesta del envío: {}", response.getMessage());
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("Error enviando mensaje: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(
+                PanelResponse.error("Error interno", ip, "old", e.getMessage())
+            );
         }
     }
 
     /**
      * Enviar mensaje de ocupación
      */
-    @PostMapping("/panels/occupancy")
-    public ResponseEntity<PanelResponse> sendOccupancyMessage(@RequestBody Map<String, Object> request) {
-        log.info("Enviando mensaje de ocupación: {}", request);
+    @PostMapping("/occupancy")
+    public ResponseEntity<PanelResponse> sendOccupancy(
+            @RequestParam String ip,
+            @RequestParam int parkingNumber,
+            @RequestParam String parkingName,
+            @RequestParam int freeSpaces,
+            @RequestParam int totalSpaces,
+            @RequestParam String status,
+            @RequestParam(defaultValue = "es") String language) {
+        
+        log.info("Enviando ocupación a {}: {} - {} libres de {}", ip, parkingName, freeSpaces, totalSpaces);
         
         try {
-            String panelIp = (String) request.get("ip");
-            Integer parkingNumber = (Integer) request.get("parkingNumber");
-            String parkingName = (String) request.get("parkingName");
-            Integer freeSpaces = (Integer) request.get("freeSpaces");
-            Integer totalSpaces = (Integer) request.get("totalSpaces");
-            String status = (String) request.get("status");
-            String language = (String) request.getOrDefault("language", "es");
-            
             CompletableFuture<PanelResponse> future = panelService.sendOccupancyMessage(
-                panelIp, parkingNumber, parkingName, freeSpaces, totalSpaces, status, language
+                ip, parkingNumber, parkingName, freeSpaces, totalSpaces, status, language
             );
-            
             PanelResponse response = future.get();
+            
+            log.info("Respuesta del envío: {}", response.getMessage());
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
-            log.error("Error enviando mensaje de ocupación: {}", e.getMessage(), e);
-            PanelResponse errorResponse = PanelResponse.error(
-                "Error enviando mensaje de ocupación: " + e.getMessage(),
-                "unknown",
-                "old",
-                e.getMessage()
+            log.error("Error enviando ocupación: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(
+                PanelResponse.error("Error interno", ip, "old", e.getMessage())
             );
-            return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
+
+    /**
+     * Mapear tamaño de fuente del protocolo a píxeles
+     * Protocolo: 0=8px, 2=16px, 3=24px, 4=32px, 5=40px, 6=48px, 7=56px
+     */
+    private int mapProtocolFontSizeToPixels(int protocolFontSize) {
+        switch (protocolFontSize) {
+            case 0: return 8;   // FONTSIZE_8
+            case 1: return 12;  // FONTSIZE_12
+            case 2: return 16;  // FONTSIZE_16
+            case 3: return 24;  // FONTSIZE_24
+            case 4: return 32;  // FONTSIZE_32
+            case 5: return 40;  // FONTSIZE_40
+            case 6: return 48;  // FONTSIZE_48
+            case 7: return 56;  // FONTSIZE_56
+            default: 
+                log.warn("Tamaño de fuente del protocolo {} no válido, usando 16px", protocolFontSize);
+                return 16; // FONTSIZE_16 por defecto
         }
     }
 } 

@@ -12,6 +12,10 @@ import javax.validation.constraints.Max;
 
 /**
  * Modelo para representar un mensaje de panel
+ * 
+ * Según protocolo del fabricante:
+ * - fontSize: 0=8px, 1=12px, 2=16px, 3=24px, 4=32px, 5=40px, 6=48px, 7=56px
+ * - colors: 1=rojo, 2=verde, 3=amarillo, 4=azul, 5=púrpura, 6=azul, 7=blanco
  */
 @Data
 @NoArgsConstructor
@@ -28,8 +32,8 @@ public class PanelMessage {
     private Integer color;
     
     @NotNull(message = "El tamaño de fuente es obligatorio")
-    @Min(value = 8, message = "El tamaño de fuente debe estar entre 8 y 64")
-    @Max(value = 64, message = "El tamaño de fuente debe estar entre 8 y 64")
+    @Min(value = 8, message = "El tamaño de fuente debe estar entre 8 y 56 píxeles")
+    @Max(value = 56, message = "El tamaño de fuente debe estar entre 8 y 56 píxeles")
     private Integer fontSize;
     
     @NotNull(message = "El número de ventana es obligatorio")

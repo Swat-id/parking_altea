@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Servicio de comunicación con paneles LED usando la librería del fabricante
+ * Servicio de comunicación con paneles LED usando la librería Java del fabricante
  * 
  * Este servicio implementa el flujo correcto según el manual del fabricante:
  * 1. initNetwork - Inicializar conexión de red
@@ -36,14 +36,14 @@ public class PanelCommunicationService {
     @Value("${panel.service.default.card-id:1}")
     private int defaultCardId;
 
-    // Referencias a la librería del fabricante
+    // Referencias a la librería Java del fabricante
     private static final String LIBRARY_CLASS = "com.rotuloselectronicos.protocol.CP5200Protocol";
     
     private Object protocolInstance;
     private boolean isInitialized = false;
 
     /**
-     * Inicializar la librería del fabricante
+     * Inicializar la librería Java del fabricante
      */
     public boolean initializeLibrary() {
         try {
@@ -52,9 +52,9 @@ public class PanelCommunicationService {
                 return true;
             }
 
-            log.info("Inicializando librería del fabricante...");
+            log.info("Inicializando librería Java del fabricante...");
             
-            // Cargar la clase de la librería
+            // Cargar la clase de la librería Java
             Class<?> protocolClass = Class.forName(LIBRARY_CLASS);
             protocolInstance = protocolClass.getDeclaredConstructor().newInstance();
             
@@ -73,11 +73,11 @@ public class PanelCommunicationService {
             }
             
             isInitialized = true;
-            log.info("Librería inicializada correctamente");
+            log.info("Librería Java inicializada correctamente");
             return true;
             
         } catch (Exception e) {
-            log.error("Error inicializando librería: {}", e.getMessage(), e);
+            log.error("Error inicializando librería Java: {}", e.getMessage(), e);
             return false;
         }
     }
@@ -88,7 +88,7 @@ public class PanelCommunicationService {
     private boolean initNetwork() {
         try {
             log.debug("Inicializando red...");
-            // Llamada a initNetwork de la librería
+            // Llamada a initNetwork de la librería Java
             // protocolInstance.initNetwork();
             return true;
         } catch (Exception e) {
@@ -103,7 +103,7 @@ public class PanelCommunicationService {
     private boolean setListener() {
         try {
             log.debug("Configurando listener...");
-            // Llamada a setListener de la librería
+            // Llamada a setListener de la librería Java
             // protocolInstance.setListener();
             return true;
         } catch (Exception e) {
@@ -132,7 +132,7 @@ public class PanelCommunicationService {
                     );
                 }
                 
-                // Enviar mensaje usando la librería
+                // Enviar mensaje usando la librería Java
                 boolean success = sendMultiMessage(panelIp, message);
                 
                 long responseTime = System.currentTimeMillis() - startTime;
@@ -168,30 +168,78 @@ public class PanelCommunicationService {
     }
 
     /**
-     * Enviar mensaje múltiple usando la librería del fabricante
+     * Enviar mensaje múltiple usando la librería Java del fabricante
+     * 
+     * Mapeo correcto según documentación:
+     * - fontSize: 0=8px, 1=12px, 2=16px, 3=24px, 4=32px, 5=40px, 6=48px, 7=56px
+     * - colors: 1=rojo, 2=verde, 3=amarillo, 4=azul, 5=púrpura, 6=azul, 7=blanco
      */
     private boolean sendMultiMessage(String panelIp, PanelMessage message) {
         try {
             log.debug("Enviando mensaje múltiple a {}: {}", panelIp, message.getText());
             
+            // Mapear fontSize según documentación (16px = valor 2)
+            int mappedFontSize = mapFontSizeToProtocol(message.getFontSize());
+            
+            // Mapear color según documentación (rojo = valor 1)
+            int mappedColor = mapColorToProtocol(message.getColor());
+            
             // Preparar parámetros para sendMulti
+            int itemNum = 1;
             String[] texts = {message.getText()};
-            int[] colors = {message.getColor()};
-            int[] fontSizes = {message.getFontSize()};
-            int[] effects = {message.getEffect()};
+            int[] colors = {mappedColor};
+            int[] fontSizes = {mappedFontSize};
+            int[] showEffects = {message.getEffect()};
             
-            // Llamada a sendMulti de la librería
-            // int result = protocolInstance.sendMulti(panelIp, texts, colors, fontSizes, effects);
-            // return result == 0; // 0 = éxito según documentación
+            log.info("Parámetros mapeados - fontSize: {}->{}, color: {}->{}", 
+                    message.getFontSize(), mappedFontSize, message.getColor(), mappedColor);
             
-            // Simulación temporal mientras se integra la librería
-            log.info("Simulando envío de mensaje a {}: {}", panelIp, message.getText());
+            // Llamada a sendMulti de la librería Java
+            // boolean result = protocolInstance.sendMulti(itemNum, texts, colors, fontSizes, showEffects);
+            // return result;
+            
+            // Simulación temporal mientras se integra la librería Java
+            log.info("Simulando envío de mensaje a {} con fontSize={} y color={}", 
+                    panelIp, mappedFontSize, mappedColor);
             Thread.sleep(100); // Simular delay de comunicación
             return true;
             
         } catch (Exception e) {
             log.error("Error en sendMulti para {}: {}", panelIp, e.getMessage(), e);
             return false;
+        }
+    }
+
+    /**
+     * Mapear tamaño de fuente según protocolo
+     * Documentación: 0=8px, 1=12px, 2=16px, 3=24px, 4=32px, 5=40px, 6=48px, 7=56px
+     */
+    private int mapFontSizeToProtocol(int fontSize) {
+        switch (fontSize) {
+            case 8: return 0;   // FONTSIZE_8
+            case 12: return 1;  // FONTSIZE_12
+            case 16: return 2;  // FONTSIZE_16 (valor por defecto)
+            case 24: return 3;  // FONTSIZE_24
+            case 32: return 4;  // FONTSIZE_32
+            case 40: return 5;  // FONTSIZE_40
+            case 48: return 6;  // FONTSIZE_48
+            case 56: return 7;  // FONTSIZE_56
+            default: 
+                log.warn("Tamaño de fuente {} no soportado, usando 16px (valor 2)", fontSize);
+                return 2; // FONTSIZE_16 por defecto
+        }
+    }
+
+    /**
+     * Mapear color según protocolo
+     * Documentación: 1=rojo, 2=verde, 3=amarillo, 4=azul, 5=púrpura, 6=azul, 7=blanco
+     */
+    private int mapColorToProtocol(int color) {
+        if (color >= 1 && color <= 7) {
+            return color; // Los valores ya están correctos según documentación
+        } else {
+            log.warn("Color {} no válido, usando rojo (valor 1)", color);
+            return 1; // Rojo por defecto
         }
     }
 
@@ -292,7 +340,7 @@ public class PanelCommunicationService {
     public void shutdown() {
         try {
             log.info("Cerrando conexiones de paneles...");
-            // Llamada a close de la librería
+            // Llamada a close de la librería Java
             // protocolInstance.close();
             isInitialized = false;
             log.info("Conexiones cerradas");
