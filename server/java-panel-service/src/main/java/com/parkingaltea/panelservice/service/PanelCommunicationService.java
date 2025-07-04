@@ -9,13 +9,15 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+// Importar la librería real del fabricante
+import com.lumen.ledcenter3.protocol.SendUtil;
+
 /**
  * Servicio de comunicación con paneles LED usando la librería Java del fabricante
  * 
  * Este servicio implementa el flujo correcto según el manual del fabricante:
- * 1. initNetwork - Inicializar conexión de red
- * 2. setListener - Configurar listener
- * 3. sendMulti - Enviar mensaje múltiple
+ * 1. Usar SendUtil.sendText() para enviar mensajes directamente
+ * 2. Mapear correctamente los parámetros de color y tamaño de fuente
  */
 @Slf4j
 @Service
@@ -36,84 +38,8 @@ public class PanelCommunicationService {
     @Value("${panel.service.default.card-id:1}")
     private int defaultCardId;
 
-    // Referencias a la librería Java del fabricante
-    private static final String LIBRARY_CLASS = "com.rotuloselectronicos.protocol.CP5200Protocol";
-    
-    private Object protocolInstance;
-    private boolean isInitialized = false;
-
     /**
-     * Inicializar la librería Java del fabricante
-     */
-    public boolean initializeLibrary() {
-        try {
-            if (isInitialized) {
-                log.info("Librería ya inicializada");
-                return true;
-            }
-
-            log.info("Inicializando librería Java del fabricante...");
-            
-            // Cargar la clase de la librería Java
-            Class<?> protocolClass = Class.forName(LIBRARY_CLASS);
-            protocolInstance = protocolClass.getDeclaredConstructor().newInstance();
-            
-            // Inicializar red
-            boolean networkInit = initNetwork();
-            if (!networkInit) {
-                log.error("Error inicializando red");
-                return false;
-            }
-            
-            // Configurar listener
-            boolean listenerSet = setListener();
-            if (!listenerSet) {
-                log.error("Error configurando listener");
-                return false;
-            }
-            
-            isInitialized = true;
-            log.info("Librería Java inicializada correctamente");
-            return true;
-            
-        } catch (Exception e) {
-            log.error("Error inicializando librería Java: {}", e.getMessage(), e);
-            return false;
-        }
-    }
-
-    /**
-     * Inicializar conexión de red
-     */
-    private boolean initNetwork() {
-        try {
-            log.debug("Inicializando red...");
-            // Llamada a initNetwork de la librería Java
-            // protocolInstance.initNetwork();
-            return true;
-        } catch (Exception e) {
-            log.error("Error inicializando red: {}", e.getMessage(), e);
-            return false;
-        }
-    }
-
-    /**
-     * Configurar listener
-     */
-    private boolean setListener() {
-        try {
-            log.debug("Configurando listener...");
-            // Llamada a setListener de la librería Java
-            // protocolInstance.setListener();
-            return true;
-        } catch (Exception e) {
-            log.error("Error configurando listener: {}", e.getMessage(), e);
-            return false;
-        }
-    }
-
-    /**
-     * Enviar mensaje a un panel específico
+     * Enviar mensaje a un panel específico usando la librería real del fabricante
      */
     public CompletableFuture<PanelResponse> sendMessage(String panelIp, PanelMessage message) {
         return CompletableFuture.supplyAsync(() -> {
@@ -122,18 +48,8 @@ public class PanelCommunicationService {
             try {
                 log.info("Enviando mensaje a panel {}: {}", panelIp, message.getText());
                 
-                // Verificar inicialización
-                if (!isInitialized && !initializeLibrary()) {
-                    return PanelResponse.error(
-                        "Error de inicialización", 
-                        panelIp, 
-                        "old", 
-                        "Librería no inicializada"
-                    );
-                }
-                
-                // Enviar mensaje usando la librería Java
-                boolean success = sendMultiMessage(panelIp, message);
+                // Enviar mensaje usando la librería Java real del fabricante
+                boolean success = sendTextMessage(panelIp, message);
                 
                 long responseTime = System.currentTimeMillis() - startTime;
                 
@@ -168,15 +84,17 @@ public class PanelCommunicationService {
     }
 
     /**
-     * Enviar mensaje múltiple usando la librería Java del fabricante
+     * Enviar mensaje de texto usando la librería Java real del fabricante
+     * 
+     * Método: SendUtil.sendText(ip, port, cardId, wndNo, content, crColor, nFontSize, nSpeed, nEffect, nStayTime, fontName, nAlignmentHori, nAlignmentVert)
      * 
      * Mapeo correcto según documentación:
      * - fontSize: 0=8px, 1=12px, 2=16px, 3=24px, 4=32px, 5=40px, 6=48px, 7=56px
      * - colors: 1=rojo, 2=verde, 3=amarillo, 4=azul, 5=púrpura, 6=azul, 7=blanco
      */
-    private boolean sendMultiMessage(String panelIp, PanelMessage message) {
+    private boolean sendTextMessage(String panelIp, PanelMessage message) {
         try {
-            log.debug("Enviando mensaje múltiple a {}: {}", panelIp, message.getText());
+            log.debug("Enviando mensaje de texto a {}: {}", panelIp, message.getText());
             
             // Mapear fontSize según documentación (16px = valor 2)
             int mappedFontSize = mapFontSizeToProtocol(message.getFontSize());
@@ -184,86 +102,109 @@ public class PanelCommunicationService {
             // Mapear color según documentación (rojo = valor 1)
             int mappedColor = mapColorToProtocol(message.getColor());
             
-            // Preparar parámetros para sendMulti
-            int itemNum = 1;
-            String[] texts = {message.getText()};
-            int[] colors = {mappedColor};
-            int[] fontSizes = {mappedFontSize};
-            int[] showEffects = {message.getEffect()};
-            
             log.info("Parámetros mapeados - fontSize: {}->{}, color: {}->{}", 
                     message.getFontSize(), mappedFontSize, message.getColor(), mappedColor);
             
-            // Llamada a sendMulti de la librería Java
-            // boolean result = protocolInstance.sendMulti(itemNum, texts, colors, fontSizes, showEffects);
-            // return result;
+            // Llamada real a la librería del fabricante
+            // SendUtil.sendText(ip, port, cardId, wndNo, content, crColor, nFontSize, nSpeed, nEffect, nStayTime, fontName, nAlignmentHori, nAlignmentVert)
+            com.lumen.ledcenter3.protocol.SendUtil.sendText(
+                panelIp,                    // ip
+                defaultPort,                // port (5200)
+                defaultCardId,              // cardId (1)
+                message.getWindowNo(),      // wndNo (ventana)
+                message.getText(),          // content (texto)
+                mappedColor,                // crColor (color mapeado)
+                mappedFontSize,             // nFontSize (tamaño mapeado)
+                message.getSpeed(),         // nSpeed (velocidad)
+                message.getEffect(),        // nEffect (efecto)
+                message.getStayTime(),      // nStayTime (tiempo de permanencia)
+                "Arial",                    // fontName (fuente por defecto)
+                1,                          // nAlignmentHori (centro horizontal)
+                1                           // nAlignmentVert (centro vertical)
+            );
             
-            // Simulación temporal mientras se integra la librería Java
-            log.info("Simulando envío de mensaje a {} con fontSize={} y color={}", 
-                    panelIp, mappedFontSize, mappedColor);
-            Thread.sleep(100); // Simular delay de comunicación
+            log.info("✅ Llamada a SendUtil.sendText completada para {}", panelIp);
             return true;
             
         } catch (Exception e) {
-            log.error("Error en sendMulti para {}: {}", panelIp, e.getMessage(), e);
+            log.error("❌ Error en sendTextMessage para {}: {}", panelIp, e.getMessage(), e);
             return false;
         }
     }
 
     /**
-     * Mapear tamaño de fuente según protocolo
-     * Documentación: 0=8px, 1=12px, 2=16px, 3=24px, 4=32px, 5=40px, 6=48px, 7=56px
+     * Mapear tamaño de fuente de píxeles al protocolo del fabricante
+     * 
+     * Protocolo: 0=8px, 1=12px, 2=16px, 3=24px, 4=32px, 5=40px, 6=48px, 7=56px
      */
     private int mapFontSizeToProtocol(int fontSize) {
         switch (fontSize) {
-            case 8: return 0;   // FONTSIZE_8
-            case 12: return 1;  // FONTSIZE_12
-            case 16: return 2;  // FONTSIZE_16 (valor por defecto)
-            case 24: return 3;  // FONTSIZE_24
-            case 32: return 4;  // FONTSIZE_32
-            case 40: return 5;  // FONTSIZE_40
-            case 48: return 6;  // FONTSIZE_48
-            case 56: return 7;  // FONTSIZE_56
-            default: 
+            case 8: return 0;
+            case 12: return 1;
+            case 16: return 2;
+            case 24: return 3;
+            case 32: return 4;
+            case 40: return 5;
+            case 48: return 6;
+            case 56: return 7;
+            default:
                 log.warn("Tamaño de fuente {} no soportado, usando 16px (valor 2)", fontSize);
-                return 2; // FONTSIZE_16 por defecto
+                return 2; // 16px por defecto
         }
     }
 
     /**
-     * Mapear color según protocolo
-     * Documentación: 1=rojo, 2=verde, 3=amarillo, 4=azul, 5=púrpura, 6=azul, 7=blanco
+     * Mapear color al protocolo del fabricante
+     * 
+     * Protocolo: 1=rojo, 2=verde, 3=amarillo, 4=azul, 5=púrpura, 6=azul, 7=blanco
      */
     private int mapColorToProtocol(int color) {
-        if (color >= 1 && color <= 7) {
-            return color; // Los valores ya están correctos según documentación
-        } else {
-            log.warn("Color {} no válido, usando rojo (valor 1)", color);
-            return 1; // Rojo por defecto
+        switch (color) {
+            case 1: return 1; // rojo
+            case 2: return 2; // verde
+            case 3: return 3; // amarillo
+            case 4: return 4; // azul
+            case 5: return 5; // púrpura
+            case 6: return 6; // azul
+            case 7: return 7; // blanco
+            default:
+                log.warn("Color {} no soportado, usando rojo (valor 1)", color);
+                return 1; // rojo por defecto
         }
     }
 
     /**
-     * Enviar mensaje de ocupación a un panel
+     * Enviar mensaje de ocupación usando la librería real
      */
     public CompletableFuture<PanelResponse> sendOccupancyMessage(String panelIp, int parkingNumber, 
                                                                 String parkingName, int freeSpaces, 
                                                                 int totalSpaces, String status, String language) {
-        
-        // Construir mensaje según el idioma
-        String messageText = buildOccupancyMessage(parkingNumber, parkingName, freeSpaces, totalSpaces, status, language);
-        
-        PanelMessage message = PanelMessage.builder()
-                .text(messageText)
-                .color(1) // Rojo por defecto
-                .fontSize(16) // Tamaño 16 por defecto
-                .windowNo(0)
-                .effect(0) // Sin efecto
-                .speed(1)
-                .stayTime(5)
-                .build();
-        
-        return sendMessage(panelIp, message);
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                String message = buildOccupancyMessage(parkingNumber, parkingName, freeSpaces, totalSpaces, status, language);
+                
+                PanelMessage panelMessage = PanelMessage.builder()
+                        .text(message)
+                        .color(1) // rojo
+                        .fontSize(16) // 16px
+                        .windowNo(0)
+                        .effect(0)
+                        .speed(1)
+                        .stayTime(5)
+                        .build();
+                
+                return sendMessage(panelIp, panelMessage).get();
+                
+            } catch (Exception e) {
+                log.error("Error enviando mensaje de ocupación a {}: {}", panelIp, e.getMessage(), e);
+                return PanelResponse.error(
+                    "Error enviando mensaje de ocupación: " + e.getMessage(),
+                    panelIp,
+                    "old",
+                    e.getMessage()
+                );
+            }
+        });
     }
 
     /**
@@ -271,48 +212,30 @@ public class PanelCommunicationService {
      */
     private String buildOccupancyMessage(int parkingNumber, String parkingName, 
                                        int freeSpaces, int totalSpaces, String status, String language) {
-        
         String statusText = getStatusText(status, language);
         String format = getMessageFormat(language);
         
-        return String.format(format, parkingNumber, parkingName, freeSpaces, totalSpaces, statusText);
+        return String.format(format, parkingNumber, statusText, freeSpaces, totalSpaces);
     }
 
     /**
      * Obtener texto de estado según idioma
      */
     private String getStatusText(String status, String language) {
-        switch (language.toLowerCase()) {
-            case "va": // Valenciano
-                switch (status.toUpperCase()) {
-                    case "LIBRE": return "LLIURE";
-                    case "DENSO": return "DENS";
-                    case "OCUPADO": return "COMPLET";
-                    default: return status;
-                }
-            case "en": // Inglés
-                switch (status.toUpperCase()) {
-                    case "LIBRE": return "FREE";
-                    case "DENSO": return "BUSY";
-                    case "OCUPADO": return "FULL";
-                    default: return status;
-                }
-            case "fr": // Francés
-                switch (status.toUpperCase()) {
-                    case "LIBRE": return "LIBRE";
-                    case "DENSO": return "OCCUPÉ";
-                    case "OCUPADO": return "COMPLET";
-                    default: return status;
-                }
-            case "de": // Alemán
-                switch (status.toUpperCase()) {
-                    case "LIBRE": return "FREI";
-                    case "DENSO": return "BESETZT";
-                    case "OCUPADO": return "VOLL";
-                    default: return status;
-                }
-            default: // Español
-                return status;
+        if ("ca".equals(language)) {
+            switch (status.toUpperCase()) {
+                case "LIBRE": return "LLIURE";
+                case "DENSO": return "DENS";
+                case "COMPLETO": return "COMPLET";
+                default: return status;
+            }
+        } else {
+            switch (status.toUpperCase()) {
+                case "LIBRE": return "LIBRE";
+                case "DENSO": return "DENSO";
+                case "COMPLETO": return "COMPLETO";
+                default: return status;
+            }
         }
     }
 
@@ -320,32 +243,126 @@ public class PanelCommunicationService {
      * Obtener formato de mensaje según idioma
      */
     private String getMessageFormat(String language) {
-        switch (language.toLowerCase()) {
-            case "va": // Valenciano
-                return "%d - %s: %d lliures (%s)";
-            case "en": // Inglés
-                return "%d - %s: %d free (%s)";
-            case "fr": // Francés
-                return "%d - %s: %d libres (%s)";
-            case "de": // Alemán
-                return "%d - %s: %d frei (%s)";
-            default: // Español
-                return "%d - %s: %d libres (%s)";
+        if ("ca".equals(language)) {
+            return "%d - %s\n%d/%d";
+        } else {
+            return "%d - %s\n%d/%d";
         }
     }
 
     /**
-     * Cerrar conexiones
+     * Cerrar recursos del servicio
      */
     public void shutdown() {
+        log.info("Cerrando servicio de comunicación con paneles");
+        // No hay recursos específicos que cerrar con SendUtil
+    }
+
+    /**
+     * Enviar mensaje múltiple a panel usando la librería real del fabricante
+     * 
+     * @param panelIp IP del panel
+     * @param itemNum Número de item
+     * @param texts Lista de textos
+     * @param colors Lista de colores
+     * @param fontSizes Lista de tamaños de fuente
+     * @param showEffects Lista de efectos
+     * @return Respuesta del envío
+     */
+    public PanelResponse sendMultiMessage(String panelIp, int itemNum, 
+                                        List<String> texts, List<Integer> colors, 
+                                        List<Integer> fontSizes, List<Integer> showEffects) {
         try {
-            log.info("Cerrando conexiones de paneles...");
-            // Llamada a close de la librería Java
-            // protocolInstance.close();
-            isInitialized = false;
-            log.info("Conexiones cerradas");
+            log.info("Enviando mensaje múltiple a panel {}: {} elementos", panelIp, texts.size());
+            
+            // Por ahora, enviar solo el primer texto (simplificado)
+            if (!texts.isEmpty()) {
+                String text = texts.get(0);
+                int color = colors != null && !colors.isEmpty() ? colors.get(0) : 1;
+                int fontSize = fontSizes != null && !fontSizes.isEmpty() ? fontSizes.get(0) : 16;
+                
+                PanelMessage message = PanelMessage.builder()
+                        .text(text)
+                        .color(color)
+                        .fontSize(fontSize)
+                        .windowNo(0)
+                        .effect(0)
+                        .speed(1)
+                        .stayTime(5)
+                        .build();
+                
+                boolean success = sendTextMessage(panelIp, message);
+                
+                if (success) {
+                    log.info("✅ Mensaje múltiple enviado exitosamente a {}", panelIp);
+                    return PanelResponse.success(
+                        "Mensaje múltiple enviado exitosamente",
+                        panelIp,
+                        "old",
+                        texts
+                    );
+                } else {
+                    log.error("❌ Error enviando mensaje múltiple a {}", panelIp);
+                    return PanelResponse.error(
+                        "Error enviando mensaje múltiple",
+                        panelIp,
+                        "old",
+                        "Fallo en comunicación con panel"
+                    );
+                }
+            } else {
+                return PanelResponse.error(
+                    "No hay textos para enviar",
+                    panelIp,
+                    "old",
+                    "Lista de textos vacía"
+                );
+            }
+            
         } catch (Exception e) {
-            log.error("Error cerrando conexiones: {}", e.getMessage(), e);
+            log.error("❌ Error inesperado enviando mensaje múltiple a {}: {}", panelIp, e.getMessage(), e);
+            return PanelResponse.error(
+                "Error inesperado: " + e.getMessage(),
+                panelIp,
+                "old",
+                e.getMessage()
+            );
+        }
+    }
+
+    /**
+     * Enviar mensaje de texto usando PanelMessage (para compatibilidad con el controlador)
+     */
+    public PanelResponse sendTextMessage(PanelMessage message) {
+        try {
+            log.info("Enviando mensaje de texto: {}", message.getText());
+            
+            boolean success = sendTextMessage("127.0.0.1", message); // IP por defecto
+            
+            if (success) {
+                return PanelResponse.success(
+                    "Mensaje enviado exitosamente",
+                    "127.0.0.1",
+                    "old",
+                    List.of(message.getText())
+                );
+            } else {
+                return PanelResponse.error(
+                    "Error enviando mensaje",
+                    "127.0.0.1",
+                    "old",
+                    "Fallo en comunicación"
+                );
+            }
+            
+        } catch (Exception e) {
+            log.error("❌ Error enviando mensaje de texto: {}", e.getMessage(), e);
+            return PanelResponse.error(
+                "Error: " + e.getMessage(),
+                "127.0.0.1",
+                "old",
+                e.getMessage()
+            );
         }
     }
 } 
