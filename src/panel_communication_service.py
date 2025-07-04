@@ -441,11 +441,14 @@ def update_parking_panels(parking_id: int, current_occupancy: int, max_capacity:
             else:
                 # Usar el estado del parking (COMPLETO, DENSO, LIBRE)
                 if status.upper() == 'COMPLETO':
-                    message = "COMPLET"  # CORREGIDO: sin "PARKING"
+                    status_text = "COMPLET"  # CORREGIDO: sin "PARKING"
                 elif status.upper() == 'DENSO':
-                    message = "DENS"  # CORREGIDO: sin "PARKING"
+                    status_text = "DENS"  # CORREGIDO: sin "PARKING"
                 else:
-                    message = "LLIURE"  # CORREGIDO: sin "PLACES LLIURES"
+                    status_text = "LLIURE"  # CORREGIDO: sin "PLACES LLIURES"
+                
+                # CORRECCIÓN: Incluir ocupación en el mensaje
+                message = f"{current_occupancy}/{max_capacity} - {status_text}"
             
             # Usar el PanelCommunicationService para enviar mensajes
             panel_service = PanelCommunicationService()
