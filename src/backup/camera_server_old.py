@@ -10,7 +10,7 @@ from models import Base, Parking, Access, OccupancyHistory, CameraLog
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../backend')))
-from panel_communication import update_parking_panels
+from panel_communication_service import update_parking_panels
 import threading
 import subprocess
 

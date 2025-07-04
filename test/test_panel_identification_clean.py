@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 'src'
 import requests
 import time
 from datetime import datetime
-from panel_communication import PanelManager, PanelConfig, init_panels_from_config
+from panel_communication_service import PanelCommunicationService
 
 # Configuration
 API_BASE_URL = "http://localhost:6001"
@@ -42,21 +42,8 @@ def test_panel_identification():
     for panel in panels:
         print(f"  - {panel['name']} ({panel['ip_address']}) - {panel['status']}")
     
-    # Initialize panel manager with panel configurations
-    panel_configs = []
-    for panel in panels:
-        config = {
-            'ip': panel['ip_address'],
-            'port': 5000,
-            'panel_id': panel['id'],
-            'timeout': 5.0,
-            'retry_attempts': 3,
-            'retry_delay': 1.0
-        }
-        panel_configs.append(config)
-    
-    # Initialize panel manager
-    manager = init_panels_from_config(panel_configs)
+    # Initialize panel communication service
+    panel_service = PanelCommunicationService()
     
     print(f"\nSending identification messages to {len(panels)} panels...")
     print("-" * 50)
@@ -70,31 +57,37 @@ def test_panel_identification():
         
         print(f"\nTesting panel: {panel_name} ({panel_ip})")
         
-        # Get panel connection
-        panel_conn = manager.get_panel(panel_ip)
-        if not panel_conn:
-            print(f"  Panel connection not found")
-            failed_panels.append(panel_ip)
-            continue
-        
         # Send identification message
         identification_text = f"PANEL: {panel_ip}"
         try:
-            success = panel_conn.send_text(identification_text, line=1, position=0)
-            if success:
+            result = panel_service.send_custom_text(
+                panel_ip=panel_ip,
+                text=identification_text,
+                color=2,  # Verde
+                font_size=2,  # 16px
+                effect=2  # Fijo
+            )
+            
+            if result.get('success'):
                 print(f"  Successfully sent: '{identification_text}'")
                 success_count += 1
                 
                 # Also send a timestamp
                 timestamp = datetime.now().strftime("%H:%M:%S")
-                time_success = panel_conn.send_clock(f"TEST: {timestamp}")
-                if time_success:
+                time_result = panel_service.send_custom_text(
+                    panel_ip=panel_ip,
+                    text=f"TEST: {timestamp}",
+                    color=1,  # Rojo
+                    font_size=1,  # 12px
+                    effect=2  # Fijo
+                )
+                if time_result.get('success'):
                     print(f"  Sent timestamp: {timestamp}")
                 else:
                     print(f"  Failed to send timestamp")
                     
             else:
-                print(f"  Failed to send identification message")
+                print(f"  Failed to send identification message: {result.get('message')}")
                 failed_panels.append(panel_ip)
                 
         except Exception as e:

@@ -382,6 +382,127 @@ def get_panel_service() -> PanelCommunicationService:
     """
     return PanelCommunicationService()
 
+def update_parking_panels(parking_id: int, current_occupancy: int, max_capacity: int, status: str, db_session=None) -> Dict:
+    """
+    Actualiza todos los paneles de un parking con la información de ocupación
+    
+    Args:
+        parking_id: ID del parking
+        current_occupancy: Ocupación actual
+        max_capacity: Capacidad máxima
+        status: Estado del parking (COMPLETO, DENSO, LIBRE)
+        db_session: Sesión de base de datos (opcional)
+    
+    Returns:
+        Dict con el resultado de la operación
+    """
+    try:
+        # Si no se proporciona sesión, crear una nueva
+        if db_session is None:
+            from sqlalchemy import create_engine
+            from sqlalchemy.orm import sessionmaker
+            from models import Parking, Panel
+            import config
+            
+            engine = create_engine(config.DB_URL)
+            Session = sessionmaker(bind=engine)
+            db_session = Session()
+            should_close_session = True
+        else:
+            from models import Parking, Panel
+            should_close_session = False
+        
+        try:
+            # Obtener el parking y sus paneles
+            parking = db_session.query(Parking).filter(Parking.id == parking_id).first()
+            if not parking:
+                return {
+                    'success': False,
+                    'error': f'Parking {parking_id} no encontrado'
+                }
+            
+            panels = db_session.query(Panel).filter(Panel.parking_id == parking_id).all()
+            if not panels:
+                return {
+                    'success': True,
+                    'message': f'No hay paneles configurados para el parking {parking_id}',
+                    'panels_updated': 0
+                }
+            
+            # Calcular porcentaje de ocupación
+            if max_capacity > 0:
+                occupancy_percentage = int((current_occupancy / max_capacity) * 100)
+            else:
+                occupancy_percentage = 0
+            
+            # Determinar el mensaje según el estado
+            if status.lower() == 'closed':
+                message = "PARKING TANCAT"
+            else:
+                # Usar el estado del parking (COMPLETO, DENSO, LIBRE)
+                if status.upper() == 'COMPLETO':
+                    message = "COMPLET"  # CORREGIDO: sin "PARKING"
+                elif status.upper() == 'DENSO':
+                    message = "DENS"  # CORREGIDO: sin "PARKING"
+                else:
+                    message = "LLIURE"  # CORREGIDO: sin "PLACES LLIURES"
+            
+            # Usar el PanelCommunicationService para enviar mensajes
+            panel_service = PanelCommunicationService()
+            updated_panels = 0
+            errors = []
+            
+            for panel in panels:
+                try:
+                    result = panel_service.send_custom_text(
+                        panel_ip=panel.ip,
+                        text=message,
+                        color=2,  # Verde por defecto
+                        font_size=2,  # Tamaño 16 píxeles (código 2)
+                        effect=2  # Fijo por defecto
+                    )
+                    
+                    if result.get('success'):
+                        updated_panels += 1
+                        logger.info(f"Panel {panel.ip} actualizado correctamente")
+                    else:
+                        error_msg = result.get('message', 'Error desconocido')
+                        errors.append(f"Panel {panel.ip}: {error_msg}")
+                        logger.error(f"Error actualizando panel {panel.ip}: {error_msg}")
+                        
+                except Exception as e:
+                    error_msg = f"Error inesperado: {str(e)}"
+                    errors.append(f"Panel {panel.ip}: {error_msg}")
+                    logger.error(f"Error inesperado con panel {panel.ip}: {str(e)}")
+            
+            # Preparar respuesta
+            result = {
+                'success': True,
+                'parking_id': parking_id,
+                'message': message,
+                'occupancy_percentage': occupancy_percentage,
+                'panels_updated': updated_panels,
+                'total_panels': len(panels)
+            }
+            
+            if errors:
+                result['errors'] = errors
+                result['partial_success'] = updated_panels > 0
+            
+            logger.info(f"Actualización de paneles completada para parking {parking_id}: {updated_panels}/{len(panels)} paneles actualizados")
+            return result
+            
+        finally:
+            if should_close_session:
+                db_session.close()
+                
+    except Exception as e:
+        logger.error(f"Error general en update_parking_panels: {str(e)}")
+        return {
+            'success': False,
+            'error': f'Error general: {str(e)}'
+        }
+
 if __name__ == "__main__":
     # Ejemplo de uso
     service = PanelCommunicationService()

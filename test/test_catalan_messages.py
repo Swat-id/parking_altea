@@ -90,7 +90,7 @@ def test_catalan_messages():
         print(f"\n🧪 PRUEBA DE FUNCIÓN DE CONVERSIÓN")
         print("-" * 60)
         
-        from panel_communication import update_parking_panels
+        from panel_communication_service import update_parking_panels
         
         # Simular llamada a la función (sin enviar realmente)
         for parking in parkings:

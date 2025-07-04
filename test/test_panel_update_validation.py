@@ -88,7 +88,7 @@ def test_panel_update_validation():
         print(f"\n🧪 PRUEBA DE FUNCIÓN DE ACTUALIZACIÓN DE PANELES")
         print("-" * 60)
         
-        from panel_communication import update_parking_panels
+        from panel_communication_service import update_parking_panels
         
         # Probar con un parking que tenga paneles
         test_parking = None

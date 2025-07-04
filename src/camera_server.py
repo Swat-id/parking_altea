@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 # Importar la función de actualización de paneles
 try:
-    from panel_communication import update_parking_panels
+    from panel_communication_service import update_parking_panels
     logger.info("Función update_parking_panels importada correctamente")
 except ImportError as e:
     logger.error(f"Error importando update_parking_panels: {e}")

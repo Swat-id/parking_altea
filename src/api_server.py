@@ -487,7 +487,7 @@ def set_occupancy(pid):
         
         # Enviar mensaje a paneles después de actualizar la ocupación
         try:
-            from panel_communication import update_parking_panels
+            from panel_communication_service import update_parking_panels
             update_parking_panels(pid, final_occupancy, final_free_spaces + final_occupancy, final_status)
             logger.info(f"Panel messages sent after manual occupancy update for parking {parking_name}")
         except Exception as e:
@@ -568,7 +568,7 @@ def update_parking_config(pid):
         
         # Enviar mensaje a paneles después de actualizar la configuración
         try:
-            from panel_communication import update_parking_panels
+            from panel_communication_service import update_parking_panels
             # Obtener la ocupación actual para enviar el mensaje actualizado
             session = Session()
             p = session.query(Parking).get(pid)

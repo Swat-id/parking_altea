@@ -17,7 +17,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from models import Parking, Panel, PanelSchedule
 from panel_schedule_service import PanelScheduleService
-from panel_communication import update_parking_panels
+from panel_communication_service import update_parking_panels
 import config
 
 def test_schedule_panel_integration():
