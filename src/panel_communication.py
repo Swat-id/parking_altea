@@ -448,7 +448,7 @@ def update_parking_panels(parking_id: int, current_occupancy: int, total_spaces:
                         panel_ip=panel.ip,
                         text=message,
                         color=color,
-                        font_size=2,  # Tamaño de texto 2 por defecto
+                        font_size=16,  # Tamaño de texto 16 por defecto
                         effect=1      # Efecto centrado
                     )
                     

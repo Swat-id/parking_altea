@@ -54,7 +54,7 @@ class PanelScheduleService:
                 sunday=schedule_data.get('sunday', False),
                 message=schedule_data['message'],
                 color=schedule_data.get('color', 2),
-                font_size=schedule_data.get('font_size', 2),
+                font_size=schedule_data.get('font_size', 16),
                 effect=schedule_data.get('effect', 'static'),
                 is_active=schedule_data.get('is_active', True),
                 priority=schedule_data.get('priority', 1)
@@ -379,7 +379,7 @@ class PanelScheduleService:
                         panel_ip=panel.panel_ip,
                         text=message,
                         color=color,
-                        font_size=2,  # font_size por defecto
+                        font_size=16,  # font_size por defecto
                         effect=1  # Efecto estático
                     )
                     if result.get('success'):

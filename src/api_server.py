@@ -300,6 +300,96 @@ def list_parkings():
         logger.error(f"Error listando parkings: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@app.route('/parkings/status', methods=['GET'])
+def get_parkings_status():
+    """Obtener estado completo de todos los parkings con información de paneles"""
+    try:
+        session = Session()
+        
+        # Importar servicios necesarios
+        from panel_schedule_service import PanelScheduleService
+        
+        # Obtener todos los parkings
+        parks = session.query(Parking).all()
+        data = []
+        
+        for parking in parks:
+            # Calcular valores básicos
+            plazas_libres = parking.max_capacity - parking.current_occupancy
+            plazas_ocupadas = parking.current_occupancy
+            
+            # Determinar estado en valenciano para paneles
+            estado_valenciano = ""
+            if parking.status == "LIBRE":
+                estado_valenciano = "LLIURE"
+            elif parking.status == "DENSO":
+                estado_valenciano = "DENS"
+            elif parking.status == "COMPLETO":
+                estado_valenciano = "COMPLET"
+            else:
+                estado_valenciano = parking.status
+            
+            # Verificar si hay programaciones activas
+            schedule_service = PanelScheduleService(session)
+            active_schedules = schedule_service.get_active_schedules_for_parking(parking.id)
+            
+            # Determinar qué se está mostrando en los paneles
+            panel_display_text = ""
+            if active_schedules:
+                # Si hay programaciones activas, mostrar el mensaje de la programación
+                panel_display_text = active_schedules[0].message
+            else:
+                # Si no hay programaciones activas, mostrar el estado en valenciano
+                panel_display_text = estado_valenciano
+            
+            # Obtener información de paneles del parking
+            panels = session.query(Panel).filter(Panel.parking_id == parking.id).all()
+            panel_info = []
+            for panel in panels:
+                panel_info.append({
+                    'id': panel.id,
+                    'name': panel.name,
+                    'ip': panel.ip,
+                    'status': panel.status,
+                    'protocol_version': panel.protocol_version,
+                    'last_message': panel.last_message,
+                    'last_update': panel.last_update.isoformat() if panel.last_update else None
+                })
+            
+            # Construir objeto de datos del parking
+            parking_data = {
+                'id': parking.id,
+                'name': parking.name,
+                'location': parking.location,
+                'total_plazas': parking.max_capacity,
+                'plazas_ocupadas': plazas_ocupadas,
+                'plazas_libres': plazas_libres,
+                'estado': parking.status,  # Estado en español (LIBRE, DENSO, OCUPADO)
+                'estado_valenciano': estado_valenciano,  # Estado en valenciano (LLIURE, DENS, COMPLET)
+                'panel_display_text': panel_display_text,  # Texto que se está mostrando en los paneles
+                'has_active_schedules': len(active_schedules) > 0,  # Si hay programaciones activas
+                'active_schedules_count': len(active_schedules),
+                'threshold_dense': parking.threshold_dense,
+                'threshold_full': parking.threshold_full,
+                'panels': panel_info,
+                'last_update': datetime.now().isoformat()
+            }
+            
+            data.append(parking_data)
+        
+        session.close()
+        
+        return jsonify({
+            'success': True,
+            'total_parkings': len(data),
+            'timestamp': datetime.now().isoformat(),
+            'parkings': data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo estado de parkings: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 @app.route('/parking/<int:pid>', methods=['GET'])
 def get_parking(pid):
     """Obtener un parking específico"""
@@ -730,7 +820,7 @@ def send_message_to_panel(panel_id):
         message = req.get('message')
         duration = req.get('duration', 30)
         color = req.get('color', 1)
-        fontSize = req.get('fontSize', 2)
+        fontSize = req.get('fontSize', 16)  # Cambiar por defecto de 2 a 16
         showEffect = req.get('showEffect', 1)
         
         if not message:
@@ -808,7 +898,7 @@ def test_panel(panel_id):
             panel_ip=panel_ip,
             text='PRUEBA',
             color=2,  # Verde para prueba
-            font_size=2,
+            font_size=16,
             effect=1
         )
         response_time = (datetime.now() - start_time).total_seconds() * 1000
