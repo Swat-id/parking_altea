@@ -21,7 +21,7 @@ class PanelCommunicationService:
     """Servicio para comunicación con paneles LED a través de API REST diferenciada por protocolo"""
     
     def __init__(self, 
-                 java_api_url: str = "http://127.0.0.1:5656/sendMulti",
+                 java_api_url: str = "http://127.0.0.1:5656/api/v1/panels/sendMulti",
                  node_api_url: str = "http://127.0.0.1:3001/api/panels/send",
                  timeout: int = 30, retry_attempts: int = 3, retry_delay: int = 5):
         self.java_api_url = java_api_url
@@ -441,7 +441,7 @@ class PanelCommunicationService:
         # Probar servicio Java
         try:
             response = requests.get(
-                self.java_api_url.replace('/sendMulti', '/health'),
+                self.java_api_url.replace('/api/v1/panels/sendMulti', '/api/v1/panels/health'),
                 timeout=5
             )
             results['java'] = {
