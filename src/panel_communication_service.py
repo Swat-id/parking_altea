@@ -15,6 +15,52 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def get_old_protocol_parameters(color=None, font_size_pixels=None, effect=None):
+    """
+    Obtener parámetros correctos para protocolo antiguo (v1.2.6)
+    
+    Args:
+        color: Color (1=Rojo, 2=Verde, 3=Amarillo, etc.)
+        font_size_pixels: Tamaño en píxeles (8, 12, 16, 24, 32, 40, 48, 56)
+        effect: Efecto (2=fijo, 12=scroll)
+    
+    Returns:
+        Tuple (color_code, font_size_code, effect_code)
+    """
+    # Color por defecto: Verde
+    color_code = color if color in [1, 2, 3, 4, 5, 6, 7] else 2
+    
+    # Convertir píxeles a código de fuente
+    font_map = {8: 0, 12: 1, 16: 2, 24: 3, 32: 4, 40: 5, 48: 6, 56: 7}
+    font_size_code = font_map.get(font_size_pixels, 2)  # 16px por defecto
+    
+    # Efecto por defecto: Fijo
+    effect_code = effect if effect in [2, 12] else 2
+    
+    return color_code, font_size_code, effect_code
+
+def pixels_to_font_code(pixels):
+    """
+    Convertir píxeles a código de fuente para protocolo antiguo
+    
+    Args:
+        pixels: Tamaño en píxeles (8, 12, 16, 24, 32, 40, 48, 56)
+    
+    Returns:
+        Código de fuente para protocolo antiguo
+    """
+    font_map = {
+        8: 0,    # 8px -> 0
+        12: 1,   # 12px -> 1
+        16: 2,   # 16px -> 2
+        24: 3,   # 24px -> 3
+        32: 4,   # 32px -> 4
+        40: 5,   # 40px -> 5
+        48: 6,   # 48px -> 6
+        56: 7    # 56px -> 7
+    }
+    return font_map.get(pixels, 2)  # 16px por defecto
+
 class PanelCommunicationService:
     """Servicio para comunicación con paneles LED a través de API REST unificada"""
     
@@ -77,7 +123,7 @@ class PanelCommunicationService:
             if font_sizes is None:
                 font_sizes = [2] * len(texts)  # Tamaño 16 (valor 2) por defecto
             if show_effects is None:
-                show_effects = [1] * len(texts)  # Scroll hacia arriba por defecto
+                show_effects = [2] * len(texts)  # Fijo por defecto (valor 2) - CORREGIDO
                 
             # Preparar ventanas para la API
             windows = []
@@ -88,7 +134,7 @@ class PanelCommunicationService:
                     "color": colors[i] if i < len(colors) else 1,
                     "fontSize": font_sizes[i] if i < len(font_sizes) else 2,
                     "speed": 100,
-                    "effect": show_effects[i] if i < len(show_effects) else 1,
+                    "effect": show_effects[i] if i < len(show_effects) else 2,  # CORREGIDO: 2 en lugar de 1
                     "stayTime": 50,
                     "alignmentH": 1,
                     "alignmentV": 1
@@ -253,7 +299,7 @@ class PanelCommunicationService:
             # Crear mensaje
             message = f"{parking_name}\n{status_text}\n{free_spaces}/{total_spaces}"
             
-            return self.send_custom_text(panel_ip, message, color, 2, 1)
+            return self.send_custom_text(panel_ip, message, color, 2, 2)  # Fijo por defecto (valor 2) - CORREGIDO
             
         except Exception as e:
             logger.error(f"Error enviando estado de parking a {panel_ip}: {e}")
@@ -266,7 +312,7 @@ class PanelCommunicationService:
     
     def send_custom_text(self, panel_ip: str, text: str, 
                         color: int = 1, font_size: int = 2, 
-                        effect: int = 1) -> Dict:
+                        effect: int = 2) -> Dict:  # Fijo por defecto (valor 2) - CORREGIDO
         """
         Enviar texto personalizado a un panel
         
@@ -275,7 +321,7 @@ class PanelCommunicationService:
             text: Texto a enviar
             color: Color del texto (1=Rojo, 2=Verde, 3=Amarillo, etc.)
             font_size: Tamaño de fuente (0=8px, 1=12px, 2=16px, etc.)
-            effect: Efecto (1=Scroll_up, 2=Scroll_down, etc.)
+            effect: Efecto (2=fijo, 12=scroll) - CORREGIDO
             
         Returns:
             Diccionario con el resultado de la operación

@@ -31,17 +31,35 @@ Content-Type: application/json
           "text": "TEXTO_A_ENVIAR",
           "color": COLOR,
           "fontSize": TAMAÑO_FUENTE,
-          "speed": VELOCIDAD,
-          "effect": EFECTO,
+          "effect": "fijo|scroll",
           "stayTime": TIEMPO_PERMANENCIA,
           "alignmentH": ALINEACION_HORIZONTAL,
           "alignmentV": ALINEACION_VERTICAL
         }
       ]
     }
-  ]
+  ],
+  "options": {
+    "sequential": false,
+    "timeout": 30000,
+    "retryAttempts": 3
+  }
 }
 ```
+
+**Nota importante:** El parámetro `speed` no se incluye en la petición. La velocidad se determina automáticamente según el efecto:
+- Para efecto `"fijo"`: velocidad 0 (no aplicable)
+- Para efecto `"scroll"`: velocidad 5 (lenta)
+
+### Opciones de Envío (Opcional)
+
+El campo `options` es opcional y permite configurar el comportamiento del envío:
+
+| Parámetro | Tipo | Valor por defecto | Descripción |
+|-----------|------|-------------------|-------------|
+| `sequential` | boolean | false | Si es true, envía los paneles secuencialmente en lugar de en paralelo |
+| `timeout` | integer | 30000 | Timeout en milisegundos para cada operación |
+| `retryAttempts` | integer | 3 | Número de intentos de reintento en caso de fallo |
 
 ---
 
@@ -82,17 +100,16 @@ Content-Type: application/json
 
 | Efecto | Valor | Descripción |
 |--------|-------|-------------|
-| Scroll_up | 1 | Scroll hacia arriba |
-| Scroll_down | 2 | Scroll hacia abajo |
-| Scroll_left | 3 | Scroll hacia la izquierda |
-| Scroll_right | 4 | Scroll hacia la derecha |
-| Blink | 5 | Parpadeo |
-| Instant | 6 | Instantáneo |
-| Random | 7 | Aleatorio |
+| "fijo" | 2 | Texto estático sin movimiento |
+| "scroll" | 12 | Texto con desplazamiento |
+
+**Nota sobre velocidad:**
+- Para efecto **"fijo"**: La velocidad se establece automáticamente en 0 (no aplicable)
+- Para efecto **"scroll"**: La velocidad se establece automáticamente en 5 (lenta)
 
 ### Ejemplos de Uso - Protocolo Antiguo
 
-#### 1. Enviar Texto Rojo, Tamaño 16
+#### 1. Enviar Texto Rojo Fijo, Tamaño 16
 
 ```bash
 curl -X POST "http://localhost:8888/api/v1/panels/send" \
@@ -106,11 +123,10 @@ curl -X POST "http://localhost:8888/api/v1/panels/send" \
         "windows": [
           {
             "id": 0,
-            "text": "MENSAJE ROJO",
+            "text": "MENSAJE ROJO FIJO",
             "color": 1,
             "fontSize": 2,
-            "speed": 100,
-            "effect": 1,
+            "effect": "fijo",
             "stayTime": 50,
             "alignmentH": 0,
             "alignmentV": 0
@@ -121,7 +137,7 @@ curl -X POST "http://localhost:8888/api/v1/panels/send" \
   }'
 ```
 
-#### 2. Enviar Texto Verde, Tamaño 16
+#### 2. Enviar Texto Verde Fijo, Tamaño 16
 
 ```bash
 curl -X POST "http://localhost:8888/api/v1/panels/send" \
@@ -135,11 +151,10 @@ curl -X POST "http://localhost:8888/api/v1/panels/send" \
         "windows": [
           {
             "id": 0,
-            "text": "MENSAJE VERDE",
+            "text": "MENSAJE VERDE FIJO",
             "color": 2,
             "fontSize": 2,
-            "speed": 100,
-            "effect": 1,
+            "effect": "fijo",
             "stayTime": 50,
             "alignmentH": 0,
             "alignmentV": 0
@@ -150,7 +165,7 @@ curl -X POST "http://localhost:8888/api/v1/panels/send" \
   }'
 ```
 
-#### 3. Enviar Texto Amarillo, Tamaño 16
+#### 3. Enviar Texto Amarillo Fijo, Tamaño 16
 
 ```bash
 curl -X POST "http://localhost:8888/api/v1/panels/send" \
@@ -164,11 +179,10 @@ curl -X POST "http://localhost:8888/api/v1/panels/send" \
         "windows": [
           {
             "id": 0,
-            "text": "MENSAJE AMARILLO",
+            "text": "MENSAJE AMARILLO FIJO",
             "color": 3,
             "fontSize": 2,
-            "speed": 100,
-            "effect": 1,
+            "effect": "fijo",
             "stayTime": 50,
             "alignmentH": 0,
             "alignmentV": 0
@@ -179,7 +193,7 @@ curl -X POST "http://localhost:8888/api/v1/panels/send" \
   }'
 ```
 
-#### 4. Texto con Scroll (Efecto de Desplazamiento)
+#### 4. Texto con Scroll
 
 ```bash
 curl -X POST "http://localhost:8888/api/v1/panels/send" \
@@ -193,11 +207,10 @@ curl -X POST "http://localhost:8888/api/v1/panels/send" \
         "windows": [
           {
             "id": 0,
-            "text": "TEXTO CON SCROLL HACIA ARRIBA",
+            "text": "TEXTO CON SCROLL",
             "color": 1,
             "fontSize": 2,
-            "speed": 50,
-            "effect": 1,
+            "effect": "scroll",
             "stayTime": 100,
             "alignmentH": 1,
             "alignmentV": 1
@@ -240,6 +253,17 @@ curl -X POST "http://localhost:8888/api/v1/panels/send" \
 | 3 | 24 | Fuente grande |
 | 4 | 32 | Fuente extra grande |
 
+### Efectos de Texto Disponibles (Protocolo Nuevo)
+
+| Efecto | Valor | Descripción |
+|--------|-------|-------------|
+| "fijo" | 2 | Texto estático sin movimiento |
+| "scroll" | 12 | Texto con desplazamiento |
+
+**Nota sobre velocidad:**
+- Para efecto **"fijo"**: La velocidad se establece automáticamente en 0 (no aplicable)
+- Para efecto **"scroll"**: La velocidad se establece automáticamente en 5 (lenta)
+
 ### Ejemplos de Uso - Protocolo Nuevo
 
 #### 1. Pantalla Completa 64x16 (Ventana 0)
@@ -259,8 +283,7 @@ curl -X POST "http://localhost:8888/api/v1/panels/send" \
             "text": "PANTALLA COMPLETA 64x16",
             "color": 1,
             "fontSize": 2,
-            "speed": 100,
-            "effect": 1,
+            "effect": "fijo",
             "stayTime": 50,
             "alignmentH": 1,
             "alignmentV": 1
@@ -295,8 +318,7 @@ curl -X POST "http://localhost:8888/api/v1/panels/send" \
             "text": "VENTANA IZQUIERDA",
             "color": 1,
             "fontSize": 2,
-            "speed": 100,
-            "effect": 1,
+            "effect": "fijo",
             "stayTime": 50,
             "alignmentH": 1,
             "alignmentV": 1
@@ -306,8 +328,7 @@ curl -X POST "http://localhost:8888/api/v1/panels/send" \
             "text": "VENTANA DERECHA",
             "color": 2,
             "fontSize": 2,
-            "speed": 100,
-            "effect": 1,
+            "effect": "fijo",
             "stayTime": 50,
             "alignmentH": 1,
             "alignmentV": 1
@@ -335,8 +356,7 @@ curl -X POST "http://localhost:8888/api/v1/panels/send" \
             "text": "PANEL NUEVO",
             "color": 1,
             "fontSize": 2,
-            "speed": 100,
-            "effect": 1,
+            "effect": "fijo",
             "stayTime": 50,
             "alignmentH": 1,
             "alignmentV": 1
@@ -353,8 +373,7 @@ curl -X POST "http://localhost:8888/api/v1/panels/send" \
             "text": "PANEL ANTIGUO",
             "color": 2,
             "fontSize": 2,
-            "speed": 100,
-            "effect": 1,
+            "effect": "fijo",
             "stayTime": 50,
             "alignmentH": 1,
             "alignmentV": 1
@@ -452,6 +471,60 @@ curl -X POST "http://localhost:8888/api/v1/panels/send" \
 - Asegúrese de que el panel esté accesible en la IP y puerto especificados
 - Los timeouts de conexión pueden variar según la red
 - Se recomienda usar el puerto 5200 para ambos protocolos
+
+---
+
+## Endpoints Adicionales
+
+### GET `/api/v1/panels/list`
+
+Endpoint para listar los paneles disponibles y su configuración.
+
+**Respuesta:**
+```json
+{
+  "panels": [
+    {
+      "ip": "192.168.1.221",
+      "port": 5200,
+      "protocol": "new",
+      "description": "Panel 1 - 1 línea, 2 ventanas (32x16 cada una)",
+      "windows": [
+        {"id": 0, "coordinates": [0, 0, 32, 16], "description": "Ventana Izquierda"},
+        {"id": 1, "coordinates": [32, 0, 32, 16], "description": "Ventana Derecha"}
+      ]
+    },
+    {
+      "ip": "192.168.1.222", 
+      "port": 5200,
+      "protocol": "new",
+      "description": "Panel 2 - 1 línea, 2 ventanas (32x16 cada una)",
+      "windows": [
+        {"id": 0, "coordinates": [0, 0, 32, 16], "description": "Ventana Izquierda"},
+        {"id": 1, "coordinates": [32, 0, 32, 16], "description": "Ventana Derecha"}
+      ]
+    },
+    {
+      "ip": "192.168.1.223",
+      "port": 5200, 
+      "protocol": "new",
+      "description": "Panel 3 - 1 línea, 1 ventana (64x16)",
+      "windows": [
+        {"id": 0, "coordinates": [0, 0, 64, 16], "description": "Ventana Completa"}
+      ]
+    },
+    {
+      "ip": "192.168.1.224",
+      "port": 5200,
+      "protocol": "old", 
+      "description": "Panel 4 - Protocolo antiguo",
+      "windows": [
+        {"id": 0, "coordinates": [0, 0, 64, 16], "description": "Ventana Completa"}
+      ]
+    }
+  ]
+}
+```
 
 ---
 

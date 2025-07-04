@@ -52,78 +52,7 @@ def ping_panel(panel_ip: str) -> bool:
         return False
 
 
-def send_to_panel(panel_ip: str, text: str, color: int = 1, font_size: int = 2, effect: int = 1) -> bool:
-    """
-    Enviar mensaje a un panel usando la API unificada
-    
-    Args:
-        panel_ip: IP del panel
-        text: Texto a enviar
-        color: Color del texto (1=Rojo, 2=Verde, 3=Amarillo, etc.)
-        font_size: Tamaño de fuente (0=8px, 1=12px, 2=16px, etc.)
-        effect: Efecto (1=Scroll_up, 2=Scroll_down, etc.)
-        
-    Returns:
-        True si el envío fue exitoso, False en caso contrario
-    """
-    try:
-        # Preparar payload para la API unificada
-        payload = {
-            "panels": [
-                {
-                    "ip": panel_ip,
-                    "port": 5200,  # Puerto estándar del fabricante
-                    "protocol": "old",  # Por defecto protocolo antiguo
-                    "windows": [
-                        {
-                            "id": 0,
-                            "text": text,
-                            "color": color,
-                            "fontSize": font_size,
-                            "speed": 100,
-                            "effect": effect,
-                            "stayTime": 50,
-                            "alignmentH": 1,
-                            "alignmentV": 1
-                        }
-                    ]
-                }
-            ]
-        }
-        
-        logger.info(f"Enviando mensaje a panel {panel_ip}: {text}")
-        
-        response = requests.post(
-            PANEL_API_URL,
-            json=payload,
-            headers={'Content-Type': 'application/json'},
-            timeout=30
-        )
-        
-        if response.status_code == 200:
-            result = response.json()
-            if result.get('success'):
-                logger.info(f"✅ Mensaje enviado exitosamente a {panel_ip}")
-                return True
-            else:
-                logger.error(f"❌ Error en respuesta API: {result.get('message')}")
-                return False
-        else:
-            logger.error(f"❌ Error HTTP {response.status_code}: {response.text}")
-            return False
-            
-    except requests.exceptions.ConnectionError:
-        logger.error(f"🔌 Error de conexión con API de paneles en {PANEL_API_URL}")
-        return False
-    except requests.exceptions.Timeout:
-        logger.error(f"⏰ Timeout enviando mensaje a {panel_ip}")
-        return False
-    except Exception as e:
-        logger.error(f"❌ Error enviando mensaje a panel {panel_ip}: {e}")
-        return False
-
-
-def send_to_panels(panels: List[Dict], text: str, color: int = 1, font_size: int = 2, effect: int = 1) -> Dict:
+def send_to_panels(panels: List[Dict], text: str, color: int = 1, font_size: int = 2, effect: int = 2) -> Dict:
     """
     Enviar mensaje a múltiples paneles usando la API unificada
     
@@ -132,7 +61,7 @@ def send_to_panels(panels: List[Dict], text: str, color: int = 1, font_size: int
         text: Texto a enviar
         color: Color del texto
         font_size: Tamaño de fuente
-        effect: Efecto
+        effect: Efecto (2=fijo, 12=scroll)
         
     Returns:
         Diccionario con resultados del envío
@@ -212,7 +141,7 @@ def send_to_panels(panels: List[Dict], text: str, color: int = 1, font_size: int
         }
 
 
-def broadcast(parking, message: str, color: int = 1, font_size: int = 2, effect: int = 1):
+def broadcast(parking, message: str, color: int = 1, font_size: int = 2, effect: int = 2):  # Fijo por defecto (valor 2) - CORREGIDO
     """
     Enviar mensaje a todos los paneles de un parking usando la nueva API
     """

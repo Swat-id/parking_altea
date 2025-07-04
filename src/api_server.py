@@ -13,7 +13,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from config import DB_URL, API_PORT
 from models import Base, User, Parking, Access, Panel, OccupancyHistory, ScheduledMessage, ActivityLog, PanelMessageLog, VehicleCount, CameraLog, UserParking, UserPanel, UserAccess, PanelSchedule, PanelScheduleLog, PanelType
-from panel_client import send_to_panel, ping_panel, test_panel_api_connection
 from panel_schedule_service import PanelScheduleService
 from auth import (
     create_user, authenticate_user, delete_user, change_password, 
@@ -628,18 +627,38 @@ def set_parking_message(pid):
             session.close()
             return jsonify({'error': 'No panels found for this parking'}), 404
         
-        # Enviar mensaje a todos los paneles del parking
+        # Enviar mensaje a todos los paneles del parking usando PanelCommunicationService
+        from panel_communication_service import get_panel_service
+        panel_service = get_panel_service()
+        
         success_count = 0
         failed_panels = []
         
+        # Convertir colores de texto a códigos numéricos
+        color_codes = {
+            'VERDE': 2,
+            'ROJO': 1,
+            'AMARILLO': 3
+        }
+        color_code = color_codes.get(color, 2)  # Verde por defecto
+        
+        # Convertir scroll a efecto
+        effect_code = 12 if scroll else 2  # 12=scroll, 2=fijo
+        
         for panel in panels:
             try:
-                # Formato del mensaje con color y scroll
-                formatted_message = f"{message}|{color}|{'SCROLL' if scroll else 'CENTER'}"
-                if send_to_panel(panel.ip, formatted_message):
+                result = panel_service.send_custom_text(
+                    panel_ip=panel.ip,
+                    text=message,
+                    color=color_code,
+                    font_size=2,  # Tamaño 16 píxeles
+                    effect=effect_code
+                )
+                if result.get('success'):
                     success_count += 1
                 else:
                     failed_panels.append(panel.ip)
+                    logger.error(f"Error sending message to panel {panel.ip}: {result.get('message')}")
             except Exception as e:
                 logger.error(f"Error sending message to panel {panel.ip}: {e}")
                 failed_panels.append(panel.ip)
@@ -688,10 +707,30 @@ def set_panel_message(ip):
         panel_name = panel.name
         parking_name = panel.parking.name
         
-        # Enviar mensaje al panel específico
-        formatted_message = f"{message}|{color}|{'SCROLL' if scroll else 'CENTER'}"
+        # Enviar mensaje al panel específico usando PanelCommunicationService
+        from panel_communication_service import get_panel_service
+        panel_service = get_panel_service()
         
-        if send_to_panel(panel.ip, formatted_message):
+        # Convertir colores de texto a códigos numéricos
+        color_codes = {
+            'VERDE': 2,
+            'ROJO': 1,
+            'AMARILLO': 3
+        }
+        color_code = color_codes.get(color, 2)  # Verde por defecto
+        
+        # Convertir scroll a efecto
+        effect_code = 12 if scroll else 2  # 12=scroll, 2=fijo
+        
+        result = panel_service.send_custom_text(
+            panel_ip=panel.ip,
+            text=message,
+            color=color_code,
+            font_size=2,  # Tamaño 16 píxeles (código 2) - CORREGIDO
+            effect=2  # Fijo por defecto (valor 2) - CORREGIDO
+        )
+        
+        if result.get('success'):
             session.close()
             logger.info(f"Panel message sent - IP: {ip}, Message: {message}, Color: {color}, Scroll: {scroll}")
             return jsonify({
@@ -705,6 +744,7 @@ def set_panel_message(ip):
             })
         else:
             session.close()
+            logger.error(f"Failed to send message to panel {ip}: {result.get('message')}")
             return jsonify({'error': 'Failed to send message to panel'}), 500
         
     except Exception as e:
@@ -820,11 +860,15 @@ def send_message_to_panel(panel_id):
         message = req.get('message')
         duration = req.get('duration', 30)
         color = req.get('color', 1)
-        fontSize = req.get('fontSize', 16)  # Cambiar por defecto de 2 a 16
-        showEffect = req.get('showEffect', 1)
+        fontSize = req.get('fontSize', 16)  # Recibir píxeles
+        showEffect = req.get('showEffect', 2)  # Fijo por defecto (valor 2) - CORREGIDO
         
         if not message:
             return jsonify({'error': 'Missing message field'}), 400
+        
+        # Convertir píxeles a código de fuente para protocolo antiguo
+        from panel_communication_service import pixels_to_font_code
+        font_size_code = pixels_to_font_code(fontSize)
         
         session = Session()
         panel = session.query(Panel).get(panel_id)
@@ -846,7 +890,7 @@ def send_message_to_panel(panel_id):
             panel_ip=panel_ip,
             text=message,
             color=color,
-            font_size=fontSize,
+            font_size=font_size_code,  # Usar código convertido
             effect=showEffect
         )
         response_time = (datetime.now() - start_time).total_seconds() * 1000  # en ms
@@ -898,8 +942,8 @@ def test_panel(panel_id):
             panel_ip=panel_ip,
             text='PRUEBA',
             color=2,  # Verde para prueba
-            font_size=16,
-            effect=1
+            font_size=2,  # Tamaño 16 píxeles (código 2) - CORREGIDO
+            effect=2  # Fijo por defecto (valor 2) - CORREGIDO
         )
         response_time = (datetime.now() - start_time).total_seconds() * 1000
         
@@ -1588,7 +1632,7 @@ def verify_all_panels():
         results = []
         updated_count = 0
         
-        from panel_client import ping_panel
+        from panel_client import ping_panel, test_panel_api_connection
         
         logger.info(f"Iniciando verificación de {len(panels)} paneles")
         
