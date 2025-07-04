@@ -165,25 +165,24 @@ public class PanelSendText {{
             // Inicializar red si no está inicializada
             SendUtil.initNetwork("{ip}", {self.initialized_panels[ip]['port']}, "{self.initialized_panels[ip]['idcode']}");
             
-            // Enviar texto
-            boolean result = SendUtil.sendText(
-                {window_no},           // nWndNo
+            // Enviar texto usando la firma correcta del SDK
+            SendUtil.sendText(
+                "{ip}",                // ip
+                {self.initialized_panels[ip]['port']},  // port
+                1,                     // cardId
+                {window_no},           // windowNo
                 "{content}",           // content
-                {color},               // crColor
-                {font_size},           // nFontSize
-                {speed},               // nSpeed
-                {effect},              // nEffect
-                {stay_time},           // nStayTime
-                {alignment_hori},      // nAlignmentHori
-                {alignment_vert}       // nAlignmentVert
+                {color},               // color
+                {font_size},           // fontSize
+                {speed},               // speed
+                {effect},              // effect
+                {stay_time},           // stayTime
+                "Arial",               // fontName
+                {alignment_hori},      // alignmentHori
+                {alignment_vert}       // alignmentVert
             );
             
-            if (result) {{
-                System.out.println("SUCCESS: Text sent to {ip}");
-            }} else {{
-                System.err.println("ERROR: Failed to send text to {ip}");
-                System.exit(1);
-            }}
+            System.out.println("SUCCESS: Text sent to {ip}");
         }} catch (Exception e) {{
             System.err.println("ERROR: " + e.getMessage());
             System.exit(1);
