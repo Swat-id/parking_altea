@@ -488,7 +488,8 @@ def set_occupancy(pid):
         # Enviar mensaje a paneles después de actualizar la ocupación
         try:
             from panel_communication_service import update_parking_panels
-            update_parking_panels(pid, final_occupancy, final_free_spaces + final_occupancy, final_status)
+            # Usar el mismo formato que el flujo de cámaras que funciona correctamente
+            update_parking_panels(pid, final_occupancy, p.max_capacity, final_status)
             logger.info(f"Panel messages sent after manual occupancy update for parking {parking_name}")
         except Exception as e:
             logger.error(f"Error sending panel messages after manual occupancy update: {e}")
