@@ -13,7 +13,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from config import DB_URL, API_PORT
 from models import Base, User, Parking, Access, Panel, OccupancyHistory, ScheduledMessage, ActivityLog, PanelMessageLog, VehicleCount, CameraLog, UserParking, UserPanel, UserAccess, PanelSchedule, PanelScheduleLog, PanelType
-from panel_client import send_to_panel, ping_panel
+from panel_client import send_to_panel, ping_panel, test_panel_api_connection
 from panel_schedule_service import PanelScheduleService
 from auth import (
     create_user, authenticate_user, delete_user, change_password, 
