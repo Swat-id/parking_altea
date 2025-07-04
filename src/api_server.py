@@ -860,15 +860,14 @@ def send_message_to_panel(panel_id):
         message = req.get('message')
         duration = req.get('duration', 30)
         color = req.get('color', 1)
-        fontSize = req.get('fontSize', 16)  # Recibir píxeles
+        fontSize = req.get('fontSize', 2)  # Recibir código de fuente directamente
         showEffect = req.get('showEffect', "fijo")  # Fijo por defecto - CORREGIDO
         
         if not message:
             return jsonify({'error': 'Missing message field'}), 400
         
-        # Convertir píxeles a código de fuente para protocolo antiguo
-        from panel_communication_service import pixels_to_font_code
-        font_size_code = pixels_to_font_code(fontSize)
+        # No convertir fontSize ya que viene como código
+        font_size_code = fontSize
         
         session = Session()
         panel = session.query(Panel).get(panel_id)

@@ -207,7 +207,9 @@ const Panels = () => {
       messageData: {
         message: messageText,
         duration: messageDuration,
-        color: selectedColor
+        color: selectedColor,
+        fontSize: 2,
+        showEffect: "fijo"
       }
     })
   }
