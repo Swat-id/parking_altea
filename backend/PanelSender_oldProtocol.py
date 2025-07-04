@@ -50,81 +50,7 @@ class PanelSenderOldProtocol:
         
         logger.info(f"PanelSender inicializado con librería: {self.java_jar_path}")
     
-    def init_network(self, ip: str, port: int = 5200, idcode: str = "255.255.255.255") -> bool:
-        """
-        Inicializar la red para un panel específico
-        
-        Args:
-            ip: IP del panel
-            port: Puerto (por defecto 5200)
-            idcode: Código de identificación (por defecto 255.255.255.255)
-        
-        Returns:
-            bool: True si se inicializó correctamente
-        """
-        try:
-            with self.lock:
-                # Crear script Java temporal para inicializar la red
-                java_code = f"""
-import com.lumen.ledcenter3.protocol.SendUtil;
 
-public class PanelInit {{
-    public static void main(String[] args) {{
-        try {{
-            // Inicializar red
-            SendUtil.initNetwork("{ip}", {port}, "{idcode}");
-            System.out.println("SUCCESS: Network initialized for {ip}:{port}");
-        }} catch (Exception e) {{
-            System.err.println("ERROR: " + e.getMessage());
-            System.exit(1);
-        }}
-    }}
-}}
-"""
-                
-                # Crear archivo temporal
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.java', delete=False) as f:
-                    f.write(java_code)
-                    java_file = f.name
-                
-                try:
-                    # Compilar y ejecutar
-                    class_file = java_file.replace('.java', '.class')
-                    
-                    # Compilar
-                    compile_cmd = [
-                        'javac', '-cp', self.java_jar_path, java_file
-                    ]
-                    result = subprocess.run(compile_cmd, capture_output=True, text=True)
-                    
-                    if result.returncode != 0:
-                        logger.error(f"Error compilando Java: {result.stderr}")
-                        return False
-                    
-                    # Ejecutar
-                    run_cmd = [
-                        'java', '-cp', f"{os.path.dirname(java_file)}:{self.java_jar_path}", 
-                        'PanelInit'
-                    ]
-                    result = subprocess.run(run_cmd, capture_output=True, text=True)
-                    
-                    if result.returncode == 0:
-                        self.initialized_panels[ip] = {'port': port, 'idcode': idcode}
-                        logger.info(f"✅ Red inicializada para panel {ip}:{port}")
-                        return True
-                    else:
-                        logger.error(f"❌ Error inicializando red para {ip}: {result.stderr}")
-                        return False
-                        
-                finally:
-                    # Limpiar archivos temporales
-                    for file_path in [java_file, class_file]:
-                        if os.path.exists(file_path):
-                            os.unlink(file_path)
-                            
-        except Exception as e:
-            logger.error(f"❌ Error en init_network para {ip}: {e}")
-            return False
     
     def send_text(self, ip: str, window_no: int, content: str, color: int, 
                   font_size: int, speed: int, effect: int, stay_time: int,
@@ -148,12 +74,6 @@ public class PanelInit {{
             bool: True si se envió correctamente
         """
         try:
-            # Verificar que el panel esté inicializado
-            if ip not in self.initialized_panels:
-                logger.warning(f"Panel {ip} no inicializado, inicializando...")
-                if not self.init_network(ip):
-                    return False
-            
             with self.lock:
                 # Crear script Java temporal para enviar texto
                 java_code = f"""
@@ -162,13 +82,10 @@ import com.lumen.ledcenter3.protocol.SendUtil;
 public class PanelSendText {{
     public static void main(String[] args) {{
         try {{
-            // Inicializar red si no está inicializada
-            SendUtil.initNetwork("{ip}", {self.initialized_panels[ip]['port']}, "{self.initialized_panels[ip]['idcode']}");
-            
             // Enviar texto usando la firma correcta del SDK
             SendUtil.sendText(
                 "{ip}",                // ip
-                {self.initialized_panels[ip]['port']},  // port
+                5200,                  // port
                 1,                     // cardId
                 {window_no},           // windowNo
                 "{content}",           // content
@@ -252,12 +169,6 @@ public class PanelSendText {{
             bool: True si se envió correctamente
         """
         try:
-            # Verificar que el panel esté inicializado
-            if ip not in self.initialized_panels:
-                logger.warning(f"Panel {ip} no inicializado, inicializando...")
-                if not self.init_network(ip):
-                    return False
-            
             with self.lock:
                 # Preparar arrays para Java
                 texts_str = '", "'.join(texts)
@@ -272,9 +183,6 @@ import com.lumen.ledcenter3.protocol.SendUtil;
 public class PanelSendMulti {{
     public static void main(String[] args) {{
         try {{
-            // Inicializar red si no está inicializada
-            SendUtil.initNetwork("{ip}", {self.initialized_panels[ip]['port']}, "{self.initialized_panels[ip]['idcode']}");
-            
             // Preparar arrays
             String[] texts = {{"{texts_str}"}};
             int[] colors = {{{colors_str}}};
