@@ -128,16 +128,20 @@ class PanelCommunicationService:
             # Preparar ventanas para la API
             windows = []
             for i, text in enumerate(texts):
+                # Convertir efecto numérico a string descriptivo
+                effect_value = show_effects[i] if i < len(show_effects) else 2
+                effect_string = "fijo" if effect_value == 2 else "scroll" if effect_value == 12 else "static"
+                
                 window = {
                     "id": i,
                     "text": text,
                     "color": colors[i] if i < len(colors) else 1,
                     "fontSize": font_sizes[i] if i < len(font_sizes) else 2,
                     "speed": 100,
-                    "effect": str(show_effects[i]) if i < len(show_effects) else "static",  # Convertir a string
+                    "effect": effect_string,  # Usar string descriptivo
                     "stayTime": 50,
-                    "alignmentH": 1,
-                    "alignmentV": 1
+                    "alignmentH": 0,  # Centrado horizontal
+                    "alignmentV": 0   # Centrado vertical
                 }
                 windows.append(window)
             
