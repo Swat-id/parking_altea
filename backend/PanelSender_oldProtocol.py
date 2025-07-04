@@ -101,6 +101,9 @@ public class PanelSendTextCorrect {{
                 public void onTcpNetWorkListener(int status, String message) {{
                     System.out.println("Listener: Status=" + status + ", Message=" + message);
                 }}
+                public void breakSocket(int status) {{
+                    System.out.println("BreakSocket: Status=" + status);
+                }}
             }});
             
             System.out.println("4. Enviando texto con SendUtil...");
@@ -134,8 +137,8 @@ public class PanelSendTextCorrect {{
 }}
 """
                 
-                # Crear archivo temporal
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.java', delete=False) as f:
+                # Crear archivo temporal con nombre correcto
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.java', delete=False, prefix='PanelSendTextCorrect') as f:
                     f.write(java_code)
                     java_file = f.name
                 
