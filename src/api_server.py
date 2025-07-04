@@ -481,6 +481,7 @@ def set_occupancy(pid):
         final_occupancy = p.current_occupancy
         final_status = p.status
         final_free_spaces = p.max_capacity - final_occupancy
+        final_max_capacity = p.max_capacity  # Guardar antes de cerrar sesión
         
         session.commit()
         session.close()
@@ -489,7 +490,7 @@ def set_occupancy(pid):
         try:
             from panel_communication_service import update_parking_panels
             # Usar el mismo formato que el flujo de cámaras que funciona correctamente
-            update_parking_panels(pid, final_occupancy, p.max_capacity, final_status)
+            update_parking_panels(pid, final_occupancy, final_max_capacity, final_status)
             logger.info(f"Panel messages sent after manual occupancy update for parking {parking_name}")
         except Exception as e:
             logger.error(f"Error sending panel messages after manual occupancy update: {e}")
