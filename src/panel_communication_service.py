@@ -439,20 +439,24 @@ def update_parking_panels(parking_id: int, current_occupancy: int, max_capacity:
             else:
                 occupancy_percentage = 0
             
-            # Determinar el mensaje según el estado
+            # Determinar el mensaje y color según el estado
             if status.lower() == 'closed':
                 message = "PARKING TANCAT"
+                color = 1  # Rojo para parking cerrado
             else:
                 # Usar el estado del parking (COMPLETO, DENSO, LIBRE)
                 if status.upper() == 'COMPLETO':
                     status_text = "COMPLET"  # CORREGIDO: sin "PARKING"
+                    color = 1  # Rojo para estado completo
                 elif status.upper() == 'DENSO':
                     status_text = "DENS"  # CORREGIDO: sin "PARKING"
+                    color = 3  # Amarillo para estado denso
                 else:
                     status_text = "LLIURE"  # CORREGIDO: sin "PLACES LLIURES"
+                    color = 2  # Verde para estado libre
                 
-                # CORRECCIÓN: Incluir ocupación en el mensaje
-                message = f"{current_occupancy}/{max_capacity} - {status_text}"
+                # CORRECCIÓN: Solo mostrar el estado en valenciano
+                message = status_text
             
             # Usar el PanelCommunicationService para enviar mensajes
             panel_service = PanelCommunicationService()
@@ -464,9 +468,9 @@ def update_parking_panels(parking_id: int, current_occupancy: int, max_capacity:
                     result = panel_service.send_custom_text(
                         panel_ip=panel.ip,
                         text=message,
-                        color=2,  # Verde por defecto
+                        color=color,  # Color dinámico según estado
                         font_size=2,  # Tamaño 16 píxeles (código 2)
-                        effect=2  # Fijo por defecto
+                        effect=1  # Fijo (valor correcto)
                     )
                     
                     if result.get('success'):

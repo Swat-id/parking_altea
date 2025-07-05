@@ -340,17 +340,26 @@ const ParkingDetail = () => {
       setSaving(true)
       setOccupancyError('')
       
-      await parkingService.updateOccupancy(id, occupancy)
+      const response = await parkingService.updateOccupancy(id, occupancy)
       
-      // Recargar datos del parking
-      const updatedParking = await parkingService.getParking(id)
-      setParking(updatedParking)
+      // Actualizar el estado local con la respuesta del servidor
+      if (response && response.status === 'ok') {
+        setParking(prevParking => ({
+          ...prevParking,
+          plazas_ocupadas: response.occupancy,
+          estado: response.status
+        }))
+        
+        // Mostrar mensaje de éxito
+        toast.success('Ocupación actualizada correctamente')
+      }
       
       setEditingOccupancy(false)
       setNewOccupancy('')
     } catch (err) {
       setOccupancyError('Error actualizando ocupación')
       console.error('Error:', err)
+      toast.error('Error al actualizar la ocupación')
     } finally {
       setSaving(false)
     }
