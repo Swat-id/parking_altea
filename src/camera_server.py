@@ -18,14 +18,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Importar la función de actualización de paneles
-try:
-    from panel_communication_service import update_parking_panels
-    logger.info("Función update_parking_panels importada correctamente")
-except ImportError as e:
-    logger.error(f"Error importando update_parking_panels: {e}")
-    def update_parking_panels(parking_id, current_occupancy, max_capacity, status):
-        logger.warning(f"Función update_parking_panels no disponible - Parking: {parking_id}, Ocupación: {current_occupancy}/{max_capacity}, Estado: {status}")
-        return {'success': False, 'error': 'Función no disponible'}
+from panel_communication_service import update_parking_panels
+logger.info("Función update_parking_panels importada correctamente")
 
 app = Flask(__name__)
 engine = create_engine(config.DB_URL, echo=False)
