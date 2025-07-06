@@ -42,16 +42,17 @@ def register_user():
         name = req.get('name')
         email = req.get('email')
         password = req.get('password')
+        role = req.get('role', 'user')  # Nuevo: permitir especificar rol
         
         if not all([name, email, password]):
             return jsonify({'error': 'Faltan campos requeridos: name, email, password'}), 400
         
         session = Session()
-        result = create_user(session, name, email, password)
+        result = create_user(session, name, email, password, role)  # Nuevo: pasar rol
         session.close()
         
         if result['success']:
-            logger.info(f"Usuario creado: {email}")
+            logger.info(f"Usuario creado: {email} (rol: {role})")
             return jsonify(result), 201
         else:
             return jsonify({'error': result['error']}), 400
@@ -80,6 +81,7 @@ def login():
         
         if not result['success']:
             return jsonify({'error': result['error']}), 401
+        # Nuevo: incluir el rol en la respuesta
         return jsonify({'token': result['token'], 'user': result['user']})
     except Exception as e:
         # LOG: Imprimir excepción completa

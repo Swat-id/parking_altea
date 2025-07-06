@@ -21,20 +21,26 @@ def verify_password(password: str, password_hash: str) -> bool:
     """Verifica una contraseña contra su hash"""
     return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
 
-def create_user(db_session: Session, name: str, email: str, password: str) -> dict:
-    """Crea un nuevo usuario"""
+def create_user(db_session: Session, name: str, email: str, password: str, role: str = 'user') -> dict:
+    """Crea un nuevo usuario con rol"""
     try:
         # Verificar si el email ya existe
         existing_user = db_session.query(User).filter(User.email == email).first()
         if existing_user:
             return {"success": False, "error": "El email ya está registrado"}
         
+        # Validar rol
+        allowed_roles = ['superadmin', 'user']
+        if role not in allowed_roles:
+            return {"success": False, "error": f"Rol no permitido: {role}"}
+        
         # Crear nuevo usuario
         password_hash = hash_password(password)
         new_user = User(
             name=name,
             email=email,
-            password_hash=password_hash
+            password_hash=password_hash,
+            role=role
         )
         
         db_session.add(new_user)
@@ -47,6 +53,7 @@ def create_user(db_session: Session, name: str, email: str, password: str) -> di
                 "id": new_user.id,
                 "name": new_user.name,
                 "email": new_user.email,
+                "role": new_user.role,
                 "created_at": new_user.created_at.isoformat()
             }
         }
@@ -55,7 +62,7 @@ def create_user(db_session: Session, name: str, email: str, password: str) -> di
         return {"success": False, "error": str(e)}
 
 def authenticate_user(db_session: Session, email: str, password: str) -> dict:
-    """Autentica un usuario y devuelve un token JWT"""
+    """Autentica un usuario y devuelve un token JWT con rol"""
     try:
         user = db_session.query(User).filter(User.email == email, User.is_active == True).first()
         
@@ -65,11 +72,12 @@ def authenticate_user(db_session: Session, email: str, password: str) -> dict:
         if not verify_password(password, user.password_hash):
             return {"success": False, "error": "Contraseña incorrecta"}
         
-        # Generar token JWT
+        # Generar token JWT con rol
         payload = {
             "user_id": user.id,
             "email": user.email,
             "name": user.name,
+            "role": user.role,
             "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS)
         }
         
@@ -81,7 +89,8 @@ def authenticate_user(db_session: Session, email: str, password: str) -> dict:
             "user": {
                 "id": user.id,
                 "name": user.name,
-                "email": user.email
+                "email": user.email,
+                "role": user.role
             }
         }
     except Exception as e:
@@ -235,7 +244,8 @@ def require_auth(f):
             request.user_data = {
                 "user_id": user.id,
                 "email": user.email,
-                "name": user.name
+                "name": user.name,
+                "role": user.role
             }
             return f(*args, **kwargs)
 
@@ -245,4 +255,115 @@ def require_auth(f):
             return jsonify({"error": token_data["error"]}), 401
         request.user_data = token_data["user_data"]
         return f(*args, **kwargs)
-    return decorated_function 
+    return decorated_function
+
+# Decorador para requerir rol superadmin
+def require_superadmin(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Primero verificar autenticación
+        auth_result = require_auth(lambda: None)()
+        if hasattr(auth_result, 'status_code') and auth_result.status_code == 401:
+            return auth_result
+        
+        # Verificar que el usuario es superadmin
+        user_role = request.user_data.get('role')
+        if user_role != 'superadmin':
+            return jsonify({"error": "Acceso denegado: se requiere rol superadmin"}), 403
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Decorador para requerir acceso a un parking específico
+def require_parking_access(parking_id_param='pid'):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            # Primero verificar autenticación
+            auth_result = require_auth(lambda: None)()
+            if hasattr(auth_result, 'status_code') and auth_result.status_code == 401:
+                return auth_result
+            
+            user_id = request.user_data.get('user_id')
+            user_role = request.user_data.get('role')
+            
+            # Superadmin tiene acceso a todos los parkings
+            if user_role == 'superadmin':
+                return f(*args, **kwargs)
+            
+            # Obtener el parking_id del parámetro de la URL
+            parking_id = kwargs.get(parking_id_param)
+            if not parking_id:
+                return jsonify({"error": f"Parámetro {parking_id_param} no encontrado"}), 400
+            
+            # Verificar si el usuario tiene acceso al parking
+            from sqlalchemy.orm import sessionmaker
+            from config import DB_URL
+            from sqlalchemy import create_engine
+            engine = create_engine(DB_URL, echo=False)
+            SessionLocal = sessionmaker(bind=engine)
+            db_session = SessionLocal()
+            
+            try:
+                # Verificar si existe la asignación
+                user_parking = db_session.query(UserParking).filter(
+                    UserParking.user_id == user_id,
+                    UserParking.parking_id == parking_id
+                ).first()
+                
+                if not user_parking:
+                    return jsonify({"error": "Acceso denegado: no tienes permisos para este parking"}), 403
+                
+                return f(*args, **kwargs)
+            finally:
+                db_session.close()
+        
+        return decorated_function
+    return decorator
+
+# Decorador para requerir acceso a un panel específico
+def require_panel_access(panel_id_param='panel_id'):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            # Primero verificar autenticación
+            auth_result = require_auth(lambda: None)()
+            if hasattr(auth_result, 'status_code') and auth_result.status_code == 401:
+                return auth_result
+            
+            user_id = request.user_data.get('user_id')
+            user_role = request.user_data.get('role')
+            
+            # Superadmin tiene acceso a todos los paneles
+            if user_role == 'superadmin':
+                return f(*args, **kwargs)
+            
+            # Obtener el panel_id del parámetro de la URL
+            panel_id = kwargs.get(panel_id_param)
+            if not panel_id:
+                return jsonify({"error": f"Parámetro {panel_id_param} no encontrado"}), 400
+            
+            # Verificar si el usuario tiene acceso al panel
+            from sqlalchemy.orm import sessionmaker
+            from config import DB_URL
+            from sqlalchemy import create_engine
+            engine = create_engine(DB_URL, echo=False)
+            SessionLocal = sessionmaker(bind=engine)
+            db_session = SessionLocal()
+            
+            try:
+                # Verificar si existe la asignación
+                user_panel = db_session.query(UserPanel).filter(
+                    UserPanel.user_id == user_id,
+                    UserPanel.panel_id == panel_id
+                ).first()
+                
+                if not user_panel:
+                    return jsonify({"error": "Acceso denegado: no tienes permisos para este panel"}), 403
+                
+                return f(*args, **kwargs)
+            finally:
+                db_session.close()
+        
+        return decorated_function
+    return decorator 

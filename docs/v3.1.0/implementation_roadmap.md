@@ -82,7 +82,7 @@
   - Crear `get_user_resources()` para obtener recursos por usuario
   - **Estimación**: 6 horas
 
-- [ ] **T2.2** - Implementar middleware de permisos
+- [x] **T2.2** - Implementar middleware de permisos ✅
   - Crear decorador `require_superadmin()`
   - Crear decorador `require_parking_access()`
   - Implementar validación de permisos granular
@@ -233,13 +233,13 @@
 
 ### **Estado Actual**
 - **Sprint 1**: 5/5 tareas completadas (100%) ✅ COMPLETADO
-- **Sprint 2**: 0/5 tareas completadas (0%)
+- **Sprint 2**: 2/5 tareas completadas (40%) 🔄 EN PROGRESO
 - **Sprint 3**: 0/6 tareas completadas (0%)
 - **Sprint 4**: 0/6 tareas completadas (0%)
 
 ### **Tiempo Estimado**
-- **Completado**: 13 horas
-- **Restante**: 90 horas
+- **Completado**: 21 horas
+- **Restante**: 82 horas
 - **Total**: 103 horas
 
 ### **Próximas Tareas**
