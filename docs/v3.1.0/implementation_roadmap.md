@@ -88,12 +88,17 @@
   - Implementar validación de permisos granular
   - **Estimación**: 8 horas
 
-- [ ] **T2.3** - Crear endpoints de gestión de usuarios
-  - `GET /admin/users` - Listar usuarios (solo superadmin)
-  - `POST /admin/users` - Crear usuario (solo superadmin)
-  - `POST /admin/users/{id}/assign` - Asignar parkings
-  - `DELETE /admin/users/{id}` - Eliminar usuario
+- [x] **T2.3** - Crear endpoints de gestión de usuarios ✅
+  - `GET /admin/users` - Listar usuarios (solo superadmin) ✅
+  - `POST /admin/users` - Crear usuario (solo superadmin) ✅
+  - `POST /admin/users/{id}/assign` - Asignar parkings ✅
+  - `DELETE /admin/users/{id}` - Eliminar usuario ✅
+  - `GET /admin/users/{id}` - Detalles de usuario ✅
+  - `PUT /admin/users/{id}/role` - Cambiar rol ✅
+  - `POST /admin/users/{id}/toggle` - Activar/desactivar ✅
   - **Estimación**: 6 horas
+  - **Archivos**: `src/api_server.py`, `test/v3.1.0/test_admin_endpoints.py`
+  - **Documentación**: `docs/v3.1.0/T2.3_admin_endpoints_implementation.md`
 
 - [ ] **T2.4** - Actualizar endpoints existentes
   - Modificar endpoints para usar nuevos decoradores
@@ -233,13 +238,13 @@
 
 ### **Estado Actual**
 - **Sprint 1**: 5/5 tareas completadas (100%) ✅ COMPLETADO
-- **Sprint 2**: 2/5 tareas completadas (40%) 🔄 EN PROGRESO
+- **Sprint 2**: 3/5 tareas completadas (60%) 🔄 EN PROGRESO
 - **Sprint 3**: 0/6 tareas completadas (0%)
 - **Sprint 4**: 0/6 tareas completadas (0%)
 
 ### **Tiempo Estimado**
-- **Completado**: 21 horas
-- **Restante**: 82 horas
+- **Completado**: 27 horas
+- **Restante**: 76 horas
 - **Total**: 103 horas
 
 ### **Próximas Tareas**

@@ -16,7 +16,7 @@ from models import Base, User, Parking, Access, Panel, OccupancyHistory, Schedul
 from panel_schedule_service import PanelScheduleService
 from auth import (
     create_user, authenticate_user, delete_user, change_password, 
-    get_user_permissions, assign_user_to_resources, require_auth
+    get_user_permissions, assign_user_to_resources, require_auth, require_superadmin
 )
 
 # Configurar logging
@@ -1954,6 +1954,314 @@ def get_parking_active_schedules(pid):
         
     except Exception as e:
         logger.error(f"Error obteniendo programaciones activas del parking {pid}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+# ============================================================================
+# ENDPOINTS DE ADMINISTRACIÓN DE USUARIOS (solo superadmin)
+# ============================================================================
+
+@app.route('/admin/users', methods=['GET'])
+@require_superadmin
+def get_all_users():
+    """Listar todos los usuarios (solo superadmin)"""
+    try:
+        session = Session()
+        
+        # Obtener todos los usuarios activos
+        users = session.query(User).filter(User.is_active == True).all()
+        
+        # Formatear respuesta
+        users_data = []
+        for user in users:
+            # Obtener parkings asignados
+            user_parkings = session.query(UserParking).filter(UserParking.user_id == user.id).all()
+            parking_ids = [up.parking_id for up in user_parkings]
+            
+            # Obtener paneles asignados
+            user_panels = session.query(UserPanel).filter(UserPanel.user_id == user.id).all()
+            panel_ids = [up.panel_id for up in user_panels]
+            
+            # Obtener cámaras asignadas
+            user_accesses = session.query(UserAccess).filter(UserAccess.user_id == user.id).all()
+            access_ids = [ua.access_id for ua in user_accesses]
+            
+            users_data.append({
+                'id': user.id,
+                'name': user.name,
+                'email': user.email,
+                'role': user.role,
+                'is_active': user.is_active,
+                'created_at': user.created_at.isoformat() if user.created_at else None,
+                'parking_ids': parking_ids,
+                'panel_ids': panel_ids,
+                'access_ids': access_ids
+            })
+        
+        session.close()
+        
+        logger.info(f"Lista de usuarios obtenida por superadmin")
+        return jsonify({
+            'success': True,
+            'users': users_data,
+            'total': len(users_data)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo usuarios: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/admin/users', methods=['POST'])
+@require_superadmin
+def create_admin_user():
+    """Crear un nuevo usuario (solo superadmin)"""
+    try:
+        req = request.get_json(force=True)
+        name = req.get('name')
+        email = req.get('email')
+        password = req.get('password')
+        role = req.get('role', 'user')
+        
+        if not all([name, email, password]):
+            return jsonify({'error': 'Faltan campos requeridos: name, email, password'}), 400
+        
+        # Validar rol
+        allowed_roles = ['superadmin', 'user']
+        if role not in allowed_roles:
+            return jsonify({'error': f'Rol no permitido: {role}. Roles válidos: {allowed_roles}'}), 400
+        
+        session = Session()
+        result = create_user(session, name, email, password, role)
+        session.close()
+        
+        if result['success']:
+            logger.info(f"Usuario creado por superadmin: {email} (rol: {role})")
+            return jsonify(result), 201
+        else:
+            return jsonify({'error': result['error']}), 400
+            
+    except Exception as e:
+        logger.error(f"Error creando usuario: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/admin/users/<int:user_id>', methods=['GET'])
+@require_superadmin
+def get_user_details(user_id):
+    """Obtener detalles de un usuario específico (solo superadmin)"""
+    try:
+        session = Session()
+        
+        user = session.query(User).filter(User.id == user_id, User.is_active == True).first()
+        if not user:
+            session.close()
+            return jsonify({'error': 'Usuario no encontrado'}), 404
+        
+        # Obtener parkings asignados con detalles
+        user_parkings = session.query(UserParking, Parking).join(
+            Parking, UserParking.parking_id == Parking.id
+        ).filter(UserParking.user_id == user_id).all()
+        
+        parking_details = []
+        for up, parking in user_parkings:
+            parking_details.append({
+                'id': parking.id,
+                'name': parking.name,
+                'address': parking.address
+            })
+        
+        # Obtener paneles asignados con detalles
+        user_panels = session.query(UserPanel, Panel).join(
+            Panel, UserPanel.panel_id == Panel.id
+        ).filter(UserPanel.user_id == user_id).all()
+        
+        panel_details = []
+        for up, panel in user_panels:
+            panel_details.append({
+                'id': panel.id,
+                'ip': panel.ip,
+                'name': panel.name
+            })
+        
+        # Obtener cámaras asignadas con detalles
+        user_accesses = session.query(UserAccess, Access).join(
+            Access, UserAccess.access_id == Access.id
+        ).filter(UserAccess.user_id == user_id).all()
+        
+        access_details = []
+        for ua, access in user_accesses:
+            access_details.append({
+                'id': access.id,
+                'name': access.name,
+                'line': access.line
+            })
+        
+        user_data = {
+            'id': user.id,
+            'name': user.name,
+            'email': user.email,
+            'role': user.role,
+            'is_active': user.is_active,
+            'created_at': user.created_at.isoformat() if user.created_at else None,
+            'parkings': parking_details,
+            'panels': panel_details,
+            'accesses': access_details
+        }
+        
+        session.close()
+        
+        return jsonify({
+            'success': True,
+            'user': user_data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo detalles de usuario: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/admin/users/<int:user_id>/assign', methods=['POST'])
+@require_superadmin
+def assign_user_resources(user_id):
+    """Asignar recursos (parkings, paneles, cámaras) a un usuario (solo superadmin)"""
+    try:
+        req = request.get_json(force=True)
+        parking_ids = req.get('parking_ids', [])
+        panel_ids = req.get('panel_ids', [])
+        access_ids = req.get('access_ids', [])
+        
+        # Verificar que el usuario existe
+        session = Session()
+        user = session.query(User).filter(User.id == user_id, User.is_active == True).first()
+        if not user:
+            session.close()
+            return jsonify({'error': 'Usuario no encontrado'}), 404
+        
+        # Asignar recursos
+        result = assign_user_to_resources(
+            session, user_id, parking_ids, panel_ids, access_ids
+        )
+        session.close()
+        
+        if result['success']:
+            logger.info(f"Recursos asignados a usuario {user_id} por superadmin")
+            return jsonify(result)
+        else:
+            return jsonify({'error': result['error']}), 400
+            
+    except Exception as e:
+        logger.error(f"Error asignando recursos: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/admin/users/<int:user_id>', methods=['DELETE'])
+@require_superadmin
+def delete_admin_user(user_id):
+    """Eliminar un usuario (solo superadmin)"""
+    try:
+        # Verificar que no se elimine a sí mismo
+        current_user_id = request.user_data['user_id']
+        if current_user_id == user_id:
+            return jsonify({'error': 'No puedes eliminar tu propia cuenta'}), 400
+        
+        session = Session()
+        result = delete_user(session, user_id)
+        session.close()
+        
+        if result['success']:
+            logger.info(f"Usuario {user_id} eliminado por superadmin")
+            return jsonify(result)
+        else:
+            return jsonify({'error': result['error']}), 400
+            
+    except Exception as e:
+        logger.error(f"Error eliminando usuario: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/admin/users/<int:user_id>/role', methods=['PUT'])
+@require_superadmin
+def update_user_role(user_id):
+    """Actualizar rol de un usuario (solo superadmin)"""
+    try:
+        req = request.get_json(force=True)
+        new_role = req.get('role')
+        
+        if not new_role:
+            return jsonify({'error': 'Falta campo requerido: role'}), 400
+        
+        # Validar rol
+        allowed_roles = ['superadmin', 'user']
+        if new_role not in allowed_roles:
+            return jsonify({'error': f'Rol no permitido: {new_role}. Roles válidos: {allowed_roles}'}), 400
+        
+        # Verificar que no se cambie su propio rol
+        current_user_id = request.user_data['user_id']
+        if current_user_id == user_id:
+            return jsonify({'error': 'No puedes cambiar tu propio rol'}), 400
+        
+        session = Session()
+        
+        user = session.query(User).filter(User.id == user_id, User.is_active == True).first()
+        if not user:
+            session.close()
+            return jsonify({'error': 'Usuario no encontrado'}), 404
+        
+        old_role = user.role
+        user.role = new_role
+        session.commit()
+        session.close()
+        
+        logger.info(f"Rol de usuario {user_id} cambiado de {old_role} a {new_role} por superadmin")
+        return jsonify({
+            'success': True,
+            'message': f'Rol actualizado de {old_role} a {new_role}',
+            'user': {
+                'id': user.id,
+                'name': user.name,
+                'email': user.email,
+                'role': user.role
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error actualizando rol: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/admin/users/<int:user_id>/toggle', methods=['POST'])
+@require_superadmin
+def toggle_user_status(user_id):
+    """Activar/desactivar un usuario (solo superadmin)"""
+    try:
+        # Verificar que no se desactive a sí mismo
+        current_user_id = request.user_data['user_id']
+        if current_user_id == user_id:
+            return jsonify({'error': 'No puedes desactivar tu propia cuenta'}), 400
+        
+        session = Session()
+        
+        user = session.query(User).filter(User.id == user_id).first()
+        if not user:
+            session.close()
+            return jsonify({'error': 'Usuario no encontrado'}), 404
+        
+        old_status = user.is_active
+        user.is_active = not old_status
+        session.commit()
+        session.close()
+        
+        new_status = "activado" if user.is_active else "desactivado"
+        logger.info(f"Usuario {user_id} {new_status} por superadmin")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Usuario {new_status} correctamente',
+            'user': {
+                'id': user.id,
+                'name': user.name,
+                'email': user.email,
+                'role': user.role,
+                'is_active': user.is_active
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error cambiando estado de usuario: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
