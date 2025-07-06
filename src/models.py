@@ -10,13 +10,28 @@ class User(Base):
     name = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False)
     password_hash = Column(String, nullable=False)
+    role = Column(String(20), default='user', nullable=False)  # NUEVO: Campo para roles
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())  # NUEVO: Campo para auditoría
     is_active = Column(Boolean, default=True, nullable=False)
     
     # Relaciones con tablas intermedias
     user_parkings = relationship('UserParking', back_populates='user')
     user_panels = relationship('UserPanel', back_populates='user')
     user_accesses = relationship('UserAccess', back_populates='user')
+    
+    def __repr__(self):
+        return f"<User(id={self.id}, name='{self.name}', email='{self.email}', role='{self.role}')>"
+    
+    @property
+    def is_superadmin(self):
+        """Verificar si el usuario es superadmin"""
+        return self.role == 'superadmin'
+    
+    @property
+    def is_regular_user(self):
+        """Verificar si el usuario es usuario regular"""
+        return self.role == 'user'
 
 class Parking(Base):
     __tablename__ = 'parkings'
