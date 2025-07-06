@@ -123,14 +123,14 @@ class PanelCommunicationService:
             if font_sizes is None:
                 font_sizes = [2] * len(texts)  # Tamaño 16 (valor 2) por defecto
             if show_effects is None:
-                show_effects = [2] * len(texts)  # Fijo por defecto (valor 2) - CORREGIDO
+                show_effects = [1] * len(texts)  # Fijo por defecto (valor 1) - CORREGIDO
                 
             # Preparar ventanas para la API
             windows = []
             for i, text in enumerate(texts):
                 # Convertir efecto numérico a string descriptivo
-                effect_value = show_effects[i] if i < len(show_effects) else 2
-                effect_string = "fijo" if effect_value == 2 else "scroll" if effect_value == 12 else "static"
+                effect_value = show_effects[i] if i < len(show_effects) else 1
+                effect_string = "fijo" if effect_value == 1 else "scroll" if effect_value == 12 else "static"
                 
                 window = {
                     "id": i,
@@ -316,7 +316,7 @@ class PanelCommunicationService:
     
     def send_custom_text(self, panel_ip: str, text: str, 
                         color: int = 1, font_size: int = 2, 
-                        effect: int = 2) -> Dict:  # Fijo por defecto (valor 2) - CORREGIDO
+                        effect: int = 1) -> Dict:  # Fijo por defecto (valor 1) - CORREGIDO
         """
         Enviar texto personalizado a un panel
         
@@ -325,7 +325,7 @@ class PanelCommunicationService:
             text: Texto a enviar
             color: Color del texto (1=Rojo, 2=Verde, 3=Amarillo, etc.)
             font_size: Tamaño de fuente (0=8px, 1=12px, 2=16px, etc.)
-            effect: Efecto (2=fijo, 12=scroll) - CORREGIDO
+            effect: Efecto (1=fijo, 12=scroll) - CORREGIDO
             
         Returns:
             Diccionario con el resultado de la operación
