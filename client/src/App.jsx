@@ -8,6 +8,8 @@ import Schedules from './pages/Schedules'
 import Statistics from './pages/Statistics'
 import CameraLogs from './pages/CameraLogs'
 import Profile from './pages/Profile'
+import UserManagement from './pages/UserManagement'
+import AdminDashboard from './pages/AdminDashboard'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -40,6 +42,12 @@ function App() {
         } />
         <Route path="/profile" element={
           <ProtectedRoute><Profile /></ProtectedRoute>
+        } />
+        <Route path="/admin" element={
+          <ProtectedRoute requireSuperadmin><AdminDashboard /></ProtectedRoute>
+        } />
+        <Route path="/admin/users" element={
+          <ProtectedRoute requireSuperadmin><UserManagement /></ProtectedRoute>
         } />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

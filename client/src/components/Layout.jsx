@@ -12,7 +12,8 @@ import {
   Building2,
   Camera,
   Calendar,
-  ShieldCheck
+  ShieldCheck,
+  Users
 } from 'lucide-react'
 
 const Layout = ({ children }) => {
@@ -33,7 +34,8 @@ const Layout = ({ children }) => {
 
   // Opciones de administración solo para superadmin
   const adminNavigation = [
-    { name: 'Administración', href: '/admin/users', current: location.pathname === '/admin/users', icon: ShieldCheck },
+    { name: 'Dashboard Admin', href: '/admin', current: location.pathname === '/admin', icon: ShieldCheck },
+    { name: 'Gestión Usuarios', href: '/admin/users', current: location.pathname === '/admin/users', icon: Users },
   ]
 
   // Combinar navegación según rol
