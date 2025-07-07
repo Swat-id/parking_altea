@@ -16,7 +16,8 @@ from models import Base, User, Parking, Access, Panel, OccupancyHistory, Schedul
 from panel_schedule_service import PanelScheduleService
 from auth import (
     create_user, authenticate_user, delete_user, change_password, 
-    get_user_permissions, assign_user_to_resources, require_auth, require_superadmin
+    get_user_permissions, assign_user_to_resources, require_auth, require_superadmin,
+    require_parking_access, require_panel_access
 )
 
 # Configurar logging
@@ -420,6 +421,7 @@ def get_parking(pid):
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/parking/<int:pid>/occupancy', methods=['POST'])
+@require_parking_access('pid')
 def set_occupancy(pid):
     """Establecer ocupación de un parking"""
     try:
@@ -533,6 +535,7 @@ def set_occupancy(pid):
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/parking/<int:pid>/config', methods=['POST'])
+@require_parking_access('pid')
 def update_parking_config(pid):
     """Actualizar configuración de un parking"""
     try:
@@ -616,6 +619,7 @@ def update_parking_config(pid):
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/parking/<int:pid>/message', methods=['POST'])
+@require_parking_access('pid')
 def set_parking_message(pid):
     """Establecer mensaje para todos los paneles de un parking"""
     try:
@@ -872,6 +876,7 @@ def get_all_panels():
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/panel/<int:panel_id>/message', methods=['POST'])
+@require_panel_access('panel_id')
 def send_message_to_panel(panel_id):
     """Enviar mensaje a un panel específico por ID"""
     try:
@@ -986,6 +991,7 @@ def test_panel(panel_id):
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/panel/<int:panel_id>/type', methods=['PUT'])
+@require_panel_access('panel_id')
 def update_panel_type(panel_id):
     """Actualizar el tipo de panel"""
     try:
@@ -1061,6 +1067,7 @@ def get_all_panel_types():
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/parking/<int:pid>/statistics', methods=['GET'])
+@require_parking_access('pid')
 def get_parking_statistics(pid):
     """Obtener estadísticas de un parking"""
     try:
@@ -1127,6 +1134,7 @@ def get_all_statistics():
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/parking/<int:pid>/history', methods=['GET'])
+@require_parking_access('pid')
 def get_occupancy_history(pid):
     """Obtener historial de ocupación de un parking"""
     try:
@@ -1746,6 +1754,7 @@ def get_schedules():
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/schedules', methods=['POST'])
+@require_superadmin
 def create_schedule():
     """Crear una nueva programación"""
     try:

@@ -100,18 +100,20 @@
   - **Archivos**: `src/api_server.py`, `test/v3.1.0/test_admin_endpoints.py`
   - **Documentación**: `docs/v3.1.0/T2.3_admin_endpoints_implementation.md`
 
-- [ ] **T2.4** - Actualizar endpoints existentes
-  - Modificar endpoints para usar nuevos decoradores
-  - Implementar filtrado por permisos de usuario
-  - Agregar logging de acciones de usuarios
+- [x] **T2.4** - Actualizar endpoints existentes ✅
+  - Modificar endpoints para usar nuevos decoradores ✅
+  - Implementar filtrado por permisos de usuario ✅
+  - Agregar logging de acciones de usuarios ✅
   - **Estimación**: 4 horas
+  - **Archivos**: `src/api_server.py`, `docs/v3.1.0/T2.4_endpoints_protection_summary.md`
 
 #### Tareas de Testing
-- [ ] **T2.5** - Tests de autenticación
-  - Tests unitarios para funciones de auth
-  - Tests de integración para endpoints
-  - Tests de permisos y roles
+- [x] **T2.5** - Tests de autenticación ✅
+  - Tests unitarios para funciones de auth ✅
+  - Tests de integración para endpoints ✅
+  - Tests de permisos y roles ✅
   - **Estimación**: 4 horas
+  - **Archivos**: `test/v3.1.0/test_endpoints_protection.py`
 
 #### Entregables Sprint 2
 - ✅ Sistema de autenticación con roles
@@ -238,13 +240,13 @@
 
 ### **Estado Actual**
 - **Sprint 1**: 5/5 tareas completadas (100%) ✅ COMPLETADO
-- **Sprint 2**: 3/5 tareas completadas (60%) 🔄 EN PROGRESO
+- **Sprint 2**: 5/5 tareas completadas (100%) ✅ COMPLETADO
 - **Sprint 3**: 0/6 tareas completadas (0%)
 - **Sprint 4**: 0/6 tareas completadas (0%)
 
 ### **Tiempo Estimado**
-- **Completado**: 27 horas
-- **Restante**: 76 horas
+- **Completado**: 35 horas
+- **Restante**: 68 horas
 - **Total**: 103 horas
 
 ### **Próximas Tareas**
