@@ -2,32 +2,22 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useQuery } from 'react-query'
 import { authService } from '../services/authService'
+import ChangePasswordModal from '../components/ChangePasswordModal'
+import UserActivityLog from '../components/UserActivityLog'
 import { 
   User, 
   Mail, 
   Calendar, 
   Shield, 
-  Eye, 
-  EyeOff,
-  Save,
   CheckCircle,
-  AlertCircle,
-  Clock
+  Clock,
+  Key
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const Profile = () => {
-  const { user, updatePassword } = useAuth()
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
-  const [showNewPassword, setShowNewPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [isChangingPassword, setIsChangingPassword] = useState(false)
-  
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  })
+  const { user } = useAuth()
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false)
 
   // Obtener permisos del usuario
   const { data: permissions } = useQuery(
@@ -38,65 +28,18 @@ const Profile = () => {
     }
   )
 
-  const handlePasswordChange = async (e) => {
-    e.preventDefault()
-    
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      toast.error('Las contraseñas no coinciden')
-      return
+  // Obtener parkings del usuario
+  const { data: userParkings } = useQuery(
+    'userParkings',
+    authService.getUserParkings,
+    {
+      enabled: !!user
     }
+  )
 
-    if (passwordForm.newPassword.length < 8) {
-      toast.error('La nueva contraseña debe tener al menos 8 caracteres')
-      return
-    }
-
-    setIsChangingPassword(true)
-    
-    try {
-      const result = await updatePassword(passwordForm.currentPassword, passwordForm.newPassword)
-      if (result.success) {
-        setPasswordForm({
-          currentPassword: '',
-          newPassword: '',
-          confirmPassword: ''
-        })
-      }
-    } catch (error) {
-      console.error('Error changing password:', error)
-    } finally {
-      setIsChangingPassword(false)
-    }
+  const handlePasswordChangeSuccess = () => {
+    toast.success('Contraseña cambiada exitosamente')
   }
-
-  const getPasswordStrength = (password) => {
-    if (!password) return { strength: 0, color: 'bg-gray-200', text: '' }
-    
-    let strength = 0
-    if (password.length >= 8) strength++
-    if (/[a-z]/.test(password)) strength++
-    if (/[A-Z]/.test(password)) strength++
-    if (/[0-9]/.test(password)) strength++
-    if (/[^A-Za-z0-9]/.test(password)) strength++
-
-    switch (strength) {
-      case 0:
-      case 1:
-        return { strength, color: 'bg-red-500', text: 'Muy débil' }
-      case 2:
-        return { strength, color: 'bg-orange-500', text: 'Débil' }
-      case 3:
-        return { strength, color: 'bg-yellow-500', text: 'Media' }
-      case 4:
-        return { strength, color: 'bg-blue-500', text: 'Fuerte' }
-      case 5:
-        return { strength, color: 'bg-green-500', text: 'Muy fuerte' }
-      default:
-        return { strength, color: 'bg-gray-200', text: '' }
-    }
-  }
-
-  const passwordStrength = getPasswordStrength(passwordForm.newPassword)
 
   return (
     <div className="space-y-6">
@@ -110,13 +53,13 @@ const Profile = () => {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Información del usuario */}
-        <div className="card">
+        <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center mb-6">
-            <div className="h-16 w-16 rounded-full bg-primary-100 flex items-center justify-center">
-              <User className="h-8 w-8 text-primary-600" />
+            <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
+              <User className="h-8 w-8 text-blue-600" />
             </div>
             <div className="ml-4">
-              <h2 className="text-lg font-medium text-gray-900">{user?.name}</h2>
+              <h2 className="text-lg font-medium text-gray-900">{user?.name || 'Sin nombre'}</h2>
               <p className="text-sm text-gray-500">{user?.email}</p>
             </div>
           </div>
@@ -144,14 +87,35 @@ const Profile = () => {
               <Shield className="h-5 w-5 text-gray-400 mr-3" />
               <div>
                 <p className="text-sm font-medium text-gray-900">Rol</p>
-                <p className="text-sm text-gray-500">Administrador</p>
+                <p className="text-sm text-gray-500 capitalize">{user?.role || 'Usuario'}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center">
+              <div className="h-5 w-5 text-gray-400 mr-3 flex items-center justify-center">
+                <div className={`w-2 h-2 rounded-full ${user?.is_active ? 'bg-green-500' : 'bg-red-500'}`}></div>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">Estado</p>
+                <p className="text-sm text-gray-500">{user?.is_active ? 'Activo' : 'Inactivo'}</p>
               </div>
             </div>
           </div>
+
+          {/* Botón de cambio de contraseña */}
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <button
+              onClick={() => setShowChangePasswordModal(true)}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <Key className="h-4 w-4 mr-2" />
+              Cambiar Contraseña
+            </button>
+          </div>
         </div>
 
-        {/* Permisos */}
-        <div className="card">
+        {/* Permisos y recursos */}
+        <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-medium text-gray-900 mb-4">Permisos de Acceso</h2>
           
           {permissions ? (
@@ -161,7 +125,9 @@ const Profile = () => {
                   <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
                   <span className="text-sm font-medium text-green-900">Parkings</span>
                 </div>
-                <span className="text-sm text-green-600">{permissions.parkings || 0} asignados</span>
+                <span className="text-sm text-green-600">
+                  {permissions.permissions?.parking_ids?.length || 0} asignados
+                </span>
               </div>
 
               <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
@@ -169,16 +135,30 @@ const Profile = () => {
                   <CheckCircle className="h-5 w-5 text-blue-600 mr-2" />
                   <span className="text-sm font-medium text-blue-900">Paneles</span>
                 </div>
-                <span className="text-sm text-blue-600">{permissions.panels || 0} asignados</span>
+                <span className="text-sm text-blue-600">
+                  {permissions.permissions?.panel_ids?.length || 0} asignados
+                </span>
               </div>
 
               <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
                 <div className="flex items-center">
                   <CheckCircle className="h-5 w-5 text-purple-600 mr-2" />
-                  <span className="text-sm font-medium text-purple-900">Cámaras</span>
+                  <span className="text-sm font-medium text-purple-900">Accesos</span>
                 </div>
-                <span className="text-sm text-purple-600">{permissions.cameras || 0} asignadas</span>
+                <span className="text-sm text-purple-600">
+                  {permissions.permissions?.access_ids?.length || 0} asignados
+                </span>
               </div>
+
+              {user?.role === 'superadmin' && (
+                <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
+                  <div className="flex items-center">
+                    <Shield className="h-5 w-5 text-orange-600 mr-2" />
+                    <span className="text-sm font-medium text-orange-900">Superadmin</span>
+                  </div>
+                  <span className="text-sm text-orange-600">Acceso completo</span>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex items-center justify-center py-8">
@@ -189,192 +169,36 @@ const Profile = () => {
         </div>
       </div>
 
-      {/* Cambio de contraseña */}
-      <div className="card">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Cambiar Contraseña</h2>
-        
-        <form onSubmit={handlePasswordChange} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Contraseña Actual
-            </label>
-            <div className="relative">
-              <input
-                type={showCurrentPassword ? 'text' : 'password'}
-                value={passwordForm.currentPassword}
-                onChange={(e) => setPasswordForm({
-                  ...passwordForm,
-                  currentPassword: e.target.value
-                })}
-                className="input-field pr-10"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center"
-              >
-                {showCurrentPassword ? (
-                  <EyeOff className="h-5 w-5 text-gray-400" />
-                ) : (
-                  <Eye className="h-5 w-5 text-gray-400" />
-                )}
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nueva Contraseña
-            </label>
-            <div className="relative">
-              <input
-                type={showNewPassword ? 'text' : 'password'}
-                value={passwordForm.newPassword}
-                onChange={(e) => setPasswordForm({
-                  ...passwordForm,
-                  newPassword: e.target.value
-                })}
-                className="input-field pr-10"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowNewPassword(!showNewPassword)}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center"
-              >
-                {showNewPassword ? (
-                  <EyeOff className="h-5 w-5 text-gray-400" />
-                ) : (
-                  <Eye className="h-5 w-5 text-gray-400" />
-                )}
-              </button>
-            </div>
-            
-            {/* Indicador de fortaleza de contraseña */}
-            {passwordForm.newPassword && (
-              <div className="mt-2">
-                <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                  <span>Fortaleza de la contraseña</span>
-                  <span className={passwordStrength.text === 'Muy fuerte' ? 'text-green-600' : 
-                                  passwordStrength.text === 'Fuerte' ? 'text-blue-600' :
-                                  passwordStrength.text === 'Media' ? 'text-yellow-600' :
-                                  passwordStrength.text === 'Débil' ? 'text-orange-600' : 'text-red-600'}>
-                    {passwordStrength.text}
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className={`h-2 rounded-full transition-all duration-300 ${passwordStrength.color}`}
-                    style={{ width: `${(passwordStrength.strength / 5) * 100}%` }}
-                  />
+      {/* Parkings asignados */}
+      {userParkings && userParkings.parkings && userParkings.parkings.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">Parkings Asignados</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {userParkings.parkings.map((parking) => (
+              <div key={parking.id} className="border border-gray-200 rounded-lg p-4">
+                <h3 className="font-medium text-gray-900 mb-2">{parking.name}</h3>
+                <p className="text-sm text-gray-500 mb-2">{parking.address}</p>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Plazas: {parking.total_spaces}</span>
+                  <span className="text-gray-600">Ocupadas: {parking.occupied_spaces}</span>
                 </div>
               </div>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Confirmar Nueva Contraseña
-            </label>
-            <div className="relative">
-              <input
-                type={showConfirmPassword ? 'text' : 'password'}
-                value={passwordForm.confirmPassword}
-                onChange={(e) => setPasswordForm({
-                  ...passwordForm,
-                  confirmPassword: e.target.value
-                })}
-                className={`input-field pr-10 ${
-                  passwordForm.confirmPassword && passwordForm.newPassword !== passwordForm.confirmPassword
-                    ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                    : ''
-                }`}
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center"
-              >
-                {showConfirmPassword ? (
-                  <EyeOff className="h-5 w-5 text-gray-400" />
-                ) : (
-                  <Eye className="h-5 w-5 text-gray-400" />
-                )}
-              </button>
-            </div>
-            
-            {passwordForm.confirmPassword && passwordForm.newPassword !== passwordForm.confirmPassword && (
-              <p className="mt-1 text-sm text-red-600">
-                Las contraseñas no coinciden
-              </p>
-            )}
-          </div>
-
-          <div className="flex space-x-3 pt-4">
-            <button
-              type="submit"
-              disabled={isChangingPassword || passwordForm.newPassword !== passwordForm.confirmPassword}
-              className="btn-primary flex items-center"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              {isChangingPassword ? 'Cambiando...' : 'Cambiar Contraseña'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setPasswordForm({
-                currentPassword: '',
-                newPassword: '',
-                confirmPassword: ''
-              })}
-              className="btn-secondary"
-            >
-              Cancelar
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Información de seguridad */}
-      <div className="card">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Información de Seguridad</h2>
-        
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-            <div className="flex items-center">
-              <Shield className="h-5 w-5 text-gray-400 mr-3" />
-              <div>
-                <p className="text-sm font-medium text-gray-900">Autenticación JWT</p>
-                <p className="text-sm text-gray-500">Tokens seguros con expiración de 24 horas</p>
-              </div>
-            </div>
-            <CheckCircle className="h-5 w-5 text-green-600" />
-          </div>
-
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-            <div className="flex items-center">
-              <AlertCircle className="h-5 w-5 text-gray-400 mr-3" />
-              <div>
-                <p className="text-sm font-medium text-gray-900">Control de Acceso</p>
-                <p className="text-sm text-gray-500">Permisos granulares por recursos</p>
-              </div>
-            </div>
-            <CheckCircle className="h-5 w-5 text-green-600" />
-          </div>
-
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-            <div className="flex items-center">
-              <Clock className="h-5 w-5 text-gray-400 mr-3" />
-              <div>
-                <p className="text-sm font-medium text-gray-900">Sesión Activa</p>
-                <p className="text-sm text-gray-500">Última actividad: {new Date().toLocaleString('es-ES')}</p>
-              </div>
-            </div>
-            <CheckCircle className="h-5 w-5 text-green-600" />
+            ))}
           </div>
         </div>
+      )}
+
+      {/* Historial de actividad */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <UserActivityLog userId={user?.id} />
       </div>
+
+      {/* Modal de cambio de contraseña */}
+      <ChangePasswordModal
+        isOpen={showChangePasswordModal}
+        onClose={() => setShowChangePasswordModal(false)}
+        onSuccess={handlePasswordChangeSuccess}
+      />
     </div>
   )
 }
