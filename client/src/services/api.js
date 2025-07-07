@@ -16,11 +16,13 @@ const api = axios.create({
   },
 })
 
-// Interceptor simple para agregar el token
+// Interceptor para agregar el token automáticamente
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token') || 'default-token-toni-alos'
-    config.headers.Authorization = `Bearer ${token}`
+    const token = localStorage.getItem('token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
     return config
   },
   (error) => {
@@ -28,13 +30,32 @@ api.interceptors.request.use(
   }
 )
 
-// Interceptor simple para manejar errores sin redirecciones
+// Interceptor para manejar respuestas y errores
 api.interceptors.response.use(
   (response) => {
     return response
   },
   (error) => {
     console.error('API Error:', error.response?.status, error.response?.data)
+    
+    // Manejar errores de autenticación
+    if (error.response?.status === 401) {
+      // Token expirado o inválido
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      
+      // Redirigir a login solo si no estamos ya en la página de login
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
+    }
+    
+    // Manejar errores de permisos
+    if (error.response?.status === 403) {
+      console.error('Acceso denegado:', error.response.data?.error)
+      // No redirigir, solo mostrar error
+    }
+    
     return Promise.reject(error)
   }
 )

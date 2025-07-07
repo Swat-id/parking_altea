@@ -4,6 +4,12 @@ export const authService = {
   async login(email, password) {
     try {
       const response = await api.post('/auth/login', { email, password })
+      
+      // Guardar token en localStorage
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token)
+      }
+      
       return response.data
     } catch (error) {
       console.error('Login error:', error)
@@ -61,6 +67,125 @@ export const authService = {
     } catch (error) {
       console.error('Get user parking error:', error)
       throw error
+    }
+  },
+
+  // Nuevas funciones para gestión de usuarios (solo superadmin)
+  async getAllUsers() {
+    try {
+      const response = await api.get('/admin/users')
+      return response.data
+    } catch (error) {
+      console.error('Get all users error:', error)
+      throw error
+    }
+  },
+
+  async createUser(userData) {
+    try {
+      const response = await api.post('/admin/users', userData)
+      return response.data
+    } catch (error) {
+      console.error('Create user error:', error)
+      throw error
+    }
+  },
+
+  async getUserDetails(userId) {
+    try {
+      const response = await api.get(`/admin/users/${userId}`)
+      return response.data
+    } catch (error) {
+      console.error('Get user details error:', error)
+      throw error
+    }
+  },
+
+  async assignUserResources(userId, resources) {
+    try {
+      const response = await api.post(`/admin/users/${userId}/assign`, resources)
+      return response.data
+    } catch (error) {
+      console.error('Assign user resources error:', error)
+      throw error
+    }
+  },
+
+  async deleteUser(userId) {
+    try {
+      const response = await api.delete(`/admin/users/${userId}`)
+      return response.data
+    } catch (error) {
+      console.error('Delete user error:', error)
+      throw error
+    }
+  },
+
+  async updateUserRole(userId, role) {
+    try {
+      const response = await api.put(`/admin/users/${userId}/role`, { role })
+      return response.data
+    } catch (error) {
+      console.error('Update user role error:', error)
+      throw error
+    }
+  },
+
+  async toggleUserStatus(userId) {
+    try {
+      const response = await api.post(`/admin/users/${userId}/toggle`)
+      return response.data
+    } catch (error) {
+      console.error('Toggle user status error:', error)
+      throw error
+    }
+  },
+
+  // Funciones de utilidad
+  getToken() {
+    return localStorage.getItem('token')
+  },
+
+  removeToken() {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+  },
+
+  isTokenExpired(token) {
+    if (!token) return true
+    
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      const currentTime = Date.now() / 1000
+      return payload.exp < currentTime
+    } catch (error) {
+      console.error('Error parsing token:', error)
+      return true
+    }
+  },
+
+  // Verificar si el usuario tiene acceso a un recurso específico
+  async checkResourceAccess(resourceType, resourceId) {
+    try {
+      const permissions = await this.getPermissions()
+      if (permissions.success) {
+        const { parking_ids, panel_ids, access_ids } = permissions.permissions
+        
+        switch (resourceType) {
+          case 'parking':
+            return parking_ids.includes(resourceId)
+          case 'panel':
+            return panel_ids.includes(resourceId)
+          case 'access':
+            return access_ids.includes(resourceId)
+          default:
+            return false
+        }
+      }
+      return false
+    } catch (error) {
+      console.error('Check resource access error:', error)
+      return false
     }
   }
 } 

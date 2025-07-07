@@ -130,25 +130,28 @@
 **Objetivo**: Implementar interfaz de usuario para autenticación y gestión
 
 #### Tareas de Context y Servicios
-- [ ] **T3.1** - Actualizar AuthContext
-  - Implementar estado de autenticación real
-  - Agregar gestión de tokens JWT
-  - Implementar verificación automática de token
-  - Agregar gestión de recursos de usuario
+- [x] **T3.1** - Actualizar AuthContext ✅
+  - Implementar estado de autenticación real ✅
+  - Agregar gestión de tokens JWT ✅
+  - Implementar verificación automática de token ✅
+  - Agregar gestión de recursos de usuario ✅
   - **Estimación**: 8 horas
+  - **Archivos**: `client/src/context/AuthContext.jsx`
 
-- [ ] **T3.2** - Crear servicio de autenticación
-  - Implementar `authService.js` con todas las funciones
-  - Agregar interceptores para tokens automáticos
-  - Implementar manejo de errores de autenticación
+- [x] **T3.2** - Crear servicio de autenticación ✅
+  - Implementar `authService.js` con todas las funciones ✅
+  - Agregar interceptores para tokens automáticos ✅
+  - Implementar manejo de errores de autenticación ✅
   - **Estimación**: 6 horas
+  - **Archivos**: `client/src/services/authService.js`, `client/src/services/api.js`
 
-- [ ] **T3.3** - Actualizar página de login
-  - Implementar login real con backend
-  - Agregar validación de formularios
-  - Implementar manejo de errores
-  - Agregar indicadores de carga
+- [x] **T3.3** - Actualizar página de login ✅
+  - Implementar login real con backend ✅
+  - Agregar validación de formularios ✅
+  - Implementar manejo de errores ✅
+  - Agregar indicadores de carga ✅
   - **Estimación**: 4 horas
+  - **Archivos**: `client/src/pages/Login.jsx`
 
 #### Tareas de Protección de Rutas
 - [ ] **T3.4** - Implementar protección de rutas
@@ -241,12 +244,12 @@
 ### **Estado Actual**
 - **Sprint 1**: 5/5 tareas completadas (100%) ✅ COMPLETADO
 - **Sprint 2**: 5/5 tareas completadas (100%) ✅ COMPLETADO
-- **Sprint 3**: 0/6 tareas completadas (0%)
+- **Sprint 3**: 3/6 tareas completadas (50%) 🔄 EN PROGRESO
 - **Sprint 4**: 0/6 tareas completadas (0%)
 
 ### **Tiempo Estimado**
-- **Completado**: 35 horas
-- **Restante**: 68 horas
+- **Completado**: 53 horas
+- **Restante**: 50 horas
 - **Total**: 103 horas
 
 ### **Próximas Tareas**
