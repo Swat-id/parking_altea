@@ -11,14 +11,16 @@ import {
   X,
   Building2,
   Camera,
-  Calendar
+  Calendar,
+  ShieldCheck
 } from 'lucide-react'
 
 const Layout = ({ children }) => {
-  const { user } = useAuth()
+  const { user, isSuperadmin } = useAuth()
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
+  // Navegación base
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', current: location.pathname === '/dashboard', icon: Home },
     { name: 'Parkings', href: '/parkings', current: location.pathname === '/parkings', icon: Car },
@@ -28,6 +30,16 @@ const Layout = ({ children }) => {
     { name: 'Camera Logs', href: '/camera-logs', current: location.pathname === '/camera-logs', icon: Camera },
     { name: 'Perfil', href: '/profile', current: location.pathname === '/profile', icon: User },
   ]
+
+  // Opciones de administración solo para superadmin
+  const adminNavigation = [
+    { name: 'Administración', href: '/admin/users', current: location.pathname === '/admin/users', icon: ShieldCheck },
+  ]
+
+  // Combinar navegación según rol
+  const fullNavigation = isSuperadmin
+    ? [...navigation.slice(0, 1), ...adminNavigation, ...navigation.slice(1)]
+    : navigation
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -41,7 +53,7 @@ const Layout = ({ children }) => {
                 </h1>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                {navigation.map((item) => (
+                {fullNavigation.map((item) => (
                   <Link
                     key={item.name}
                     to={item.href}
@@ -51,12 +63,12 @@ const Layout = ({ children }) => {
                         : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                     } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}
                   >
+                    {item.icon && <item.icon className="inline-block h-4 w-4 mr-1 align-text-bottom" />}
                     {item.name}
                   </Link>
                 ))}
               </div>
             </div>
-            
             {/* Usuario en desktop */}
             <div className="hidden sm:ml-6 sm:flex sm:items-center">
               <div className="ml-3 relative">
@@ -64,10 +76,10 @@ const Layout = ({ children }) => {
                   <span className="text-sm text-gray-700">
                     {user?.name}
                   </span>
+                  <span className="text-xs text-gray-400">{user?.role}</span>
                 </div>
               </div>
             </div>
-
             {/* Botón menú móvil */}
             <div className="flex items-center sm:hidden">
               <button
@@ -83,19 +95,18 @@ const Layout = ({ children }) => {
             </div>
           </div>
         </div>
-
         {/* Menú móvil */}
         {mobileMenuOpen && (
           <div className="sm:hidden">
             <div className="pt-2 pb-3 space-y-1 bg-white border-t border-gray-200">
-              {navigation.map((item) => {
+              {fullNavigation.map((item) => {
                 const Icon = item.icon
                 return (
                   <Link
                     key={item.name}
                     to={item.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`${
+                    className={`$${
                       item.current
                         ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
                         : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700'
@@ -119,6 +130,7 @@ const Layout = ({ children }) => {
                     <div className="text-base font-medium text-gray-800">
                       {user?.name}
                     </div>
+                    <div className="text-xs text-gray-400">{user?.role}</div>
                   </div>
                 </div>
               </div>
@@ -126,7 +138,6 @@ const Layout = ({ children }) => {
           </div>
         )}
       </nav>
-
       <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
         {children}
       </main>

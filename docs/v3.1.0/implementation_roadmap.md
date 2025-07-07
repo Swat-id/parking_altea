@@ -154,24 +154,27 @@
   - **Archivos**: `client/src/pages/Login.jsx`
 
 #### Tareas de Protección de Rutas
-- [ ] **T3.4** - Implementar protección de rutas
-  - Crear componente `ProtectedRoute`
-  - Implementar redirección automática
-  - Agregar verificación de permisos por ruta
+- [x] **T3.4** - Implementar protección de rutas ✅
+  - Crear componente `ProtectedRoute` ✅
+  - Implementar redirección automática ✅
+  - Agregar verificación de permisos por ruta ✅
   - **Estimación**: 4 horas
+  - **Archivos**: `client/src/components/ProtectedRoute.jsx`, `client/src/App.jsx`
 
-- [ ] **T3.5** - Actualizar navegación
-  - Modificar menú según rol de usuario
-  - Ocultar/mostrar opciones según permisos
-  - Agregar información de usuario en header
+- [x] **T3.5** - Actualizar navegación ✅
+  - Modificar menú según rol de usuario ✅
+  - Ocultar/mostrar opciones según permisos ✅
+  - Agregar información de usuario en header ✅
   - **Estimación**: 3 horas
+  - **Archivos**: `client/src/components/Layout.jsx`
 
 #### Tareas de Testing
-- [ ] **T3.6** - Tests de frontend
-  - Tests de componentes de autenticación
-  - Tests de servicios de API
-  - Tests de protección de rutas
+- [x] **T3.6** - Tests de frontend ✅
+  - Tests de componentes de autenticación ✅
+  - Tests de servicios de API ✅
+  - Tests de protección de rutas ✅
   - **Estimación**: 3 horas
+  - **Archivos**: `test/v3.1.0/test_frontend_protection_and_nav.py`
 
 #### Entregables Sprint 3
 - ✅ AuthContext funcional con JWT
@@ -181,7 +184,7 @@
 - ✅ Navegación adaptativa por roles
 - ✅ Tests de frontend
 
-**Total Sprint 3**: 28 horas
+**Total Sprint 3**: 28 horas (COMPLETADO 100%)
 
 ---
 
@@ -244,7 +247,7 @@
 ### **Estado Actual**
 - **Sprint 1**: 5/5 tareas completadas (100%) ✅ COMPLETADO
 - **Sprint 2**: 5/5 tareas completadas (100%) ✅ COMPLETADO
-- **Sprint 3**: 3/6 tareas completadas (50%) 🔄 EN PROGRESO
+- **Sprint 3**: 6/6 tareas completadas (100%) ✅ COMPLETADO
 - **Sprint 4**: 0/6 tareas completadas (0%)
 
 ### **Tiempo Estimado**
