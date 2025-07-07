@@ -1,0 +1,35 @@
+[Unit]
+Description=Parking Altea API Server v3.1.0
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=parking
+Group=parking
+WorkingDirectory=/opt/parking_altea
+Environment=PATH=/opt/parking_altea/venv/bin
+Environment=PYTHONPATH=/opt/parking_altea
+Environment=FLASK_ENV=production
+Environment=FLASK_APP=api_server.py
+ExecStart=/opt/parking_altea/venv/bin/python api_server.py
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=parking-api
+
+# Configuración de seguridad
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/parking_altea/logs /opt/parking_altea/data
+
+# Límites de recursos
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target 

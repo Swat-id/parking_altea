@@ -1,0 +1,265 @@
+# Configuración de Monitoreo v3.1.0 - Parking Altea
+# Autor: Sistema de Despliegue
+# Fecha: 2025-01-07
+
+# Configuración general
+monitoring:
+  enabled: true
+  interval: 60  # segundos
+  log_level: INFO
+  alert_email: "admin@parkingaltea.com"
+  webhook_url: "https://hooks.slack.com/services/xxx/yyy/zzz"
+
+# Umbrales de alerta
+thresholds:
+  cpu_usage: 80  # porcentaje
+  memory_usage: 80  # porcentaje
+  disk_usage: 80  # porcentaje
+  response_time: 1000  # milisegundos
+  error_rate: 5  # porcentaje
+
+# Servicios a monitorear
+services:
+  - name: "parking-api"
+    port: 5000
+    health_endpoint: "/health"
+    expected_status: 200
+    timeout: 30
+    
+  - name: "parking-camera"
+    port: 5001
+    health_endpoint: "/health"
+    expected_status: 200
+    timeout: 30
+    
+  - name: "parking-schedule-monitor"
+    port: null
+    health_endpoint: null
+    expected_status: null
+    timeout: 30
+
+# Base de datos
+database:
+  host: "localhost"
+  port: 5432
+  name: "parking_altea"
+  user: "parking"
+  timeout: 10
+  max_connections: 100
+
+# Logs
+logs:
+  api_log: "/opt/parking_altea/logs/api.log"
+  camera_log: "/opt/parking_altea/logs/camera.log"
+  schedule_log: "/opt/parking_altea/logs/schedule.log"
+  nginx_access_log: "/var/log/nginx/parking_altea_access.log"
+  nginx_error_log: "/var/log/nginx/parking_altea_error.log"
+  system_log: "/var/log/syslog"
+  
+  # Patrones de error a buscar
+  error_patterns:
+    - "ERROR"
+    - "CRITICAL"
+    - "FATAL"
+    - "Exception"
+    - "Traceback"
+    
+  # Patrones de advertencia a buscar
+  warning_patterns:
+    - "WARNING"
+    - "WARN"
+    - "DeprecationWarning"
+    - "ResourceWarning"
+
+# Métricas del sistema
+system_metrics:
+  # Métricas de CPU
+  cpu:
+    enabled: true
+    interval: 60
+    thresholds:
+      usage: 80
+      load_1min: 2.0
+      load_5min: 1.5
+      load_15min: 1.0
+      
+  # Métricas de memoria
+  memory:
+    enabled: true
+    interval: 60
+    thresholds:
+      usage: 80
+      swap_usage: 50
+      
+  # Métricas de disco
+  disk:
+    enabled: true
+    interval: 300
+    paths:
+      - "/opt/parking_altea"
+      - "/var/log"
+      - "/tmp"
+    thresholds:
+      usage: 80
+      inode_usage: 90
+      
+  # Métricas de red
+  network:
+    enabled: true
+    interval: 60
+    interfaces:
+      - "eth0"
+    thresholds:
+      bandwidth_usage: 80
+      packet_loss: 1
+
+# Alertas
+alerts:
+  # Alertas por email
+  email:
+    enabled: true
+    smtp_server: "smtp.gmail.com"
+    smtp_port: 587
+    smtp_user: "alerts@parkingaltea.com"
+    smtp_password: "your_password"
+    recipients:
+      - "admin@parkingaltea.com"
+      - "tech@parkingaltea.com"
+      
+  # Alertas por webhook
+  webhook:
+    enabled: false
+    url: "https://hooks.slack.com/services/xxx/yyy/zzz"
+    timeout: 10
+    
+  # Alertas por SMS (futuro)
+  sms:
+    enabled: false
+    provider: "twilio"
+    account_sid: "your_account_sid"
+    auth_token: "your_auth_token"
+    from_number: "+1234567890"
+    to_numbers:
+      - "+0987654321"
+
+# Notificaciones
+notifications:
+  # Configuración de notificaciones
+  channels:
+    - name: "critical"
+      email: true
+      webhook: true
+      sms: true
+      
+    - name: "warning"
+      email: true
+      webhook: true
+      sms: false
+      
+    - name: "info"
+      email: false
+      webhook: true
+      sms: false
+      
+  # Configuración de rate limiting
+  rate_limiting:
+    enabled: true
+    max_alerts_per_hour: 10
+    max_alerts_per_day: 50
+    cooldown_period: 300  # segundos
+
+# Dashboard
+dashboard:
+  enabled: true
+  port: 8080
+  host: "127.0.0.1"
+  auth:
+    enabled: true
+    username: "admin"
+    password: "parking123"
+    
+  # Métricas a mostrar
+  metrics:
+    - "cpu_usage"
+    - "memory_usage"
+    - "disk_usage"
+    - "api_response_time"
+    - "error_rate"
+    - "active_connections"
+    
+  # Gráficos
+  charts:
+    - name: "System Resources"
+      type: "line"
+      metrics: ["cpu_usage", "memory_usage", "disk_usage"]
+      time_range: "24h"
+      
+    - name: "API Performance"
+      type: "line"
+      metrics: ["api_response_time", "error_rate"]
+      time_range: "1h"
+      
+    - name: "Service Status"
+      type: "status"
+      metrics: ["parking-api", "parking-camera", "parking-schedule-monitor"]
+      time_range: "1h"
+
+# Backup y mantenimiento
+maintenance:
+  # Configuración de backups
+  backup:
+    enabled: true
+    schedule: "0 2 * * *"  # Diario a las 2 AM
+    retention_days: 30
+    compression: true
+    encryption: false
+    
+  # Configuración de limpieza de logs
+  log_cleanup:
+    enabled: true
+    schedule: "0 3 * * *"  # Diario a las 3 AM
+    retention_days: 7
+    max_size_mb: 100
+    
+  # Configuración de actualizaciones
+  updates:
+    enabled: false
+    schedule: "0 4 * * 0"  # Semanal los domingos a las 4 AM
+    auto_restart: false
+    backup_before_update: true
+
+# Seguridad
+security:
+  # Configuración de firewall
+  firewall:
+    enabled: true
+    allowed_ports: [22, 80, 443, 5000, 5001, 8080]
+    allowed_ips: ["0.0.0.0/0"]
+    
+  # Configuración de SSL/TLS
+  ssl:
+    enabled: false
+    certificate_path: "/etc/ssl/certs/parking_altea.crt"
+    private_key_path: "/etc/ssl/private/parking_altea.key"
+    
+  # Configuración de autenticación
+  authentication:
+    enabled: true
+    method: "jwt"
+    token_expiry: 3600
+    refresh_token_expiry: 86400
+
+# Configuración de desarrollo
+development:
+  debug_mode: false
+  log_level: "INFO"
+  hot_reload: false
+  profiling: false
+  
+# Configuración de producción
+production:
+  debug_mode: false
+  log_level: "WARNING"
+  hot_reload: false
+  profiling: false
+  performance_monitoring: true 
