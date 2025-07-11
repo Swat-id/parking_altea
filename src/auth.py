@@ -90,7 +90,10 @@ def authenticate_user(db_session: Session, email: str, password: str) -> dict:
                 "id": user.id,
                 "name": user.name,
                 "email": user.email,
-                "role": user.role
+                "role": user.role,
+                "is_active": user.is_active,
+                "created_at": user.created_at.isoformat() if user.created_at else None,
+                "updated_at": user.updated_at.isoformat() if user.updated_at else None
             }
         }
     except Exception as e:

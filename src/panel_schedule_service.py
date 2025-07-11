@@ -20,20 +20,43 @@ class PanelScheduleService:
     def create_schedule(self, schedule_data: dict) -> dict:
         """Crear una nueva programación"""
         try:
+            # Validar datos requeridos
+            required_fields = ['parking_id', 'name', 'start_date', 'end_date', 'start_time', 'end_time', 'message']
+            for field in required_fields:
+                if field not in schedule_data or not schedule_data[field]:
+                    return {'success': False, 'error': f'Campo requerido faltante o vacío: {field}'}
+            
             # Asegurar que las fechas tengan zona horaria
             start_date = schedule_data.get('start_date')
             end_date = schedule_data.get('end_date')
             
-            if isinstance(start_date, str):
-                start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-            if isinstance(end_date, str):
-                end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            try:
+                if isinstance(start_date, str):
+                    # Manejar diferentes formatos de fecha
+                    if 'T' in start_date:
+                        start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+                    else:
+                        start_date = datetime.strptime(start_date, '%Y-%m-%d')
+                        start_date = start_date.replace(tzinfo=datetime.now().astimezone().tzinfo)
+                
+                if isinstance(end_date, str):
+                    # Manejar diferentes formatos de fecha
+                    if 'T' in end_date:
+                        end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+                    else:
+                        end_date = datetime.strptime(end_date, '%Y-%m-%d')
+                        end_date = end_date.replace(tzinfo=datetime.now().astimezone().tzinfo)
+            except ValueError as e:
+                return {'success': False, 'error': f'Formato de fecha inválido: {str(e)}'}
             
-            # Validar datos requeridos
-            required_fields = ['parking_id', 'name', 'start_date', 'end_date', 'start_time', 'end_time', 'message']
-            for field in required_fields:
-                if field not in schedule_data:
-                    return {'success': False, 'error': f'Campo requerido faltante: {field}'}
+            # Validar que al menos un día de la semana esté seleccionado
+            weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+            if not any(schedule_data.get(day, False) for day in weekdays):
+                return {'success': False, 'error': 'Debe seleccionar al menos un día de la semana'}
+            
+            # Validar que la fecha de inicio no sea posterior a la fecha de fin
+            if start_date > end_date:
+                return {'success': False, 'error': 'La fecha de inicio no puede ser posterior a la fecha de fin'}
             
             # Crear la programación
             schedule = PanelSchedule(

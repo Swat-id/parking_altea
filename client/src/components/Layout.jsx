@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { 
   Home, 
@@ -13,13 +13,20 @@ import {
   Camera,
   Calendar,
   ShieldCheck,
-  Users
+  Users,
+  LogOut
 } from 'lucide-react'
 
 const Layout = ({ children }) => {
-  const { user, isSuperadmin } = useAuth()
+  const { user, isSuperadmin, logout } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
 
   // Navegación base
   const navigation = [
@@ -79,6 +86,13 @@ const Layout = ({ children }) => {
                     {user?.name}
                   </span>
                   <span className="text-xs text-gray-400">{user?.role}</span>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center px-3 py-1 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                  >
+                    <LogOut className="h-4 w-4 mr-1" />
+                    Cerrar Sesión
+                  </button>
                 </div>
               </div>
             </div>
@@ -128,12 +142,19 @@ const Layout = ({ children }) => {
                       <User className="h-5 w-5 text-indigo-600" />
                     </div>
                   </div>
-                  <div className="ml-3">
+                  <div className="ml-3 flex-1">
                     <div className="text-base font-medium text-gray-800">
                       {user?.name}
                     </div>
                     <div className="text-xs text-gray-400">{user?.role}</div>
                   </div>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center px-3 py-1 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                  >
+                    <LogOut className="h-4 w-4 mr-1" />
+                    Salir
+                  </button>
                 </div>
               </div>
             </div>

@@ -148,13 +148,31 @@ class ScheduleMonitorService:
         """Verificar si una programación debe ejecutarse en el momento actual"""
         try:
             # Verificar fechas de vigencia
-            start_date = datetime.fromisoformat(schedule_data['start_date'].replace('Z', '+00:00'))
-            end_date = datetime.fromisoformat(schedule_data['end_date'].replace('Z', '+00:00'))
+            start_date_str = schedule_data['start_date']
+            end_date_str = schedule_data['end_date']
+            
+            # Manejar diferentes formatos de fecha
+            try:
+                if 'T' in start_date_str:
+                    start_date = datetime.fromisoformat(start_date_str.replace('Z', '+00:00'))
+                else:
+                    start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+                    start_date = start_date.replace(tzinfo=datetime.now().astimezone().tzinfo)
+                
+                if 'T' in end_date_str:
+                    end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
+                else:
+                    end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+                    end_date = end_date.replace(tzinfo=datetime.now().astimezone().tzinfo)
+            except ValueError as e:
+                logger.error(f"Error parseando fechas de programación {schedule_data.get('id', 'unknown')}: {e}")
+                return False
             
             # Asegurar que current_time tenga zona horaria
             if current_time.tzinfo is None:
                 current_time = current_time.replace(tzinfo=start_date.tzinfo)
             
+            # Verificar que esté dentro del rango de fechas
             if not (start_date <= current_time <= end_date):
                 return False
             
