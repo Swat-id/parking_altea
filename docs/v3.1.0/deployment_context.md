@@ -396,3 +396,59 @@ systemctl restart parking-api.service parking-camera.service parking-schedule-mo
 **Fecha**: 7 de enero de 2025  
 **Estado**: Listo para despliegue  
 **Última actualización**: 7 de enero de 2025 
+
+## 📋 Resumen de lo que hemos creado:
+
+### 🔄 Scripts de Actualización del Repositorio:
+
+1. **`deploy/v3.1.0/update_repository_remote.sh`** - Script para Linux/macOS
+2. **`deploy/v3.1.0/update_repository_remote.ps1`** - Script para PowerShell (Windows)
+
+###  Script de Envío de Mensaje:
+
+3. **`test/send_en_proves_message.py`** - Script para enviar "EN PROVES" a los paneles
+
+## 🚀 Próximos Pasos para Actualizar el Servidor:
+
+### Opción 1: Desde Linux/macOS
+```bash
+# Ejecutar actualización del repositorio
+chmod +x deploy/v3.1.0/update_repository_remote.sh
+./deploy/v3.1.0/update_repository_remote.sh
+```
+
+### Opción 2: Desde Windows (PowerShell)
+```powershell
+<code_block_to_apply_changes_from>
+```
+
+### Opción 3: Comandos Manuales en el Servidor
+```bash
+# Conectar al servidor
+ssh root@157.180.91.63
+
+# Navegar al directorio
+cd /opt/parking_altea
+
+# Actualizar repositorio
+git fetch origin
+git checkout v3.1.0_login
+git pull origin v3.1.0_login
+
+# Instalar dependencias
+pip3 install requests
+
+# Ejecutar script de envío
+python3 test/send_en_proves_message.py
+```
+
+## 📝 Lo que hacen los scripts de actualización:
+
+1. **Verifican** si el repositorio existe en el servidor
+2. **Clonan** el repositorio si no existe
+3. **Actualizan** el repositorio existente a la rama `v3.1.0_login`
+4. **Instalan** dependencias Python necesarias
+5. **Verifican** el estado de los servicios
+6. **Confirman** que el script de envío está disponible
+
+¿Quieres que ejecutemos alguno de estos scripts para actualizar el servidor remoto, o prefieres hacerlo manualmente? 

@@ -10,6 +10,7 @@ import CameraLogs from './pages/CameraLogs'
 import Profile from './pages/Profile'
 import UserManagement from './pages/UserManagement'
 import AdminDashboard from './pages/AdminDashboard'
+import LoginPage from './pages/Login'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -44,18 +45,15 @@ function App() {
           <ProtectedRoute><Profile /></ProtectedRoute>
         } />
         <Route path="/admin" element={
-          <ProtectedRoute requireSuperadmin><AdminDashboard /></ProtectedRoute>
+          <ProtectedRoute requiredRole="superadmin"><AdminDashboard /></ProtectedRoute>
         } />
         <Route path="/admin/users" element={
-          <ProtectedRoute requireSuperadmin><UserManagement /></ProtectedRoute>
+          <ProtectedRoute requiredRole="superadmin"><UserManagement /></ProtectedRoute>
         } />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Layout>
   )
 }
-
-// Importar LoginPage dinámicamente para evitar bucles
-import LoginPage from './pages/Login'
 
 export default App 
