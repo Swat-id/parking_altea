@@ -524,7 +524,7 @@ def set_occupancy(pid):
             'parking': parking_name,
             'occupancy': final_occupancy,
             'free_spaces': final_free_spaces,
-            'status': final_status,
+            'parking_status': final_status,
             'previous_occupancy': previous_occupancy,
             'change_amount': change_amount,
             'adjustment_type': 'manual'

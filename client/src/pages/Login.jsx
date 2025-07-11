@@ -230,11 +230,8 @@ const Login = () => {
             </button>
           </div>
 
-          <div className="text-xs text-gray-500 text-center space-y-1">
-            <p className="font-medium">Credenciales de acceso:</p>
-            <p>Superadmin: info@swat-id.com / admin123</p>
-            <p>Usuario: user@test.com / test123</p>
-            <p className="text-xs mt-2">
+          <div className="text-xs text-gray-500 text-center">
+            <p>
               Para crear nuevas cuentas, contacte al administrador del sistema.
             </p>
           </div>

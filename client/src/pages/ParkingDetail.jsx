@@ -347,7 +347,7 @@ const ParkingDetail = () => {
         setParking(prevParking => ({
           ...prevParking,
           plazas_ocupadas: response.occupancy,
-          estado: response.status
+          estado: response.parking_status
         }))
         
         // Mostrar mensaje de éxito
