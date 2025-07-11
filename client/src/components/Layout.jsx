@@ -57,8 +57,13 @@ const Layout = ({ children }) => {
           <div className="flex justify-between h-16">
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
+                <img
+                  className="h-8 w-auto mr-3"
+                  src="/logo_swatid.png"
+                  alt="SWAT-ID Logo"
+                />
                 <h1 className="text-xl font-semibold text-gray-900">
-                  Parking Altea
+                  Gestión de Aparcamientos
                 </h1>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">

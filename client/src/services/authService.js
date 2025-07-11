@@ -81,16 +81,6 @@ export const authService = {
     }
   },
 
-  async createUser(userData) {
-    try {
-      const response = await api.post('/admin/users', userData)
-      return response.data
-    } catch (error) {
-      console.error('Create user error:', error)
-      throw error
-    }
-  },
-
   async getUserDetails(userId) {
     try {
       const response = await api.get(`/admin/users/${userId}`)
@@ -101,22 +91,12 @@ export const authService = {
     }
   },
 
-  async assignUserResources(userId, resources) {
+  async createUser(userData) {
     try {
-      const response = await api.post(`/admin/users/${userId}/assign`, resources)
+      const response = await api.post('/admin/users', userData)
       return response.data
     } catch (error) {
-      console.error('Assign user resources error:', error)
-      throw error
-    }
-  },
-
-  async deleteUser(userId) {
-    try {
-      const response = await api.delete(`/admin/users/${userId}`)
-      return response.data
-    } catch (error) {
-      console.error('Delete user error:', error)
+      console.error('Create user error:', error)
       throw error
     }
   },
@@ -137,6 +117,26 @@ export const authService = {
       return response.data
     } catch (error) {
       console.error('Toggle user status error:', error)
+      throw error
+    }
+  },
+
+  async deleteUser(userId) {
+    try {
+      const response = await api.delete(`/admin/users/${userId}`)
+      return response.data
+    } catch (error) {
+      console.error('Delete user error:', error)
+      throw error
+    }
+  },
+
+  async assignUserResources(userId, resources) {
+    try {
+      const response = await api.post(`/admin/users/${userId}/assign`, resources)
+      return response.data
+    } catch (error) {
+      console.error('Assign user resources error:', error)
       throw error
     }
   },

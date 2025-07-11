@@ -125,5 +125,18 @@ export const parkingService = {
       console.error('Error eliminando mensaje programado:', error)
       throw error
     }
+  },
+
+  /**
+   * Crear un nuevo parking
+   */
+  async createParking(parkingData) {
+    try {
+      const response = await api.post('/parkings', parkingData)
+      return response.data
+    } catch (error) {
+      console.error('Error creando parking:', error)
+      throw error
+    }
   }
 } 

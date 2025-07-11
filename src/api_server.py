@@ -302,6 +302,76 @@ def list_parkings():
         logger.error(f"Error listando parkings: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@app.route('/parkings', methods=['POST'])
+@require_superadmin
+def create_parking():
+    """Crear un nuevo parking (solo superadmin)"""
+    try:
+        req = request.get_json(force=True)
+        name = req.get('name')
+        location = req.get('location', '')
+        total_plazas = req.get('total_plazas')
+        threshold_dense = req.get('threshold_dense')
+        threshold_full = req.get('threshold_full')
+        
+        if not all([name, total_plazas, threshold_dense, threshold_full]):
+            return jsonify({'error': 'Faltan campos requeridos: name, total_plazas, threshold_dense, threshold_full'}), 400
+        
+        if total_plazas <= 0:
+            return jsonify({'error': 'total_plazas debe ser mayor que 0'}), 400
+        
+        if threshold_dense < 0:
+            return jsonify({'error': 'threshold_dense debe ser mayor o igual que 0'}), 400
+        
+        if threshold_full < 0:
+            return jsonify({'error': 'threshold_full debe ser mayor o igual que 0'}), 400
+        
+        session = Session()
+        
+        # Verificar que el nombre no exista
+        existing_parking = session.query(Parking).filter(Parking.name == name).first()
+        if existing_parking:
+            session.close()
+            return jsonify({'error': 'Ya existe un parking con ese nombre'}), 400
+        
+        # Crear el parking
+        new_parking = Parking(
+            name=name,
+            location=location,
+            max_capacity=total_plazas,
+            threshold_dense=threshold_dense,
+            threshold_full=threshold_full,
+            current_occupancy=0,
+            status='LIBRE'
+        )
+        
+        session.add(new_parking)
+        session.commit()
+        
+        # Obtener el parking creado con el ID asignado
+        session.refresh(new_parking)
+        parking_id = new_parking.id
+        
+        session.close()
+        
+        logger.info(f"Parking creado: {name} (ID: {parking_id})")
+        return jsonify({
+            'success': True,
+            'parking': {
+                'id': parking_id,
+                'name': name,
+                'location': location,
+                'total_plazas': total_plazas,
+                'threshold_dense': threshold_dense,
+                'threshold_full': threshold_full,
+                'estado': 'LIBRE'
+            }
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"Error creando parking: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 @app.route('/parkings/status', methods=['GET'])
 def get_parkings_status():
     """Obtener estado completo de todos los parkings con información de paneles"""
@@ -2003,7 +2073,8 @@ def get_all_users():
                 'created_at': user.created_at.isoformat() if user.created_at else None,
                 'parking_ids': parking_ids,
                 'panel_ids': panel_ids,
-                'access_ids': access_ids
+                'access_ids': access_ids,
+                'parking_count': len(parking_ids)  # Agregar conteo de parkings
             })
         
         session.close()

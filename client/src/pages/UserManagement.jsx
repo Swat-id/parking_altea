@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { authService } from '../services/authService'
 import { useAuth } from '../context/AuthContext'
+import ParkingAssignmentModal from '../components/ParkingAssignmentModal'
 
 const UserManagement = () => {
   const { user } = useAuth()
@@ -10,6 +11,7 @@ const UserManagement = () => {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showParkingModal, setShowParkingModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState(null)
   const [filterRole, setFilterRole] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
@@ -95,6 +97,17 @@ const UserManagement = () => {
     } catch (err) {
       setError('Error al cambiar estado: ' + (err.response?.data?.message || err.message))
     }
+  }
+
+  // Abrir modal de asignación de parkings
+  const handleAssignParkings = (user) => {
+    setSelectedUser(user)
+    setShowParkingModal(true)
+  }
+
+  // Manejar completación de asignación
+  const handleAssignmentComplete = () => {
+    loadUsers()
   }
 
   // Filtrar usuarios
@@ -254,6 +267,12 @@ const UserManagement = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleAssignParkings(user)}
+                            className="text-green-600 hover:text-green-900"
+                          >
+                            Asignar Parkings
+                          </button>
                           <button
                             onClick={() => {
                               setSelectedUser(user)
@@ -468,6 +487,21 @@ const UserManagement = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Modal de asignación de parkings */}
+        {showParkingModal && selectedUser && (
+          <ParkingAssignmentModal
+            isOpen={showParkingModal}
+            onClose={() => {
+              setShowParkingModal(false)
+              setSelectedUser(null)
+            }}
+            userId={selectedUser.id}
+            userName={selectedUser.name || selectedUser.email}
+            currentParkings={selectedUser.parking_ids || []}
+            onAssignmentComplete={handleAssignmentComplete}
+          />
         )}
       </div>
     </div>

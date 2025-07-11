@@ -13,7 +13,8 @@ import {
   AlertCircle,
   MapPin,
   Save,
-  X
+  X,
+  Plus
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -21,7 +22,15 @@ const Parkings = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [editingParking, setEditingParking] = useState(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const [editForm, setEditForm] = useState({
+    total_plazas: 0,
+    threshold_dense: 0,
+    threshold_full: 0
+  })
+  const [createForm, setCreateForm] = useState({
+    name: '',
+    location: '',
     total_plazas: 0,
     threshold_dense: 0,
     threshold_full: 0
@@ -50,6 +59,28 @@ const Parkings = () => {
       },
       onError: (error) => {
         toast.error(error?.response?.data?.message || 'Error al actualizar la configuración')
+      }
+    }
+  )
+
+  // Mutación para crear parking
+  const createParkingMutation = useMutation(
+    (parkingData) => parkingService.createParking(parkingData),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('allParkings')
+        toast.success('Parking creado correctamente')
+        setShowCreateModal(false)
+        setCreateForm({
+          name: '',
+          location: '',
+          total_plazas: 0,
+          threshold_dense: 0,
+          threshold_full: 0
+        })
+      },
+      onError: (error) => {
+        toast.error(error?.response?.data?.message || 'Error al crear el parking')
       }
     }
   )
@@ -143,6 +174,28 @@ const Parkings = () => {
     })
   }
 
+  const handleCreateParking = (e) => {
+    e.preventDefault()
+    
+    // Validaciones
+    if (!createForm.name.trim()) {
+      toast.error('El nombre del parking es requerido')
+      return
+    }
+
+    if (createForm.total_plazas <= 0) {
+      toast.error('El total de plazas debe ser mayor que 0')
+      return
+    }
+
+    if (createForm.threshold_dense <= createForm.threshold_full) {
+      toast.error('El umbral denso debe ser mayor que el umbral completo')
+      return
+    }
+
+    createParkingMutation.mutate(createForm)
+  }
+
   // Mostrar loading mientras se cargan los datos
   if (isLoading) {
     return (
@@ -171,39 +224,59 @@ const Parkings = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Parkings</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Gestión y monitoreo de todos los aparcamientos
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Parkings</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Gestión y monitoreo de todos los aparcamientos
+          </p>
+        </div>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Crear Parking
+        </button>
       </div>
 
       {/* Filtros */}
-      <div className="card">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Buscar
+            </label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Buscar parking..."
+                placeholder="Buscar por nombre..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="input-field pl-10"
+                className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
-          <div className="sm:w-48">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Estado
+            </label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="input-field"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="ALL">Todos los estados</option>
               <option value="LIBRE">Libre</option>
               <option value="DENSO">Denso</option>
               <option value="COMPLETO">Completo</option>
             </select>
+          </div>
+          <div className="flex items-end">
+            <div className="text-sm text-gray-500">
+              {filteredParkings.length} de {parkings.length} parkings
+            </div>
           </div>
         </div>
       </div>
@@ -255,173 +328,237 @@ const Parkings = () => {
       </div>
 
       {/* Lista de parkings */}
-      <div className="card">
-        <div className="overflow-hidden">
-          {filteredParkings.length === 0 ? (
-            <div className="text-center py-12">
-              <Car className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No se encontraron parkings</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                {searchTerm || statusFilter !== 'ALL' 
-                  ? 'Intenta ajustar los filtros de búsqueda.'
-                  : 'No hay parkings disponibles.'
-                }
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Parking
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Estado
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Ocupación
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Configuración
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Acciones
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
               {filteredParkings.map((parking) => (
-                <div key={parking.id} className="border border-gray-200 rounded-lg p-4 sm:p-6 hover:shadow-md transition-all duration-200 bg-white">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-1 truncate">
-                        {parking.name}
-                      </h3>
-                      <div className="flex items-center text-sm text-gray-500">
-                        <MapPin className="h-4 w-4 mr-1 flex-shrink-0" />
-                        <span className="truncate">ID: {parking.id}</span>
-                      </div>
-                    </div>
-                    <div className={`flex items-center px-2 py-1 rounded-full text-xs font-medium ml-2 flex-shrink-0 ${getStatusColor(parking.estado)}`}>
-                      {getStatusIcon(parking.estado)}
-                      <span className="ml-1 hidden sm:inline">{parking.estado}</span>
-                      <span className="ml-1 sm:hidden">{parking.estado.charAt(0)}</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
+                <tr key={parking.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-gray-500">Ocupación</span>
-                        <span className="font-medium">
-                          {getOcupationPercentage(parking.plazas_ocupadas || 0, parking.total_plazas || 0)}%
-                          {(parking.plazas_ocupadas || 0) > (parking.total_plazas || 0) && (
-                            <span className="text-red-600 ml-1">(Descuadre)</span>
-                          )}
-                        </span>
+                      <div className="text-sm font-medium text-gray-900">
+                        {parking.name}
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className={`h-2 rounded-full transition-all duration-300 ${
-                            getOcupationPercentage(parking.plazas_ocupadas || 0, parking.total_plazas || 0) < 50
-                              ? 'bg-green-500'
-                              : getOcupationPercentage(parking.plazas_ocupadas || 0, parking.total_plazas || 0) < 80
-                              ? 'bg-yellow-500'
-                              : 'bg-red-500'
-                          }`}
-                          style={{
-                            width: `${getOcupationPercentage(parking.plazas_ocupadas || 0, parking.total_plazas || 0)}%`
-                          }}
-                        />
-                      </div>
-                      {(parking.plazas_ocupadas || 0) > (parking.total_plazas || 0) && (
-                        <div className="text-xs text-red-600 mt-1">
-                          ⚠️ Descuadre: {parking.plazas_ocupadas || 0} &gt; {parking.total_plazas || 0}
+                      {parking.location && (
+                        <div className="text-sm text-gray-500 flex items-center">
+                          <MapPin className="h-3 w-3 mr-1" />
+                          {parking.location}
                         </div>
                       )}
                     </div>
-
-                    <div className="grid grid-cols-2 gap-2 sm:gap-4 text-sm">
-                      <div className="text-center sm:text-left">
-                        <div className="text-gray-500 text-xs sm:text-sm">Ocupadas</div>
-                        <div className="font-medium text-sm sm:text-base">{parking.plazas_ocupadas || 0}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      {getStatusIcon(parking.estado)}
+                      <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(parking.estado)}`}>
+                        {parking.estado}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div>
+                      <div className="text-sm text-gray-900">
+                        {parking.plazas_ocupadas} / {parking.total_plazas}
                       </div>
-                      <div className="text-center sm:text-left">
-                        <div className="text-gray-500 text-xs sm:text-sm">Libres</div>
-                        <div className="font-medium text-sm sm:text-base">{parking.plazas_libres || 0}</div>
+                      <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full"
+                          style={{ width: `${getOcupationPercentage(parking.plazas_ocupadas, parking.total_plazas)}%` }}
+                        ></div>
                       </div>
-                      <div className="col-span-2 text-center sm:text-left">
-                        <div className="text-gray-500 text-xs sm:text-sm">Total</div>
-                        <div className="font-medium text-sm sm:text-base">{parking.total_plazas || 0} plazas</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {parking.plazas_libres} plazas libres
                       </div>
                     </div>
-
-                    {/* Configuración de umbrales */}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
                     {editingParking === parking.id ? (
-                      <div className="space-y-2 border-t pt-3">
-                        <div className="text-xs font-medium text-gray-700">Configuración de Umbrales</div>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div>
-                            <label className="block text-gray-500">Denso</label>
-                            <input
-                              type="number"
-                              value={editForm.threshold_dense}
-                              onChange={(e) => setEditForm({...editForm, threshold_dense: parseInt(e.target.value) || 0})}
-                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                              min="0"
-                              max="100"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-gray-500">Completo</label>
-                            <input
-                              type="number"
-                              value={editForm.threshold_full}
-                              onChange={(e) => setEditForm({...editForm, threshold_full: parseInt(e.target.value) || 0})}
-                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                              min="0"
-                              max="100"
-                            />
-                          </div>
-                        </div>
+                      <div className="space-y-2">
                         <div>
-                          <label className="block text-gray-500">Total Plazas</label>
+                          <label className="block text-xs text-gray-500">Total plazas</label>
                           <input
                             type="number"
                             value={editForm.total_plazas}
                             onChange={(e) => setEditForm({...editForm, total_plazas: parseInt(e.target.value) || 0})}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                            min="1"
+                            className="w-20 px-2 py-1 text-sm border border-gray-300 rounded"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500">Umbral denso</label>
+                          <input
+                            type="number"
+                            value={editForm.threshold_dense}
+                            onChange={(e) => setEditForm({...editForm, threshold_dense: parseInt(e.target.value) || 0})}
+                            className="w-20 px-2 py-1 text-sm border border-gray-300 rounded"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500">Umbral completo</label>
+                          <input
+                            type="number"
+                            value={editForm.threshold_full}
+                            onChange={(e) => setEditForm({...editForm, threshold_full: parseInt(e.target.value) || 0})}
+                            className="w-20 px-2 py-1 text-sm border border-gray-300 rounded"
                           />
                         </div>
                         <div className="flex space-x-1">
                           <button
                             onClick={() => saveConfig(parking.id)}
-                            disabled={updateConfigMutation.isLoading}
-                            className="flex-1 px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50"
+                            className="text-green-600 hover:text-green-900"
                           >
-                            {updateConfigMutation.isLoading ? 'Guardando...' : 'Guardar'}
+                            <Save className="h-4 w-4" />
                           </button>
                           <button
                             onClick={cancelEditing}
-                            className="px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700"
+                            className="text-red-600 hover:text-red-900"
                           >
-                            Cancelar
+                            <X className="h-4 w-4" />
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <div className="text-xs text-gray-500 border-t pt-3">
-                        <div>Umbral Denso: {parking.threshold_dense || 0}</div>
-                        <div>Umbral Completo: {parking.threshold_full || 0}</div>
+                      <div className="text-sm text-gray-500">
+                        <div>Denso: {parking.threshold_dense}</div>
+                        <div>Completo: {parking.threshold_full}</div>
                       </div>
                     )}
-                  </div>
-
-                  <div className="mt-4 flex space-x-2">
-                    <Link
-                      to={`/parking/${parking.id}`}
-                      className="flex-1 bg-primary-600 text-white text-center py-2 px-3 sm:px-4 rounded-md hover:bg-primary-700 transition-colors duration-200 text-sm font-medium"
-                    >
-                      <Eye className="h-4 w-4 inline mr-1" />
-                      <span className="hidden sm:inline">Ver detalles</span>
-                      <span className="sm:hidden">Detalles</span>
-                    </Link>
-                    {editingParking !== parking.id && (
-                      <button
-                        onClick={() => startEditing(parking)}
-                        className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 text-sm"
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex space-x-2">
+                      <Link
+                        to={`/parking/${parking.id}`}
+                        className="text-blue-600 hover:text-blue-900"
                       >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
+                        <Eye className="h-4 w-4" />
+                      </Link>
+                      {editingParking !== parking.id && (
+                        <button
+                          onClick={() => startEditing(parking)}
+                          className="text-green-600 hover:text-green-900"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
               ))}
-            </div>
-          )}
+            </tbody>
+          </table>
         </div>
       </div>
+
+      {/* Modal de creación de parking */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Crear Nuevo Parking</h3>
+              <form onSubmit={handleCreateParking}>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nombre
+                  </label>
+                  <input
+                    type="text"
+                    value={createForm.name}
+                    onChange={(e) => setCreateForm({...createForm, name: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Ej: P. Centro Comercial"
+                    required
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Ubicación (GPS)
+                  </label>
+                  <input
+                    type="text"
+                    value={createForm.location}
+                    onChange={(e) => setCreateForm({...createForm, location: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Ej: 38.607426920203615,-0.04519652478288384"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Total de Plazas
+                  </label>
+                  <input
+                    type="number"
+                    value={createForm.total_plazas}
+                    onChange={(e) => setCreateForm({...createForm, total_plazas: parseInt(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="100"
+                    required
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Umbral Denso
+                  </label>
+                  <input
+                    type="number"
+                    value={createForm.threshold_dense}
+                    onChange={(e) => setCreateForm({...createForm, threshold_dense: parseInt(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="25"
+                    required
+                  />
+                </div>
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Umbral Completo
+                  </label>
+                  <input
+                    type="number"
+                    value={createForm.threshold_full}
+                    onChange={(e) => setCreateForm({...createForm, threshold_full: parseInt(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="5"
+                    required
+                  />
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createParkingMutation.isLoading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {createParkingMutation.isLoading ? 'Creando...' : 'Crear Parking'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
