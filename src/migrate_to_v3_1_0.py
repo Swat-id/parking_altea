@@ -172,7 +172,10 @@ def migrate_database():
             INSERT INTO user_parkings (user_id, parking_id, created_at)
             SELECT :admin_id, id, NOW()
             FROM parkings
-            ON CONFLICT (user_id, parking_id) DO NOTHING
+            WHERE NOT EXISTS (
+                SELECT 1 FROM user_parkings 
+                WHERE user_id = :admin_id AND parking_id = parkings.id
+            )
         """), {'admin_id': admin_id})
         print("✅ Todos los parkings asignados al superadmin")
         
@@ -182,7 +185,10 @@ def migrate_database():
             SELECT :toni_id, id, NOW()
             FROM parkings 
             WHERE name IN ('P. Ciutat Esportiva', 'P. Port Altea', 'P. Estació Altea')
-            ON CONFLICT (user_id, parking_id) DO NOTHING
+            AND NOT EXISTS (
+                SELECT 1 FROM user_parkings 
+                WHERE user_id = :toni_id AND parking_id = parkings.id
+            )
         """), {'toni_id': toni_id})
         print("✅ Parkings específicos asignados a Toni Alos")
         
@@ -192,7 +198,10 @@ def migrate_database():
             SELECT :ivan_id, id, NOW()
             FROM parkings 
             WHERE name IN ('P. Altea Hills', 'P. Poble antic/Belles Arts 1', 'P. Poble antic/Belles Arts 2')
-            ON CONFLICT (user_id, parking_id) DO NOTHING
+            AND NOT EXISTS (
+                SELECT 1 FROM user_parkings 
+                WHERE user_id = :ivan_id AND parking_id = parkings.id
+            )
         """), {'ivan_id': ivan_id})
         print("✅ Parkings específicos asignados a Iván Martí")
         
