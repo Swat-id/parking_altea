@@ -112,10 +112,11 @@ def migrate_database():
         # Usuario superadmin
         admin_password_hash = hash_password('admin123!')
         session.execute(text("""
-            INSERT INTO users (name, email, password_hash, role, created_at, updated_at) 
-            VALUES (:name, :email, :password_hash, :role, NOW(), NOW())
+            INSERT INTO users (name, email, password_hash, role, is_active, created_at, updated_at) 
+            VALUES (:name, :email, :password_hash, :role, TRUE, NOW(), NOW())
             ON CONFLICT (email) DO UPDATE SET 
                 role = EXCLUDED.role,
+                is_active = TRUE,
                 updated_at = NOW()
         """), {
             'name': 'Administrador del Sistema',
@@ -128,10 +129,11 @@ def migrate_database():
         # Usuario Toni Alos
         user_password_hash = hash_password('altea2025!')
         session.execute(text("""
-            INSERT INTO users (name, email, password_hash, role, created_at, updated_at) 
-            VALUES (:name, :email, :password_hash, :role, NOW(), NOW())
+            INSERT INTO users (name, email, password_hash, role, is_active, created_at, updated_at) 
+            VALUES (:name, :email, :password_hash, :role, TRUE, NOW(), NOW())
             ON CONFLICT (email) DO UPDATE SET 
                 role = EXCLUDED.role,
+                is_active = TRUE,
                 updated_at = NOW()
         """), {
             'name': 'Toni Alos',
@@ -143,10 +145,11 @@ def migrate_database():
         
         # Usuario Iván Martí
         session.execute(text("""
-            INSERT INTO users (name, email, password_hash, role, created_at, updated_at) 
-            VALUES (:name, :email, :password_hash, :role, NOW(), NOW())
+            INSERT INTO users (name, email, password_hash, role, is_active, created_at, updated_at) 
+            VALUES (:name, :email, :password_hash, :role, TRUE, NOW(), NOW())
             ON CONFLICT (email) DO UPDATE SET 
                 role = EXCLUDED.role,
+                is_active = TRUE,
                 updated_at = NOW()
         """), {
             'name': 'Iván Martí',
