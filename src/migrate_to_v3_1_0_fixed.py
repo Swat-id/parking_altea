@@ -63,9 +63,16 @@ def migrate_database():
         # 2. Agregar constraint de validación de roles
         print("🔒 Agregando constraint de validación de roles...")
         execute_safe(session, """
-            ALTER TABLE users 
-            ADD CONSTRAINT IF NOT EXISTS check_user_role 
-            CHECK (role IN ('superadmin', 'admin', 'user'))
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.check_constraints 
+                    WHERE constraint_name = 'check_user_role'
+                ) THEN
+                    ALTER TABLE users ADD CONSTRAINT check_user_role 
+                    CHECK (role IN ('superadmin', 'admin', 'user'));
+                END IF;
+            END $$;
         """)
         
         # 3. Crear índices para optimización
