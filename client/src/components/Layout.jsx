@@ -52,7 +52,7 @@ const Layout = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <nav className="bg-white shadow-sm">
+      <nav className="bg-white shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex">
@@ -118,8 +118,8 @@ const Layout = ({ children }) => {
         </div>
         {/* Menú móvil */}
         {mobileMenuOpen && (
-          <div className="sm:hidden">
-            <div className="pt-2 pb-3 space-y-1 bg-white border-t border-gray-200">
+          <div className="sm:hidden absolute top-16 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
+            <div className="pt-2 pb-3 space-y-1">
               {fullNavigation.map((item) => {
                 const Icon = item.icon
                 return (
@@ -166,7 +166,7 @@ const Layout = ({ children }) => {
           </div>
         )}
       </nav>
-      <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+      <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 relative z-10">
         {children}
       </main>
     </div>

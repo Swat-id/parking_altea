@@ -333,18 +333,18 @@ def handle_camera():
             
             return jsonify({'status': 'duplicate_ignored', 'message': 'Duplicate message ignored'}), 200
         
-        # UNIFICACIÓN: Buscar acceso por device + línea (método principal)
-        # Usar comparación insensible a mayúsculas/minúsculas
-        access = session.query(Access).filter(
+        # NUEVA LÓGICA: Buscar TODAS las cámaras que coincidan con device + línea
+        # Esto permite que una misma cámara esté asignada a múltiples parkings
+        accesses = session.query(Access).filter(
             func.lower(Access.name) == func.lower(device),
             Access.line == line
-        ).first()
+        ).all()
         
-        if not access:
+        if not accesses:
             # Si no se encuentra por device+línea, intentar buscar por IP+línea como fallback
-            access = session.query(Access).filter_by(ip=ip, line=line).first()
-            if access:
-                logger.info(f"Found access by IP and line (fallback): {ip}, line: {line}")
+            accesses = session.query(Access).filter_by(ip=ip, line=line).all()
+            if accesses:
+                logger.info(f"Found {len(accesses)} access(es) by IP and line (fallback): {ip}, line: {line}")
             else:
                 error_msg = f"Device not found in database: {device} (line: {original_line})"
                 logger.warning(f"{error_msg}")
@@ -369,20 +369,23 @@ def handle_camera():
                 
                 return jsonify({'error': 'Device not found'}), 404
         else:
-            logger.info(f"Found access by device name and line: {device}, line: {line}")
+            logger.info(f"Found {len(accesses)} access(es) by device name and line: {device}, line: {line}")
         
-        # Log de información del acceso encontrado
-        logger.info(f"Access found - ID: {access.id}, Parking ID: {access.parking_id}, Name: {access.name}")
-        logger.info(f"Previous counters - Last In: {access.last_vehicle_in}, Last Out: {access.last_vehicle_out}")
+        # Log de información de todos los accesos encontrados
+        for access in accesses:
+            logger.info(f"Access found - ID: {access.id}, Parking ID: {access.parking_id}, Name: {access.name}")
+            logger.info(f"Previous counters - Last In: {access.last_vehicle_in}, Last Out: {access.last_vehicle_out}")
         
-        # Actualizar estado de la cámara a ONLINE y timestamp de último mensaje
-        access.status = 'ONLINE'
-        access.last_message_received = datetime.now()
-        logger.info(f"Camera status updated to ONLINE - Device: {device}, Line: {original_line}")
+        # Actualizar estado de TODAS las cámaras a ONLINE y timestamp de último mensaje
+        for access in accesses:
+            access.status = 'ONLINE'
+            access.last_message_received = datetime.now()
+        logger.info(f"Camera status updated to ONLINE for {len(accesses)} access(es) - Device: {device}, Line: {original_line}")
         
-        # Guardar contadores anteriores para el log
-        previous_vehicle_in = access.last_vehicle_in
-        previous_vehicle_out = access.last_vehicle_out
+        # Usar el primer acceso para obtener contadores anteriores (todos deberían ser iguales)
+        first_access = accesses[0]
+        previous_vehicle_in = first_access.last_vehicle_in
+        previous_vehicle_out = first_access.last_vehicle_out
         
         # Calcular deltas con manejo de reinicios
         logger.info(f"Calculating deltas - Previous: In={previous_vehicle_in}, Out={previous_vehicle_out} -> New: In={veh_in}, Out={veh_out}")
@@ -399,133 +402,150 @@ def handle_camera():
             logger.warning(f"CAMERA RESET PROCESSED - Device: {device}, Line: {original_line}")
             logger.warning(f"Reset details: {reset_info}")
         
-        # UNIFICACIÓN: Actualizar contadores de acceso ANTES de calcular ocupación
+        # NUEVA LÓGICA: Actualizar contadores de TODOS los accesos ANTES de calcular ocupación
         # Esto es crucial para evitar duplicados
-        access.last_vehicle_in = veh_in
-        access.last_vehicle_out = veh_out
+        for access in accesses:
+            access.last_vehicle_in = veh_in
+            access.last_vehicle_out = veh_out
         
-        # Actualizar parking
-        parking = access.parking
-        previous_occupancy = parking.current_occupancy
+        # Procesar TODOS los parkings asociados a esta cámara
+        updated_parkings = []
         
-        # UNIFICACIÓN: Calcular ocupación correctamente
-        # Solo aplicar deltas si NO es un reinicio
-        if not is_reset:
-            parking.current_occupancy += (delta_in - delta_out)
-            logger.info(f"Occupancy updated - Previous: {previous_occupancy}, Delta: +{delta_in} -{delta_out} = {delta_in - delta_out}, New: {parking.current_occupancy}")
-        else:
-            # En caso de reinicio, mantener la ocupación actual
-            logger.info(f"Reset detected - Keeping current occupancy: {parking.current_occupancy}")
-        
-        # PERMITIR OCUPACIÓN POR ENCIMA DEL MÁXIMO Y VALORES NEGATIVOS
-        # No limitar la ocupación al máximo de capacidad
-        # Esto permite reflejar la realidad cuando hay exceso de vehículos
-        
-        logger.info(f"Parking occupancy updated - Previous: {previous_occupancy}, New: {parking.current_occupancy}, Max Capacity: {parking.max_capacity}")
-        if is_reset:
-            logger.info(f"Reset impact on occupancy: +{delta_in} in, -{delta_out} out, Net change: {delta_in - delta_out}")
-        
-        # Calcular descuadre para estadísticas
-        free_spaces = parking.max_capacity - parking.current_occupancy
-        occupancy_discrepancy = None
-        
-        if parking.current_occupancy > parking.max_capacity:
-            # Exceso de vehículos
-            occupancy_discrepancy = f"EXCESS:{parking.current_occupancy - parking.max_capacity}"
-            logger.warning(f"OCCUPANCY EXCESS - Parking: {parking.name}, Capacity: {parking.max_capacity}, Current: {parking.current_occupancy}, Excess: {parking.current_occupancy - parking.max_capacity}")
-        elif free_spaces < 0:
-            # Plazas libres negativas
-            occupancy_discrepancy = f"NEGATIVE_FREE:{abs(free_spaces)}"
-            logger.warning(f"NEGATIVE FREE SPACES - Parking: {parking.name}, Free spaces: {free_spaces}, This indicates counting errors or overflow")
-        
-        # Registrar histórico con información de descuadre
-        hist = OccupancyHistory(
-            parking_id=parking.id,
-            occupancy=parking.current_occupancy,
-            source='camera'
-        )
-        session.add(hist)
-        
-        # Calcular estado (permitir estados especiales para descuadres)
-        occ = parking.current_occupancy
-        parking_name = parking.name  # Obtener el nombre antes de cerrar la sesión
-        previous_status = parking.status
-        free = parking.max_capacity - occ
-        
-        if parking.fixed_message_flag:
-            message = None
-            parking_status = parking.status  # Mantener estado actual
-            logger.info(f"Fixed message flag is active - no status update")
-        else:
-            # NUEVA LÓGICA: Descuadre negativo = COMPLETO
-            if free < 0:
-                # Estado especial para descuadres negativos - MOSTRAR COMO COMPLETO
-                parking.status = 'COMPLETO'
-                message = f"{parking_name}: COMPLETO"
-                logger.warning(f"Status set to COMPLETO (descuadre negativo) - Free spaces: {free}")
-            elif occ > parking.max_capacity:
-                # Estado para exceso de ocupación
-                parking.status = 'COMPLETO'
-                message = f"{parking_name}: COMPLETO"
-                logger.warning(f"Status set to COMPLETO (exceso) - Occupancy: {occ}, Capacity: {parking.max_capacity}")
-            elif free <= parking.threshold_full:
-                parking.status = 'COMPLETO'
-                message = f"{parking_name}: {free} libres ({parking.status})"
-            elif free <= parking.threshold_dense:
-                parking.status = 'DENSO'
-                message = f"{parking_name}: {free} libres ({parking.status})"
+        for access in accesses:
+            # Actualizar parking
+            parking = access.parking
+            previous_occupancy = parking.current_occupancy
+            
+            # UNIFICACIÓN: Calcular ocupación correctamente
+            # Solo aplicar deltas si NO es un reinicio
+            if not is_reset:
+                parking.current_occupancy += (delta_in - delta_out)
+                logger.info(f"Occupancy updated for parking {parking.name} - Previous: {previous_occupancy}, Delta: +{delta_in} -{delta_out} = {delta_in - delta_out}, New: {parking.current_occupancy}")
             else:
-                parking.status = 'LIBRE'
-                message = f"{parking_name}: {free} libres ({parking.status})"
+                # En caso de reinicio, mantener la ocupación actual
+                logger.info(f"Reset detected for parking {parking.name} - Keeping current occupancy: {parking.current_occupancy}")
             
-            parking_status = parking.status
-            logger.info(f"Status updated - Previous: {previous_status}, New: {parking.status}, Free spaces: {free}")
-            logger.info(f"Thresholds evaluation - Free spaces: {free}, Dense threshold: {parking.threshold_dense}, Full threshold: {parking.threshold_full}")
+            # PERMITIR OCUPACIÓN POR ENCIMA DEL MÁXIMO Y VALORES NEGATIVOS
+            # No limitar la ocupación al máximo de capacidad
+            # Esto permite reflejar la realidad cuando hay exceso de vehículos
             
-            # Enviar mensaje a paneles (con manejo de errores)
-            try:
-                update_parking_panels(parking.id, parking.current_occupancy, parking.max_capacity, parking.status)
-                logger.info(f"Message sent to panels: {parking.current_occupancy}/{parking.max_capacity} ({parking.status})")
-            except Exception as e:
-                logger.error(f"Error sending to panels: {e}")
-                # Log detallado del error para debugging
-                import traceback
-                logger.error(f"Traceback: {traceback.format_exc()}")
-        
-        # Preparar información adicional para el log en caso de reinicio
-        error_message = None
-        if is_reset:
-            error_message = f"Camera reset detected - Previous: In={previous_vehicle_in}, Out={previous_vehicle_out} -> New: In={veh_in}, Out={veh_out}"
-        
-        # Registrar log de cámara exitoso
-        log_camera_message(
-            session=session,
-            camera_ip=ip,
-            camera_line=original_line,
-            camera_name=device,
-            raw_message=raw_data,
-            vehicle_in=veh_in,
-            vehicle_out=veh_out,
-            status="processed" if not is_reset else "reset_processed",
-            error_message=error_message,
-            access_id=access.id,
-            parking_id=parking.id,
-            processing_time=(time.time() - start_time) * 1000,
-            previous_vehicle_in=reset_info["adjusted_previous_in"],
-            previous_vehicle_out=reset_info["adjusted_previous_out"],
-            delta_in=delta_in,
-            delta_out=delta_out,
-            new_occupancy=occ,
-            occupancy_change=occ - previous_occupancy,
-            parking_status=parking_status
-        )
+            logger.info(f"Parking occupancy updated - {parking.name}: Previous: {previous_occupancy}, New: {parking.current_occupancy}, Max Capacity: {parking.max_capacity}")
+            if is_reset:
+                logger.info(f"Reset impact on occupancy for {parking.name}: +{delta_in} in, -{delta_out} out, Net change: {delta_in - delta_out}")
+            
+            # Calcular descuadre para estadísticas
+            free_spaces = parking.max_capacity - parking.current_occupancy
+            occupancy_discrepancy = None
+            
+            if parking.current_occupancy > parking.max_capacity:
+                # Exceso de vehículos
+                occupancy_discrepancy = f"EXCESS:{parking.current_occupancy - parking.max_capacity}"
+                logger.warning(f"OCCUPANCY EXCESS - Parking: {parking.name}, Capacity: {parking.max_capacity}, Current: {parking.current_occupancy}, Excess: {parking.current_occupancy - parking.max_capacity}")
+            elif free_spaces < 0:
+                # Plazas libres negativas
+                occupancy_discrepancy = f"NEGATIVE_FREE:{abs(free_spaces)}"
+                logger.warning(f"NEGATIVE FREE SPACES - Parking: {parking.name}, Free spaces: {free_spaces}, This indicates counting errors or overflow")
+            
+            # Registrar histórico con información de descuadre
+            hist = OccupancyHistory(
+                parking_id=parking.id,
+                occupancy=parking.current_occupancy,
+                source='camera'
+            )
+            session.add(hist)
+            
+            # Calcular estado (permitir estados especiales para descuadres)
+            occ = parking.current_occupancy
+            parking_name = parking.name  # Obtener el nombre antes de cerrar la sesión
+            previous_status = parking.status
+            free = parking.max_capacity - occ
+            
+            if parking.fixed_message_flag:
+                message = None
+                parking_status = parking.status  # Mantener estado actual
+                logger.info(f"Fixed message flag is active for {parking.name} - no status update")
+            else:
+                # NUEVA LÓGICA: Descuadre negativo = COMPLETO
+                if free < 0:
+                    # Estado especial para descuadres negativos - MOSTRAR COMO COMPLETO
+                    parking.status = 'COMPLETO'
+                    message = f"{parking_name}: COMPLETO"
+                    logger.warning(f"Status set to COMPLETO (descuadre negativo) for {parking.name} - Free spaces: {free}")
+                elif occ > parking.max_capacity:
+                    # Estado para exceso de ocupación
+                    parking.status = 'COMPLETO'
+                    message = f"{parking_name}: COMPLETO"
+                    logger.warning(f"Status set to COMPLETO (exceso) for {parking.name} - Occupancy: {occ}, Capacity: {parking.max_capacity}")
+                elif free <= parking.threshold_full:
+                    parking.status = 'COMPLETO'
+                    message = f"{parking_name}: {free} libres ({parking.status})"
+                elif free <= parking.threshold_dense:
+                    parking.status = 'DENSO'
+                    message = f"{parking_name}: {free} libres ({parking.status})"
+                else:
+                    parking.status = 'LIBRE'
+                    message = f"{parking_name}: {free} libres ({parking.status})"
+                
+                parking_status = parking.status
+                logger.info(f"Status updated for {parking.name} - Previous: {previous_status}, New: {parking.status}, Free spaces: {free}")
+                logger.info(f"Thresholds evaluation for {parking.name} - Free spaces: {free}, Dense threshold: {parking.threshold_dense}, Full threshold: {parking.threshold_full}")
+                
+                # Enviar mensaje a paneles (con manejo de errores)
+                try:
+                    update_parking_panels(parking.id, parking.current_occupancy, parking.max_capacity, parking.status)
+                    logger.info(f"Message sent to panels for {parking.name}: {parking.current_occupancy}/{parking.max_capacity} ({parking.status})")
+                except Exception as e:
+                    logger.error(f"Error sending to panels for {parking.name}: {e}")
+                    # Log detallado del error para debugging
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+            
+            # Preparar información adicional para el log en caso de reinicio
+            error_message = None
+            if is_reset:
+                error_message = f"Camera reset detected - Previous: In={previous_vehicle_in}, Out={previous_vehicle_out} -> New: In={veh_in}, Out={veh_out}"
+            
+            # Registrar log de cámara exitoso para cada parking
+            log_camera_message(
+                session=session,
+                camera_ip=ip,
+                camera_line=original_line,
+                camera_name=device,
+                raw_message=raw_data,
+                vehicle_in=veh_in,
+                vehicle_out=veh_out,
+                status="processed" if not is_reset else "reset_processed",
+                error_message=error_message,
+                access_id=access.id,
+                parking_id=parking.id,
+                processing_time=(time.time() - start_time) * 1000,
+                previous_vehicle_in=reset_info["adjusted_previous_in"],
+                previous_vehicle_out=reset_info["adjusted_previous_out"],
+                delta_in=delta_in,
+                delta_out=delta_out,
+                new_occupancy=occ,
+                occupancy_change=occ - previous_occupancy,
+                parking_status=parking_status
+            )
+            
+            updated_parkings.append({
+                'name': parking.name,
+                'occupancy': occ,
+                'status': parking.status
+            })
         
         session.commit()
         session.close()
         
-        logger.info(f"Successfully processed camera data for parking {parking_name} - Occupancy: {occ}")
+        # Log de resumen de todos los parkings actualizados
+        parking_names = [p['name'] for p in updated_parkings]
+        logger.info(f"Successfully processed camera data for {len(updated_parkings)} parking(s): {', '.join(parking_names)}")
         logger.info(f"=== END CAMERA MESSAGE PROCESSING ===")
-        return jsonify({'status': 'ok', 'parking': parking_name, 'occupancy': occ})
+        return jsonify({
+            'status': 'ok', 
+            'parkings': updated_parkings,
+            'total_parkings_updated': len(updated_parkings)
+        })
         
     except Exception as e:
         logger.error(f"Error inesperado procesando datos de cámara from {ip}: {e}")

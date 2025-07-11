@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { Link } from 'react-router-dom'
 import { parkingService } from '../services/parkingService'
+import CameraAssignmentModal from '../components/CameraAssignmentModal'
 import { 
   Car, 
   Search, 
@@ -14,7 +15,8 @@ import {
   MapPin,
   Save,
   X,
-  Plus
+  Plus,
+  Camera
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -23,6 +25,7 @@ const Parkings = () => {
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [editingParking, setEditingParking] = useState(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showCameraModal, setShowCameraModal] = useState(false)
   const [editForm, setEditForm] = useState({
     total_plazas: 0,
     threshold_dense: 0,
@@ -35,6 +38,7 @@ const Parkings = () => {
     threshold_dense: 0,
     threshold_full: 0
   })
+  const [assignedCameras, setAssignedCameras] = useState([])
 
   const queryClient = useQueryClient()
 
@@ -78,6 +82,7 @@ const Parkings = () => {
           threshold_dense: 0,
           threshold_full: 0
         })
+        setAssignedCameras([])
       },
       onError: (error) => {
         toast.error(error?.response?.data?.message || 'Error al crear el parking')
@@ -193,7 +198,22 @@ const Parkings = () => {
       return
     }
 
-    createParkingMutation.mutate(createForm)
+    // Incluir cámaras asignadas en los datos del parking
+    const parkingData = {
+      ...createForm,
+      cameras: assignedCameras
+    }
+
+    createParkingMutation.mutate(parkingData)
+  }
+
+  const handleCameraAssignment = (cameras) => {
+    setAssignedCameras(cameras)
+    setShowCameraModal(false)
+  }
+
+  const openCameraModal = () => {
+    setShowCameraModal(true)
   }
 
   // Mostrar loading mientras se cargan los datos
@@ -538,6 +558,44 @@ const Parkings = () => {
                     required
                   />
                 </div>
+                
+                {/* Sección de Cámaras */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Cámaras Asignadas
+                    </label>
+                    <button
+                      type="button"
+                      onClick={openCameraModal}
+                      className="flex items-center px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
+                    >
+                      <Camera className="h-4 w-4 mr-1" />
+                      {assignedCameras.length > 0 ? 'Editar' : 'Añadir'} Cámaras
+                    </button>
+                  </div>
+                  
+                  {assignedCameras.length > 0 ? (
+                    <div className="space-y-2">
+                      {assignedCameras.map((camera, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-gray-900">
+                              {camera.name || `Cámara ${index + 1}`}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {camera.ip} - Línea {camera.line}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500 italic">
+                      No hay cámaras asignadas. Haga clic en "Añadir Cámaras" para configurar.
+                    </div>
+                  )}
+                </div>
                 <div className="flex justify-end space-x-3">
                   <button
                     type="button"
@@ -559,6 +617,14 @@ const Parkings = () => {
           </div>
         </div>
       )}
+
+      {/* Modal de asignación de cámaras */}
+      <CameraAssignmentModal
+        isOpen={showCameraModal}
+        onClose={() => setShowCameraModal(false)}
+        onSave={handleCameraAssignment}
+        existingCameras={assignedCameras}
+      />
     </div>
   )
 }

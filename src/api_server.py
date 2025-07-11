@@ -313,6 +313,7 @@ def create_parking():
         total_plazas = req.get('total_plazas')
         threshold_dense = req.get('threshold_dense')
         threshold_full = req.get('threshold_full')
+        cameras = req.get('cameras', [])  # Lista de cámaras a asignar
         
         if not all([name, total_plazas, threshold_dense, threshold_full]):
             return jsonify({'error': 'Faltan campos requeridos: name, total_plazas, threshold_dense, threshold_full'}), 400
@@ -352,9 +353,49 @@ def create_parking():
         session.refresh(new_parking)
         parking_id = new_parking.id
         
+        # Asignar cámaras al parking
+        cameras_created = []
+        for camera_data in cameras:
+            if camera_data.get('ip'):
+                # Verificar si ya existe una cámara con esa IP y línea
+                existing_access = session.query(Access).filter(
+                    Access.ip == camera_data['ip'],
+                    Access.line == camera_data.get('line', 0)
+                ).first()
+                
+                if existing_access:
+                    # Si existe, asignar al parking actual también
+                    existing_access.parking_id = parking_id
+                    cameras_created.append({
+                        'id': existing_access.id,
+                        'ip': existing_access.ip,
+                        'line': existing_access.line,
+                        'name': existing_access.name,
+                        'status': 'existing'
+                    })
+                else:
+                    # Crear nueva cámara
+                    new_access = Access(
+                        parking_id=parking_id,
+                        ip=camera_data['ip'],
+                        line=camera_data.get('line', 0),
+                        name=camera_data.get('name', ''),
+                        last_vehicle_in=0,
+                        last_vehicle_out=0,
+                        status='OFFLINE'
+                    )
+                    session.add(new_access)
+                    cameras_created.append({
+                        'ip': new_access.ip,
+                        'line': new_access.line,
+                        'name': new_access.name,
+                        'status': 'new'
+                    })
+        
+        session.commit()
         session.close()
         
-        logger.info(f"Parking creado: {name} (ID: {parking_id})")
+        logger.info(f"Parking creado: {name} (ID: {parking_id}) con {len(cameras_created)} cámaras")
         return jsonify({
             'success': True,
             'parking': {
@@ -365,7 +406,8 @@ def create_parking():
                 'threshold_dense': threshold_dense,
                 'threshold_full': threshold_full,
                 'estado': 'LIBRE'
-            }
+            },
+            'cameras': cameras_created
         }), 201
         
     except Exception as e:
