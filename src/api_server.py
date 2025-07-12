@@ -1103,7 +1103,7 @@ def test_panel(panel_id):
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/panel/<int:panel_id>/type', methods=['PUT'])
-@require_panel_access('panel_id')
+@require_auth
 def update_panel_type(panel_id):
     """Actualizar el tipo de panel"""
     try:
