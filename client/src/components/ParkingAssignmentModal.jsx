@@ -37,7 +37,11 @@ const ParkingAssignmentModal = ({
       const userParkings = response.user?.parkings || []
       setSelectedParkings(userParkings.map(p => p.id))
     } catch (err) {
-      setError('Error al cargar parkings del usuario: ' + err.message)
+      console.error('Error loading user parkings:', err)
+      // Si falla la carga, usar los parkings pasados como prop
+      if (currentParkings && currentParkings.length > 0) {
+        setSelectedParkings(currentParkings)
+      }
     }
   }
 

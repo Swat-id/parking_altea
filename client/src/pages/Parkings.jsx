@@ -138,6 +138,22 @@ const Parkings = () => {
       threshold_dense: parking.threshold_dense || 0,
       threshold_full: parking.threshold_full || 0
     })
+    
+    // Cargar cámaras existentes del parking
+    loadParkingCameras(parking.id)
+  }
+
+  const loadParkingCameras = async (parkingId) => {
+    try {
+      const response = await fetch(`/api/parking/${parkingId}/cameras`)
+      if (response.ok) {
+        const data = await response.json()
+        setAssignedCameras(data.cameras || [])
+      }
+    } catch (err) {
+      console.error('Error cargando cámaras del parking:', err)
+      setAssignedCameras([])
+    }
   }
 
   const cancelEditing = () => {
@@ -209,9 +225,21 @@ const Parkings = () => {
     createParkingMutation.mutate(parkingData)
   }
 
-  const handleCameraAssignment = (cameras) => {
+  const handleCameraAssignment = async (cameras) => {
     setAssignedCameras(cameras)
     setShowCameraModal(false)
+    
+    // Si estamos editando un parking existente, guardar las cámaras
+    if (editingParking) {
+      try {
+        await parkingService.updateCameras(editingParking, cameras)
+        toast.success('Cámaras actualizadas correctamente')
+        queryClient.invalidateQueries('allParkings')
+      } catch (error) {
+        toast.error('Error al actualizar las cámaras')
+        console.error('Error:', error)
+      }
+    }
   }
 
   const openCameraModal = () => {
@@ -471,6 +499,7 @@ const Parkings = () => {
                       <Link
                         to={`/parking/${parking.id}`}
                         className="text-blue-600 hover:text-blue-900"
+                        title="Ver detalles"
                       >
                         <Eye className="h-4 w-4" />
                       </Link>
@@ -478,10 +507,21 @@ const Parkings = () => {
                         <button
                           onClick={() => startEditing(parking)}
                           className="text-green-600 hover:text-green-900"
+                          title="Editar configuración"
                         >
                           <Edit className="h-4 w-4" />
                         </button>
                       )}
+                      <button
+                        onClick={() => {
+                          loadParkingCameras(parking.id)
+                          setShowCameraModal(true)
+                        }}
+                        className="text-purple-600 hover:text-purple-900"
+                        title="Editar cámaras"
+                      >
+                        <Camera className="h-4 w-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>

@@ -61,6 +61,19 @@ export const parkingService = {
   },
 
   /**
+   * Actualizar cámaras de un parking
+   */
+  async updateCameras(parkingId, cameras) {
+    try {
+      const response = await api.put(`/parking/${parkingId}/cameras`, { cameras })
+      return response.data
+    } catch (error) {
+      console.error('Error actualizando cámaras:', error)
+      throw error
+    }
+  },
+
+  /**
    * Enviar mensaje a un parking
    */
   async sendMessage(parkingId, message) {

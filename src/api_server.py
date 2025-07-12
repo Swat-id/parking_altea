@@ -276,11 +276,24 @@ def get_user_parking(pid):
 # ============================================================================
 
 @app.route('/parkings', methods=['GET'])
+@require_auth
 def list_parkings():
-    """Listar todos los parkings"""
+    """Listar todos los parkings (requiere autenticación)"""
     try:
+        user_id = request.user_data['user_id']
+        user_role = request.user_data.get('role', 'user')
+        
         session = Session()
-        parks = session.query(Parking).all()
+        
+        if user_role == 'superadmin':
+            # Superadmin ve todos los parkings
+            parks = session.query(Parking).all()
+        else:
+            # Usuario normal solo ve sus parkings asignados
+            user_parkings = session.query(UserParking).filter(UserParking.user_id == user_id).all()
+            parking_ids = [up.parking_id for up in user_parkings]
+            parks = session.query(Parking).filter(Parking.id.in_(parking_ids)).all()
+        
         data = [
             {
                 'id': p.id,
@@ -415,16 +428,27 @@ def create_parking():
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/parkings/status', methods=['GET'])
+@require_auth
 def get_parkings_status():
-    """Obtener estado completo de todos los parkings con información de paneles"""
+    """Obtener estado completo de todos los parkings con información de paneles (requiere autenticación)"""
     try:
+        user_id = request.user_data['user_id']
+        user_role = request.user_data.get('role', 'user')
+        
         session = Session()
         
         # Importar servicios necesarios
         from panel_schedule_service import PanelScheduleService
         
-        # Obtener todos los parkings
-        parks = session.query(Parking).all()
+        # Obtener parkings según el rol del usuario
+        if user_role == 'superadmin':
+            # Superadmin ve todos los parkings
+            parks = session.query(Parking).all()
+        else:
+            # Usuario normal solo ve sus parkings asignados
+            user_parkings = session.query(UserParking).filter(UserParking.user_id == user_id).all()
+            parking_ids = [up.parking_id for up in user_parkings]
+            parks = session.query(Parking).filter(Parking.id.in_(parking_ids)).all()
         data = []
         
         for parking in parks:
@@ -728,6 +752,78 @@ def update_parking_config(pid):
         
     except Exception as e:
         logger.error(f"Error updating config for parking {pid}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/parking/<int:pid>/cameras', methods=['PUT'])
+@require_parking_access('pid')
+def update_parking_cameras(pid):
+    """Actualizar cámaras de un parking"""
+    try:
+        req = request.get_json(force=True)
+        cameras = req.get('cameras', [])
+        
+        session = Session()
+        
+        # Verificar que el parking existe
+        parking = session.query(Parking).get(pid)
+        if not parking:
+            session.close()
+            return jsonify({'error': 'Parking not found'}), 404
+        
+        # Eliminar cámaras existentes del parking
+        session.query(Access).filter(Access.parking_id == pid).delete()
+        
+        # Crear nuevas cámaras
+        cameras_created = []
+        for camera_data in cameras:
+            if camera_data.get('ip'):
+                # Verificar si ya existe una cámara con esa IP y línea
+                existing_access = session.query(Access).filter(
+                    Access.ip == camera_data['ip'],
+                    Access.line == camera_data.get('line', 0)
+                ).first()
+                
+                if existing_access:
+                    # Si existe, asignar al parking actual también
+                    existing_access.parking_id = pid
+                    cameras_created.append({
+                        'id': existing_access.id,
+                        'ip': existing_access.ip,
+                        'line': existing_access.line,
+                        'name': existing_access.name,
+                        'status': 'existing'
+                    })
+                else:
+                    # Crear nueva cámara
+                    new_access = Access(
+                        parking_id=pid,
+                        ip=camera_data['ip'],
+                        line=camera_data.get('line', 0),
+                        name=camera_data.get('name', ''),
+                        last_vehicle_in=0,
+                        last_vehicle_out=0,
+                        status='OFFLINE'
+                    )
+                    session.add(new_access)
+                    cameras_created.append({
+                        'ip': new_access.ip,
+                        'line': new_access.line,
+                        'name': new_access.name,
+                        'status': 'new'
+                    })
+        
+        session.commit()
+        session.close()
+        
+        logger.info(f"Parking cameras updated - Parking: {parking.name}, Cameras: {len(cameras_created)}")
+        return jsonify({
+            'status': 'ok',
+            'parking': parking.name,
+            'cameras': cameras_created
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating cameras for parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/parking/<int:pid>/message', methods=['POST'])

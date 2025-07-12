@@ -119,13 +119,19 @@ def get_user_from_token(db_session: Session, token: str) -> User:
     return db_session.query(User).filter(User.id == user_id, User.is_active == True).first()
 
 def delete_user(db_session: Session, user_id: int) -> dict:
-    """Elimina un usuario (desactiva en lugar de borrar físicamente)"""
+    """Elimina un usuario físicamente de la base de datos"""
     try:
         user = db_session.query(User).filter(User.id == user_id).first()
         if not user:
             return {"success": False, "error": "Usuario no encontrado"}
         
-        user.is_active = False
+        # Eliminar asignaciones de recursos
+        db_session.query(UserParking).filter(UserParking.user_id == user_id).delete()
+        db_session.query(UserPanel).filter(UserPanel.user_id == user_id).delete()
+        db_session.query(UserAccess).filter(UserAccess.user_id == user_id).delete()
+        
+        # Eliminar usuario físicamente
+        db_session.delete(user)
         db_session.commit()
         
         return {"success": True, "message": "Usuario eliminado correctamente"}
