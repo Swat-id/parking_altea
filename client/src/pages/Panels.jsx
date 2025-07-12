@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { panelService } from '../services/panelService'
 import { panelTypeService } from '../services/panelTypeService'
+import { useAuth } from '../context/AuthContext'
 import { 
   Monitor, 
   Wifi, 
@@ -29,6 +30,7 @@ import {
 import toast from 'react-hot-toast'
 
 const Panels = () => {
+  const { isSuperadmin } = useAuth()
   const queryClient = useQueryClient()
   const [selectedPanel, setSelectedPanel] = useState(null)
   const [showMessageForm, setShowMessageForm] = useState(false)
@@ -300,13 +302,15 @@ const Panels = () => {
             <RefreshCw className={`h-4 w-4 mr-2 ${verifyPanelsMutation.isLoading ? 'animate-spin' : ''}`} />
             Verificar Todos
           </button>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Crear Panel
-          </button>
+          {isSuperadmin && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Crear Panel
+            </button>
+          )}
         </div>
       </div>
 

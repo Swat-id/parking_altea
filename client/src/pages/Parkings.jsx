@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { Link } from 'react-router-dom'
 import { parkingService } from '../services/parkingService'
 import CameraAssignmentModal from '../components/CameraAssignmentModal'
+import { useAuth } from '../context/AuthContext'
 import { 
   Car, 
   Search, 
@@ -21,6 +22,7 @@ import {
 import toast from 'react-hot-toast'
 
 const Parkings = () => {
+  const { isSuperadmin } = useAuth()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [editingParking, setEditingParking] = useState(null)
@@ -251,13 +253,15 @@ const Parkings = () => {
             Gestión y monitoreo de todos los aparcamientos
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Crear Parking
-        </button>
+        {isSuperadmin && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Crear Parking
+          </button>
+        )}
       </div>
 
       {/* Filtros */}
