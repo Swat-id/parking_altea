@@ -1769,6 +1769,8 @@ def verify_all_panels():
         
         results = []
         updated_count = 0
+        online_count = 0
+        offline_count = 0
         
         from panel_client import ping_panel, test_panel_api_connection
         
@@ -1786,6 +1788,12 @@ def verify_all_panels():
                 previous_status = panel.status
                 status_changed = previous_status != new_status
                 
+                # Contar estados
+                if success:
+                    online_count += 1
+                else:
+                    offline_count += 1
+                
                 logger.info(f"Panel {panel.id}: ping_success={success}, previous_status={previous_status}, new_status={new_status}, status_changed={status_changed}")
                 
                 # Actualizar estado del panel
@@ -1802,20 +1810,23 @@ def verify_all_panels():
                     'ip': panel.ip,
                     'previous_status': previous_status,
                     'new_status': new_status,
-                    'response_time': response_time if success else None,
+                    'response_time': round(response_time, 2) if success else None,
                     'status_changed': status_changed,
-                    'ping_success': success
+                    'ping_success': success,
+                    'ping_time_ms': round(response_time, 2) if success else None
                 })
                 
             except Exception as e:
                 logger.error(f"Error verificando panel {panel.id}: {e}")
+                offline_count += 1
                 results.append({
                     'panel_id': panel.id,
                     'panel_name': panel.name,
                     'ip': panel.ip,
                     'error': str(e),
                     'status_changed': False,
-                    'ping_success': False
+                    'ping_success': False,
+                    'ping_time_ms': None
                 })
         
         logger.info(f"Commit de cambios: {updated_count} paneles actualizados")
@@ -1828,13 +1839,21 @@ def verify_all_panels():
         
         session.close()
         
-        logger.info(f"Verificación completada: {len(panels)} total, {updated_count} actualizados")
+        logger.info(f"Verificación completada: {len(panels)} total, {updated_count} actualizados, {online_count} online, {offline_count} offline")
         
         return jsonify({
             'status': 'ok',
             'total_panels': len(panels),
             'updated_count': updated_count,
-            'results': results
+            'online_count': online_count,
+            'offline_count': offline_count,
+            'results': results,
+            'summary': {
+                'total': len(panels),
+                'online': online_count,
+                'offline': offline_count,
+                'updated': updated_count
+            }
         })
     except Exception as e:
         logger.error(f"Error verificando paneles: {e}")
