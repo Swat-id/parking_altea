@@ -15,44 +15,74 @@ import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
   return (
-    <Layout>
-      <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/dashboard" element={
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/" element={
+        <Layout>
+          <Navigate to="/dashboard" replace />
+        </Layout>
+      } />
+      <Route path="/dashboard" element={
+        <Layout>
           <ProtectedRoute><Dashboard /></ProtectedRoute>
-        } />
-        <Route path="/parkings" element={
+        </Layout>
+      } />
+      <Route path="/parkings" element={
+        <Layout>
           <ProtectedRoute><Parkings /></ProtectedRoute>
-        } />
-        <Route path="/parking/:id" element={
+        </Layout>
+      } />
+      <Route path="/parking/:id" element={
+        <Layout>
           <ProtectedRoute><ParkingDetail /></ProtectedRoute>
-        } />
-        <Route path="/panels" element={
+        </Layout>
+      } />
+      <Route path="/panels" element={
+        <Layout>
           <ProtectedRoute><Panels /></ProtectedRoute>
-        } />
-        <Route path="/schedules" element={
+        </Layout>
+      } />
+      <Route path="/schedules" element={
+        <Layout>
           <ProtectedRoute><Schedules /></ProtectedRoute>
-        } />
-        <Route path="/statistics" element={<Navigate to="/statistics/1" replace />} />
-        <Route path="/statistics/:id" element={
+        </Layout>
+      } />
+      <Route path="/statistics" element={
+        <Layout>
+          <Navigate to="/statistics/1" replace />
+        </Layout>
+      } />
+      <Route path="/statistics/:id" element={
+        <Layout>
           <ProtectedRoute><Statistics /></ProtectedRoute>
-        } />
-        <Route path="/camera-logs" element={
+        </Layout>
+      } />
+      <Route path="/camera-logs" element={
+        <Layout>
           <ProtectedRoute><CameraLogs /></ProtectedRoute>
-        } />
-        <Route path="/profile" element={
+        </Layout>
+      } />
+      <Route path="/profile" element={
+        <Layout>
           <ProtectedRoute><Profile /></ProtectedRoute>
-        } />
-        <Route path="/admin" element={
+        </Layout>
+      } />
+      <Route path="/admin" element={
+        <Layout>
           <ProtectedRoute requiredRole="superadmin"><AdminDashboard /></ProtectedRoute>
-        } />
-        <Route path="/admin/users" element={
+        </Layout>
+      } />
+      <Route path="/admin/users" element={
+        <Layout>
           <ProtectedRoute requiredRole="superadmin"><UserManagement /></ProtectedRoute>
-        } />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Routes>
-    </Layout>
+        </Layout>
+      } />
+      <Route path="*" element={
+        <Layout>
+          <Navigate to="/dashboard" replace />
+        </Layout>
+      } />
+    </Routes>
   )
 }
 

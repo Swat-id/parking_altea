@@ -110,7 +110,7 @@ const Panels = () => {
       onSuccess: (data) => {
         setVerificationResults(data)
         queryClient.invalidateQueries('panels')
-        toast.success('Verificación de paneles completada')
+        toast.success(`Verificación completada: ${data.online_count} online, ${data.offline_count} offline`)
       },
       onError: (error) => {
         toast.error(error?.response?.data?.message || 'Error en verificación de paneles')
@@ -302,6 +302,16 @@ const Panels = () => {
             <RefreshCw className={`h-4 w-4 mr-2 ${verifyPanelsMutation.isLoading ? 'animate-spin' : ''}`} />
             Verificar Todos
           </button>
+          
+          {verificationResults && (
+            <button
+              onClick={() => setVerificationResults(null)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center"
+            >
+              <Info className="h-4 w-4 mr-2" />
+              Ver Resultados
+            </button>
+          )}
           {isSuperadmin && (
             <button
               onClick={() => setShowCreateModal(true)}
@@ -371,6 +381,9 @@ const Panels = () => {
                   Estado
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Ping
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Parking
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -404,6 +417,32 @@ const Panels = () => {
                         {panel.status}
                       </span>
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {verificationResults && verificationResults.results ? (
+                      (() => {
+                        const result = verificationResults.results.find(r => r.panel_id === panel.id)
+                        if (result && result.ping_success) {
+                          return (
+                            <div className="flex items-center">
+                              <CheckCircle className="h-4 w-4 text-green-600 mr-1" />
+                              <span>{result.ping_time_ms}ms</span>
+                            </div>
+                          )
+                        } else if (result && !result.ping_success) {
+                          return (
+                            <div className="flex items-center">
+                              <X className="h-4 w-4 text-red-600 mr-1" />
+                              <span>Sin respuesta</span>
+                            </div>
+                          )
+                        } else {
+                          return <span className="text-gray-400">No verificado</span>
+                        }
+                      })()
+                    ) : (
+                      <span className="text-gray-400">No verificado</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {panel.parking_name || 'Sin parking'}
@@ -451,7 +490,21 @@ const Panels = () => {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {panel.last_message || 'Sin mensajes'}
+                    <div>
+                      <div className="font-medium text-gray-900">
+                        {panel.last_message || 'Sin mensajes'}
+                      </div>
+                      {panel.last_update && (
+                        <div className="text-xs text-gray-400">
+                          {new Date(panel.last_update).toLocaleString('es-ES', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
@@ -577,6 +630,91 @@ const Panels = () => {
                 >
                   {sendMessageMutation.isLoading ? 'Enviando...' : 'Enviar Mensaje'}
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de resultados de verificación */}
+      {verificationResults && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-3/4 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Resultados de Verificación</h3>
+                <button
+                  onClick={() => setVerificationResults(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-4 gap-4 mb-6">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">{verificationResults.total_panels}</div>
+                  <div className="text-sm text-blue-800">Total Paneles</div>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">{verificationResults.online_count}</div>
+                  <div className="text-sm text-green-800">Online</div>
+                </div>
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <div className="text-2xl font-bold text-red-600">{verificationResults.offline_count}</div>
+                  <div className="text-sm text-red-800">Offline</div>
+                </div>
+                <div className="bg-yellow-50 p-4 rounded-lg">
+                  <div className="text-2xl font-bold text-yellow-600">{verificationResults.updated_count}</div>
+                  <div className="text-sm text-yellow-800">Actualizados</div>
+                </div>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Panel</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">IP</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado Anterior</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado Nuevo</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ping</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tiempo</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {verificationResults.results.map((result) => (
+                      <tr key={result.panel_id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {result.panel_name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {result.ip}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(result.previous_status)}`}>
+                            {result.previous_status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(result.new_status)}`}>
+                            {result.new_status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {result.ping_success ? (
+                            <CheckCircle className="h-5 w-5 text-green-600" />
+                          ) : (
+                            <X className="h-5 w-5 text-red-600" />
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {result.ping_time_ms ? `${result.ping_time_ms}ms` : 'N/A'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
