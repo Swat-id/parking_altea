@@ -407,13 +407,18 @@ const Schedules = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="text-lg font-semibold text-gray-900">{schedule.name}</h3>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        schedule.is_active 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {schedule.is_active ? 'Activa' : 'Inactiva'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${
+                          schedule.is_active ? 'bg-green-500' : 'bg-gray-400'
+                        }`}></div>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          schedule.is_active 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {schedule.is_active ? '🟢 Activa' : '⚫ Inactiva'}
+                        </span>
+                      </div>
                       <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                         Prioridad: {getPriorityName(schedule.priority)}
                       </span>
@@ -454,7 +459,11 @@ const Schedules = () => {
                     
                     <button
                       onClick={() => handleToggle(schedule.id)}
-                      className="p-2 text-yellow-600 hover:text-yellow-800"
+                      className={`p-2 ${
+                        schedule.is_active 
+                          ? 'text-green-600 hover:text-green-800 bg-green-50' 
+                          : 'text-gray-600 hover:text-gray-800 bg-gray-50'
+                      } rounded-md`}
                       title={schedule.is_active ? 'Desactivar' : 'Activar'}
                     >
                       {schedule.is_active ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
