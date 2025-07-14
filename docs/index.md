@@ -112,6 +112,16 @@ Documentación específica de la integración de paneles en v2.6.
 - Mensajes en valenciano
 - Colores dinámicos
 
+### [Integración de Paneles v3.1.0](./panel-integration/)
+Documentación completa de la integración de paneles con la API unificada en puerto 8888.
+
+**Contenido:**
+- [Resumen Ejecutivo](./panel-integration/executive-summary.md) - Estado general de la integración
+- [Flujo de Cámaras](./panel-integration/camera-flow.md) - Integración automática por eventos de cámara
+- [Actualización Manual](./panel-integration/manual-update-flow.md) - Flujo de actualización manual de ocupación
+- [Mensajes Directos](./panel-integration/direct-messages-flow.md) - Envío directo de mensajes personalizados
+- [Programaciones](./panel-integration/schedule-flow.md) - Programaciones automáticas de paneles
+
 ---
 
 ## 🗄️ Base de Datos

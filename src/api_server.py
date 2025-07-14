@@ -1247,6 +1247,155 @@ def update_panel_type(panel_id):
         logger.error(f"Error actualizando tipo de panel {panel_id}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@app.route('/panels/<int:panel_id>/type', methods=['PUT'])
+@require_auth
+def update_panel_type_plural(panel_id):
+    """Actualizar el tipo de panel (ruta plural para compatibilidad con frontend)"""
+    return update_panel_type(panel_id)
+
+@app.route('/panels/<int:panel_id>/message', methods=['POST'])
+@require_panel_access('panel_id')
+def send_message_to_panel_plural(panel_id):
+    """Enviar mensaje a un panel específico por ID (ruta plural para compatibilidad con frontend)"""
+    return send_message_to_panel(panel_id)
+
+@app.route('/panels/<int:panel_id>/test', methods=['POST'])
+def test_panel_plural(panel_id):
+    """Probar comunicación con un panel (ruta plural para compatibilidad con frontend)"""
+    return test_panel(panel_id)
+
+@app.route('/panels/<int:panel_id>/multi-message', methods=['POST'])
+@require_panel_access('panel_id')
+def send_multi_message_to_panel(panel_id):
+    """Enviar múltiples mensajes a un panel específico por ID"""
+    try:
+        req = request.get_json(force=True)
+        messages = req.get('messages', [])
+        
+        if not messages or not isinstance(messages, list):
+            return jsonify({'error': 'Messages field must be a non-empty array'}), 400
+        
+        session = Session()
+        panel = session.query(Panel).get(panel_id)
+        
+        if not panel:
+            session.close()
+            return jsonify({'error': 'Panel not found'}), 404
+        
+        # Guardar información del panel antes de cerrar la sesión
+        panel_name = panel.name
+        panel_ip = panel.ip
+        
+        # Usar el PanelCommunicationService
+        from panel_communication_service import get_panel_service
+        panel_service = get_panel_service()
+        
+        start_time = datetime.now()
+        
+        # Enviar cada mensaje
+        results = []
+        for i, message_data in enumerate(messages):
+            try:
+                result = panel_service.send_custom_text(
+                    panel_ip=panel_ip,
+                    text=message_data.get('text', ''),
+                    color=message_data.get('color', 1),
+                    font_size=message_data.get('fontSize', 2),
+                    effect=message_data.get('showEffect', 'fijo')
+                )
+                results.append({
+                    'window_id': i,
+                    'success': result.get('success', False),
+                    'message': result.get('message', '')
+                })
+            except Exception as e:
+                results.append({
+                    'window_id': i,
+                    'success': False,
+                    'message': str(e)
+                })
+        
+        response_time = (datetime.now() - start_time).total_seconds() * 1000
+        
+        # Actualizar estado del panel
+        panel.status = 'ONLINE' if any(r['success'] for r in results) else 'OFFLINE'
+        panel.last_update = datetime.now()
+        
+        session.commit()
+        session.close()
+        
+        return jsonify({
+            'success': any(r['success'] for r in results),
+            'message': 'Mensajes enviados',
+            'panel_id': panel_id,
+            'panel_name': panel_name,
+            'panel_ip': panel_ip,
+            'results': results,
+            'responseTime': response_time
+        })
+        
+    except Exception as e:
+        logger.error(f"Error sending multi-message to panel {panel_id}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/panels/<int:panel_id>/status', methods=['GET'])
+def get_panel_status(panel_id):
+    """Obtener estado de un panel específico por ID"""
+    try:
+        session = Session()
+        panel = session.query(Panel).get(panel_id)
+        
+        if not panel:
+            session.close()
+            return jsonify({'error': 'Panel not found'}), 404
+        
+        panel_data = {
+            'id': panel.id,
+            'name': panel.name,
+            'ip': panel.ip,
+            'status': panel.status,
+            'last_message': panel.last_message,
+            'last_update': panel.last_update.isoformat() if panel.last_update else None
+        }
+        
+        session.close()
+        return jsonify(panel_data)
+        
+    except Exception as e:
+        logger.error(f"Error getting panel status {panel_id}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/panels/<int:panel_id>/protocol-info', methods=['GET'])
+def get_panel_protocol_info(panel_id):
+    """Obtener información del protocolo de un panel específico por ID"""
+    try:
+        session = Session()
+        panel = session.query(Panel).get(panel_id)
+        
+        if not panel:
+            session.close()
+            return jsonify({'error': 'Panel not found'}), 404
+        
+        protocol_info = {
+            'panel_id': panel.id,
+            'panel_name': panel.name,
+            'panel_ip': panel.ip,
+            'protocol_version': panel.protocol_version or 'old',
+            'panel_type': {
+                'id': panel.panel_type.id,
+                'name': panel.panel_type.name,
+                'manufacturer': panel.panel_type.manufacturer.name,
+                'protocol': panel.panel_type.protocol_type
+            } if panel.panel_type else None
+        }
+        
+        session.close()
+        return jsonify(protocol_info)
+        
+    except Exception as e:
+        logger.error(f"Error getting panel protocol info {panel_id}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 @app.route('/panel-types', methods=['GET'])
 def get_all_panel_types():
     """Obtener todos los tipos de panel"""
