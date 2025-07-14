@@ -2259,7 +2259,7 @@ def execute_schedule(schedule_id):
             session.close()
             return jsonify({'error': 'Programación no encontrada'}), 404
         
-        schedule_service = PanelScheduleService(session)
+        schedule_service = PanelScheduleService(session, "http://localhost:6001/api/v1/panels/send")
         result = schedule_service.execute_schedule(schedule)
         session.close()
         

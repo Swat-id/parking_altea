@@ -411,6 +411,10 @@ class PanelScheduleService:
                     )
                     if result.get('success'):
                         success_count += 1
+                        # Actualizar el último mensaje del panel con el estado
+                        panel.last_message = message
+                        panel.last_update = datetime.now()
+                        panel.status = 'ONLINE'
                 except Exception as e:
                     logger.error(f"Error enviando mensaje de estado a panel {panel.id}: {e}")
             
