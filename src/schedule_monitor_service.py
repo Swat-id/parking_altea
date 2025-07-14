@@ -80,7 +80,7 @@ class ScheduleMonitorService:
         """Verificar y ejecutar programaciones activas"""
         try:
             session = self.Session()
-            schedule_service = PanelScheduleService(session)
+            schedule_service = PanelScheduleService(session, "http://localhost:8888/api/v1/panels/send")
             
             # Obtener todas las programaciones activas
             result = schedule_service.get_schedules(active_only=True)
@@ -211,7 +211,7 @@ class ScheduleMonitorService:
         """Verificar programaciones que han terminado y restaurar estado normal"""
         try:
             session = self.Session()
-            schedule_service = PanelScheduleService(session)
+            schedule_service = PanelScheduleService(session, "http://localhost:8888/api/v1/panels/send")
             
             current_time = datetime.now().astimezone()
             current_time_str = current_time.strftime('%H:%M')
