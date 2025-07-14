@@ -882,8 +882,8 @@ def set_parking_message(pid):
                     panel_ip=panel.ip,
                     text=message,
                     color=color_code,
-                    font_size=2,  # Tamaño 16 píxeles
-                    effect=effect_code
+                    font_size=2,  # Tamaño 16 píxeles (código 2) - CORREGIDO
+                    effect=effect_code  # Usar código numérico correcto
                 )
                 if result.get('success'):
                     success_count += 1
@@ -958,7 +958,7 @@ def set_panel_message(ip):
             text=message,
             color=color_code,
             font_size=2,  # Tamaño 16 píxeles (código 2) - CORREGIDO
-            effect="fijo"  # Fijo por defecto - CORREGIDO
+            effect=effect_code  # Usar código numérico correcto
         )
         
         if result.get('success'):
@@ -1101,6 +1101,15 @@ def send_message_to_panel(panel_id):
         # No convertir fontSize ya que viene como código
         font_size_code = fontSize
         
+        # Convertir efecto string a código numérico
+        effect_codes = {
+            'fijo': 2,
+            'scroll': 12,
+            'static': 2,
+            'center': 2
+        }
+        effect_code = effect_codes.get(showEffect, 2)  # Fijo por defecto
+        
         session = Session()
         panel = session.query(Panel).get(panel_id)
         
@@ -1122,7 +1131,7 @@ def send_message_to_panel(panel_id):
             text=message,
             color=color,
             font_size=font_size_code,  # Usar código convertido
-            effect=showEffect
+            effect=effect_code  # Usar código numérico convertido
         )
         response_time = (datetime.now() - start_time).total_seconds() * 1000  # en ms
         
@@ -1174,7 +1183,7 @@ def test_panel(panel_id):
             text='PRUEBA',
             color=2,  # Verde para prueba
             font_size=2,  # Tamaño 16 píxeles (código 2) - CORREGIDO
-            effect="fijo"  # Fijo por defecto - CORREGIDO
+            effect=2  # Fijo por defecto (valor correcto)
         )
         response_time = (datetime.now() - start_time).total_seconds() * 1000
         

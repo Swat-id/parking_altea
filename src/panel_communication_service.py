@@ -123,23 +123,47 @@ class PanelCommunicationService:
             if font_sizes is None:
                 font_sizes = [2] * len(texts)  # Tamaño 16 (valor 2) por defecto
             if show_effects is None:
-                show_effects = [1] * len(texts)  # Fijo por defecto (valor 1) - CORREGIDO
+                show_effects = [2] * len(texts)  # Fijo por defecto (valor 2) - CORREGIDO
                 
             # Preparar ventanas para la API
             windows = []
             for i, text in enumerate(texts):
-                # Convertir efecto numérico a string descriptivo
-                effect_value = show_effects[i] if i < len(show_effects) else 1
-                effect_string = "fijo" if effect_value == 1 else "scroll" if effect_value == 12 else "static"
+                # Convertir efecto numérico a string descriptivo y ajustar parámetros según protocolo
+                effect_value = show_effects[i] if i < len(show_effects) else 2
+                
+                # Determinar efecto string y stayTime según protocolo
+                if protocol == "old":
+                    # Protocolo antiguo: usar valores específicos
+                    if effect_value == 2:  # Fijo
+                        effect_string = "fijo"
+                        stay_time = 0  # Requerido para protocolo antiguo
+                    elif effect_value == 12:  # Scroll
+                        effect_string = "scroll"
+                        stay_time = 5  # Requerido para protocolo antiguo
+                    else:
+                        # Fallback a fijo
+                        effect_string = "fijo"
+                        stay_time = 0
+                else:
+                    # Protocolo nuevo: usar valores estándar
+                    if effect_value == 1:  # Fijo
+                        effect_string = "fijo"
+                        stay_time = 50
+                    elif effect_value == 12:  # Scroll
+                        effect_string = "scroll"
+                        stay_time = 50
+                    else:
+                        # Fallback a fijo
+                        effect_string = "fijo"
+                        stay_time = 50
                 
                 window = {
                     "id": i,
                     "text": text,
                     "color": colors[i] if i < len(colors) else 1,
                     "fontSize": font_sizes[i] if i < len(font_sizes) else 2,
-                    "speed": 100,
                     "effect": effect_string,  # Usar string descriptivo
-                    "stayTime": 50,
+                    "stayTime": stay_time,  # Ajustado según protocolo
                     "alignmentH": 0,  # Centrado horizontal
                     "alignmentV": 0   # Centrado vertical
                 }
@@ -157,7 +181,7 @@ class PanelCommunicationService:
                 ]
             }
             
-            logger.info(f"Enviando a panel {panel_ip} ({protocol}): {texts}")
+            logger.info(f"Enviando a panel {panel_ip} ({protocol}): {texts} con stayTime={stay_time}")
             
             # Intentar envío con reintentos
             for attempt in range(self.retry_attempts):
@@ -316,7 +340,7 @@ class PanelCommunicationService:
     
     def send_custom_text(self, panel_ip: str, text: str, 
                         color: int = 1, font_size: int = 2, 
-                        effect: int = 1) -> Dict:  # Fijo por defecto (valor 1) - CORREGIDO
+                        effect: int = 2) -> Dict:  # Fijo por defecto (valor 2) - CORREGIDO
         """
         Enviar texto personalizado a un panel
         
@@ -325,7 +349,7 @@ class PanelCommunicationService:
             text: Texto a enviar
             color: Color del texto (1=Rojo, 2=Verde, 3=Amarillo, etc.)
             font_size: Tamaño de fuente (0=8px, 1=12px, 2=16px, etc.)
-            effect: Efecto (1=fijo, 12=scroll) - CORREGIDO
+            effect: Efecto (2=fijo, 12=scroll) - CORREGIDO
             
         Returns:
             Diccionario con el resultado de la operación
@@ -470,7 +494,7 @@ def update_parking_panels(parking_id: int, current_occupancy: int, max_capacity:
                         text=message,
                         color=color,  # Color dinámico según estado
                         font_size=2,  # Tamaño 16 píxeles (código 2)
-                        effect=1  # Fijo (valor correcto)
+                        effect=2  # Fijo (valor correcto)
                     )
                     
                     if result.get('success'):

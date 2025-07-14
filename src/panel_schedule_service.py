@@ -407,7 +407,7 @@ class PanelScheduleService:
                         text=message,
                         color=color,
                         font_size=16,  # font_size por defecto
-                        effect=1  # Efecto estático
+                        effect=2  # Efecto estático (valor correcto)
                     )
                     if result.get('success'):
                         success_count += 1
@@ -440,12 +440,14 @@ class PanelScheduleService:
     def _get_effect_code(self, effect: str) -> int:
         """Convertir efecto de texto a código numérico"""
         effect_codes = {
-            'static': 1,
-            'scroll_left': 2,
-            'scroll_right': 3,
-            'center': 4
+            'static': 2,  # Fijo para protocolo antiguo
+            'scroll_left': 12,  # Scroll para protocolo antiguo
+            'scroll_right': 12,  # Scroll para protocolo antiguo
+            'center': 2,  # Fijo para protocolo antiguo
+            'fijo': 2,  # Fijo para protocolo antiguo
+            'scroll': 12  # Scroll para protocolo antiguo
         }
-        return effect_codes.get(effect, 1)
+        return effect_codes.get(effect, 2)  # Fijo por defecto
     
     def get_schedule_logs(self, schedule_id: int = None, parking_id: int = None, limit: int = 100) -> dict:
         """Obtener logs de programaciones"""
