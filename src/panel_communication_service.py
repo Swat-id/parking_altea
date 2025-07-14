@@ -475,6 +475,10 @@ def update_parking_panels(parking_id: int, current_occupancy: int, max_capacity:
                     
                     if result.get('success'):
                         updated_panels += 1
+                        # Actualizar el último mensaje del panel
+                        panel.last_message = message
+                        panel.last_update = datetime.now()
+                        panel.status = 'ONLINE'
                         logger.info(f"Panel {panel.ip} actualizado correctamente")
                     else:
                         error_msg = result.get('message', 'Error desconocido')
