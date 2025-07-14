@@ -7,7 +7,7 @@ import sys
 import os
 sys.path.append('src')
 
-from src.models import Panel, PanelSchedule
+from models import Panel, PanelSchedule
 from sqlalchemy import create_engine, and_
 from sqlalchemy.orm import sessionmaker
 import config
