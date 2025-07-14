@@ -332,7 +332,7 @@ class PanelScheduleService:
             for panel in panels:
                 try:
                     result = self.panel_communication_service.send_custom_text(
-                        panel_ip=panel.panel_ip,
+                        panel_ip=panel.ip,
                         text=schedule.message,
                         color=schedule.color,
                         font_size=schedule.font_size,
@@ -399,7 +399,7 @@ class PanelScheduleService:
             for panel in panels:
                 try:
                     result = self.panel_communication_service.send_custom_text(
-                        panel_ip=panel.panel_ip,
+                        panel_ip=panel.ip,
                         text=message,
                         color=color,
                         font_size=16,  # font_size por defecto
