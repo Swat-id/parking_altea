@@ -1201,7 +1201,7 @@ def test_panel(panel_id):
 @app.route('/panel/<int:panel_id>/type', methods=['PUT'])
 @require_auth
 def update_panel_type(panel_id):
-    """Actualizar el tipo de panel"""
+    """Actualizar el tipo de panel y sincronizar el protocolo"""
     try:
         req = request.get_json(force=True)
         panel_type_id = req.get('panel_type_id')
@@ -1222,8 +1222,9 @@ def update_panel_type(panel_id):
             session.close()
             return jsonify({'error': 'Panel type not found'}), 404
         
-        # Actualizar el tipo de panel
+        # Actualizar el tipo de panel y el protocolo
         panel.panel_type_id = panel_type_id
+        panel.protocol_version = panel_type.protocol_type  # Sincronizar protocolo
         session.commit()
         
         # Obtener datos actualizados para la respuesta
@@ -1232,6 +1233,7 @@ def update_panel_type(panel_id):
             'id': updated_panel.id,
             'name': updated_panel.name,
             'panel_type_id': updated_panel.panel_type_id,
+            'protocol_version': updated_panel.protocol_version,
             'panel_type': {
                 'id': updated_panel.panel_type.id,
                 'name': updated_panel.panel_type.name,
