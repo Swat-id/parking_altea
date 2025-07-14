@@ -153,9 +153,9 @@ function Test-Services {
     foreach ($service in $services) {
         $status = Invoke-RemoteCommand "systemctl is-active ${service}.service"
         if ($status -eq "active") {
-            Write-Log "Servicio $service: ACTIVO" "SUCCESS"
+            Write-Log "Servicio ${service}: ACTIVO" "SUCCESS"
         } else {
-            Write-Log "Servicio $service: INACTIVO" "WARNING"
+            Write-Log "Servicio ${service}: INACTIVO" "WARNING"
         }
     }
 }
