@@ -786,6 +786,9 @@ def update_parking_cameras(pid):
             session.close()
             return jsonify({'error': 'Parking not found'}), 404
         
+        # Guardar el nombre del parking antes de cerrar la sesión
+        parking_name = parking.name
+        
         # Eliminar relaciones existentes del parking
         session.query(CameraParking).filter(CameraParking.parking_id == pid).delete()
         
@@ -843,10 +846,10 @@ def update_parking_cameras(pid):
         session.commit()
         session.close()
         
-        logger.info(f"Parking cameras updated - Parking: {parking.name}, Cameras: {len(cameras_created)}")
+        logger.info(f"Parking cameras updated - Parking: {parking_name}, Cameras: {len(cameras_created)}")
         return jsonify({
             'status': 'ok',
-            'parking': parking.name,
+            'parking': parking_name,
             'cameras': cameras_created
         })
         
