@@ -27,6 +27,10 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app, origins=['http://157.180.91.63:5789', 'http://localhost:5173', 'http://localhost:3000'], supports_credentials=True)
 
+# Crear Blueprint para API
+from flask import Blueprint
+api_bp = Blueprint('api', __name__, url_prefix='/api')
+
 engine = create_engine(DB_URL, echo=False)
 Session = sessionmaker(bind=engine)
 Base.metadata.create_all(engine)
@@ -35,7 +39,7 @@ Base.metadata.create_all(engine)
 # ENDPOINTS DE AUTENTICACIÓN Y USUARIOS
 # ============================================================================
 
-@app.route('/auth/register', methods=['POST'])
+@api_bp.route('/auth/register', methods=['POST'])
 def register_user():
     """Crear un nuevo usuario"""
     try:
@@ -62,7 +66,7 @@ def register_user():
         logger.error(f"Error creando usuario: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/auth/login', methods=['POST'])
+@api_bp.route('/auth/login', methods=['POST'])
 def login():
     try:
         req = request.get_json()
@@ -91,7 +95,7 @@ def login():
         traceback.print_exc()
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/auth/user', methods=['DELETE'])
+@api_bp.route('/auth/user', methods=['DELETE'])
 @require_auth
 def delete_user_endpoint():
     """Eliminar usuario (requiere autenticación)"""
@@ -112,7 +116,7 @@ def delete_user_endpoint():
         logger.error(f"Error eliminando usuario: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/auth/password', methods=['PUT'])
+@api_bp.route('/auth/password', methods=['PUT'])
 @require_auth
 def change_password_endpoint():
     """Cambiar contraseña (requiere autenticación)"""
@@ -140,7 +144,7 @@ def change_password_endpoint():
         logger.error(f"Error cambiando contraseña: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/auth/permissions', methods=['GET'])
+@api_bp.route('/auth/permissions', methods=['GET'])
 @require_auth
 def get_user_permissions_endpoint():
     """Obtener permisos del usuario autenticado"""
@@ -160,7 +164,7 @@ def get_user_permissions_endpoint():
         logger.error(f"Error obteniendo permisos: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/auth/assign', methods=['POST'])
+@api_bp.route('/auth/assign', methods=['POST'])
 @require_auth
 def assign_resources_endpoint():
     """Asignar recursos a un usuario (requiere autenticación)"""
@@ -194,7 +198,7 @@ def assign_resources_endpoint():
 # ENDPOINTS PROTEGIDOS DE PARKINGS (requieren autenticación)
 # ============================================================================
 
-@app.route('/user/parkings', methods=['GET'])
+@api_bp.route('/user/parkings', methods=['GET'])
 @require_auth
 def get_user_parkings():
     """Obtener parkings a los que tiene acceso el usuario autenticado"""
@@ -229,7 +233,7 @@ def get_user_parkings():
         logger.error(f"Error obteniendo parkings del usuario: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/user/parking/<int:pid>', methods=['GET'])
+@api_bp.route('/user/parking/<int:pid>', methods=['GET'])
 @require_auth
 def get_user_parking(pid):
     """Obtener un parking específico del usuario autenticado"""
@@ -275,7 +279,7 @@ def get_user_parking(pid):
 # ENDPOINTS PÚBLICOS DE PARKINGS
 # ============================================================================
 
-@app.route('/parkings', methods=['GET'])
+@api_bp.route('/parkings', methods=['GET'])
 @require_auth
 def list_parkings():
     """Listar todos los parkings (requiere autenticación)"""
@@ -315,7 +319,7 @@ def list_parkings():
         logger.error(f"Error listando parkings: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/parkings', methods=['POST'])
+@api_bp.route('/parkings', methods=['POST'])
 @require_superadmin
 def create_parking():
     """Crear un nuevo parking (solo superadmin)"""
@@ -439,7 +443,7 @@ def create_parking():
         logger.error(f"Error creando parking: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/parkings/status', methods=['GET'])
+@api_bp.route('/parkings/status', methods=['GET'])
 @require_auth
 def get_parkings_status():
     """Obtener estado completo de todos los parkings con información de paneles (requiere autenticación)"""
@@ -540,7 +544,7 @@ def get_parkings_status():
         logger.error(f"Error obteniendo estado de parkings: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/parking/<int:pid>', methods=['GET'])
+@api_bp.route('/parking/<int:pid>', methods=['GET'])
 def get_parking(pid):
     """Obtener un parking específico"""
     try:
@@ -568,7 +572,7 @@ def get_parking(pid):
         logger.error(f"Error obteniendo parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/parking/<int:pid>/occupancy', methods=['POST'])
+@api_bp.route('/parking/<int:pid>/occupancy', methods=['POST'])
 @require_parking_access('pid')
 def set_occupancy(pid):
     """Establecer ocupación de un parking"""
@@ -682,7 +686,7 @@ def set_occupancy(pid):
         logger.error(f"Error updating occupancy for parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/parking/<int:pid>/config', methods=['POST'])
+@api_bp.route('/parking/<int:pid>/config', methods=['POST'])
 @require_parking_access('pid')
 def update_parking_config(pid):
     """Actualizar configuración de un parking"""
@@ -766,7 +770,7 @@ def update_parking_config(pid):
         logger.error(f"Error updating config for parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/parking/<int:pid>/cameras', methods=['PUT'])
+@api_bp.route('/parking/<int:pid>/cameras', methods=['PUT'])
 @require_parking_access('pid')
 def update_parking_cameras(pid):
     """Actualizar cámaras de un parking usando la nueva relación muchos a muchos"""
@@ -850,7 +854,7 @@ def update_parking_cameras(pid):
         logger.error(f"Error updating cameras for parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/parking/<int:pid>/message', methods=['POST'])
+@api_bp.route('/parking/<int:pid>/message', methods=['POST'])
 @require_parking_access('pid')
 def set_parking_message(pid):
     """Establecer mensaje para todos los paneles de un parking"""
@@ -936,7 +940,7 @@ def set_parking_message(pid):
         logger.error(f"Error setting parking message for parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/panel/<ip>/message', methods=['POST'])
+@api_bp.route('/panel/<ip>/message', methods=['POST'])
 def set_panel_message(ip):
     """Establecer mensaje para un panel específico por IP"""
     try:
@@ -1006,7 +1010,7 @@ def set_panel_message(ip):
         logger.error(f"Error setting panel message for IP {ip}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/parking/<int:pid>/message', methods=['GET'])
+@api_bp.route('/parking/<int:pid>/message', methods=['GET'])
 def get_scheduled_messages(pid):
     """Obtener mensajes programados de un parking"""
     session = Session()
@@ -1028,7 +1032,7 @@ def get_scheduled_messages(pid):
     session.close()
     return jsonify(data)
 
-@app.route('/parking/<int:pid>/message', methods=['DELETE'])
+@api_bp.route('/parking/<int:pid>/message', methods=['DELETE'])
 def delete_scheduled_message(pid):
     """Eliminar mensaje programado de un parking"""
     try:
@@ -1060,7 +1064,7 @@ def delete_scheduled_message(pid):
 # ENDPOINTS DE ESTADÍSTICAS Y LOGS
 # ============================================================================
 
-@app.route('/panels', methods=['GET'])
+@api_bp.route('/panels', methods=['GET'])
 def get_all_panels():
     """Obtener todos los paneles con su estado actual"""
     try:
@@ -1107,7 +1111,7 @@ def get_all_panels():
         logger.error(f"Error obteniendo paneles: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/panel/<int:panel_id>/message', methods=['POST'])
+@api_bp.route('/panel/<int:panel_id>/message', methods=['POST'])
 @require_panel_access('panel_id')
 def send_message_to_panel(panel_id):
     """Enviar mensaje a un panel específico por ID"""
@@ -1182,7 +1186,7 @@ def send_message_to_panel(panel_id):
         logger.error(f"Error enviando mensaje al panel {panel_id}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/panel/<int:panel_id>/test', methods=['POST'])
+@api_bp.route('/panel/<int:panel_id>/test', methods=['POST'])
 def test_panel(panel_id):
     """Probar comunicación con un panel"""
     try:
@@ -1231,7 +1235,7 @@ def test_panel(panel_id):
         logger.error(f"Error probando panel {panel_id}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/panel/<int:panel_id>/type', methods=['PUT'])
+@api_bp.route('/panel/<int:panel_id>/type', methods=['PUT'])
 @require_auth
 def update_panel_type(panel_id):
     """Actualizar el tipo de panel y sincronizar el protocolo"""
@@ -1282,24 +1286,24 @@ def update_panel_type(panel_id):
         logger.error(f"Error actualizando tipo de panel {panel_id}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/panels/<int:panel_id>/type', methods=['PUT'])
+@api_bp.route('/panels/<int:panel_id>/type', methods=['PUT'])
 @require_auth
 def update_panel_type_plural(panel_id):
     """Actualizar el tipo de panel (ruta plural para compatibilidad con frontend)"""
     return update_panel_type(panel_id)
 
-@app.route('/panels/<int:panel_id>/message', methods=['POST'])
+@api_bp.route('/panels/<int:panel_id>/message', methods=['POST'])
 @require_panel_access('panel_id')
 def send_message_to_panel_plural(panel_id):
     """Enviar mensaje a un panel específico por ID (ruta plural para compatibilidad con frontend)"""
     return send_message_to_panel(panel_id)
 
-@app.route('/panels/<int:panel_id>/test', methods=['POST'])
+@api_bp.route('/panels/<int:panel_id>/test', methods=['POST'])
 def test_panel_plural(panel_id):
     """Probar comunicación con un panel (ruta plural para compatibilidad con frontend)"""
     return test_panel(panel_id)
 
-@app.route('/panels/<int:panel_id>/multi-message', methods=['POST'])
+@api_bp.route('/panels/<int:panel_id>/multi-message', methods=['POST'])
 @require_panel_access('panel_id')
 def send_multi_message_to_panel(panel_id):
     """Enviar múltiples mensajes a un panel específico por ID"""
@@ -1373,7 +1377,7 @@ def send_multi_message_to_panel(panel_id):
         logger.error(f"Error sending multi-message to panel {panel_id}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/panels/<int:panel_id>/status', methods=['GET'])
+@api_bp.route('/panels/<int:panel_id>/status', methods=['GET'])
 def get_panel_status(panel_id):
     """Obtener estado de un panel específico por ID"""
     try:
@@ -1400,7 +1404,7 @@ def get_panel_status(panel_id):
         logger.error(f"Error getting panel status {panel_id}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/panels/<int:panel_id>/protocol-info', methods=['GET'])
+@api_bp.route('/panels/<int:panel_id>/protocol-info', methods=['GET'])
 def get_panel_protocol_info(panel_id):
     """Obtener información del protocolo de un panel específico por ID"""
     try:
@@ -1431,7 +1435,7 @@ def get_panel_protocol_info(panel_id):
         logger.error(f"Error getting panel protocol info {panel_id}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/panel-types', methods=['GET'])
+@api_bp.route('/panel-types', methods=['GET'])
 def get_all_panel_types():
     """Obtener todos los tipos de panel"""
     try:
@@ -1458,7 +1462,7 @@ def get_all_panel_types():
         logger.error(f"Error obteniendo tipos de panel: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/parking/<int:pid>/statistics', methods=['GET'])
+@api_bp.route('/parking/<int:pid>/statistics', methods=['GET'])
 @require_parking_access('pid')
 def get_parking_statistics(pid):
     """Obtener estadísticas de un parking"""
@@ -1496,7 +1500,7 @@ def get_parking_statistics(pid):
         logger.error(f"Error obteniendo estadísticas del parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/statistics', methods=['GET'])
+@api_bp.route('/statistics', methods=['GET'])
 def get_all_statistics():
     """Obtener estadísticas de todos los parkings"""
     try:
@@ -1525,7 +1529,7 @@ def get_all_statistics():
         logger.error(f"Error obteniendo estadísticas: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/parking/<int:pid>/history', methods=['GET'])
+@api_bp.route('/parking/<int:pid>/history', methods=['GET'])
 @require_parking_access('pid')
 def get_occupancy_history(pid):
     """Obtener historial de ocupación de un parking"""
@@ -1570,7 +1574,7 @@ def get_occupancy_history(pid):
         logger.error(f"Error obteniendo historial del parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/logs/activity', methods=['GET'])
+@api_bp.route('/logs/activity', methods=['GET'])
 @require_auth
 def get_activity_logs():
     """Obtener logs de actividad (requiere autenticación)"""
@@ -1608,7 +1612,7 @@ def get_activity_logs():
         logger.error(f"Error obteniendo logs de actividad: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/logs/panels', methods=['GET'])
+@api_bp.route('/logs/panels', methods=['GET'])
 @require_auth
 def get_panel_logs():
     """Obtener logs de mensajes de paneles (requiere autenticación)"""
@@ -1644,7 +1648,7 @@ def get_panel_logs():
         logger.error(f"Error obteniendo logs de paneles: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/camera/logs', methods=['GET'])
+@api_bp.route('/camera/logs', methods=['GET'])
 def get_camera_logs():
     """Obtener logs de cámaras con filtros"""
     try:
@@ -1715,7 +1719,7 @@ def get_camera_logs():
         logger.error(f"Error obteniendo logs de cámaras: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/camera/logs/stats', methods=['GET'])
+@api_bp.route('/camera/logs/stats', methods=['GET'])
 def get_camera_logs_stats():
     """Obtener estadísticas de logs de cámaras"""
     try:
@@ -1776,7 +1780,7 @@ def get_camera_logs_stats():
         logger.error(f"Error obteniendo estadísticas de logs de cámaras: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/parking/<int:pid>/cameras', methods=['GET'])
+@api_bp.route('/parking/<int:pid>/cameras', methods=['GET'])
 def get_parking_cameras(pid):
     """Obtener cámaras de un parking específico usando la nueva relación muchos a muchos"""
     try:
@@ -1820,7 +1824,7 @@ def get_parking_cameras(pid):
         logger.error(f"Error obteniendo cámaras del parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/access/<int:access_id>/line', methods=['PUT'])
+@api_bp.route('/access/<int:access_id>/line', methods=['PUT'])
 def update_camera_line(access_id):
     """Actualizar línea de una cámara"""
     try:
@@ -1877,7 +1881,7 @@ def update_camera_line(access_id):
         logger.error(f"Error updating camera line for access {access_id}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/cameras/status', methods=['GET'])
+@api_bp.route('/cameras/status', methods=['GET'])
 def get_all_cameras_status():
     """Obtener estado de todas las cámaras usando la nueva relación muchos a muchos"""
     try:
@@ -1917,7 +1921,7 @@ def get_all_cameras_status():
         logger.error(f"Error obteniendo estado de cámaras: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/parking/<int:pid>/hourly-statistics', methods=['GET'])
+@api_bp.route('/parking/<int:pid>/hourly-statistics', methods=['GET'])
 def get_parking_hourly_statistics(pid):
     """Obtener estadísticas por horas de un parking"""
     try:
@@ -2043,7 +2047,7 @@ def get_parking_hourly_statistics(pid):
         logger.error(f"Error obteniendo estadísticas por horas del parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/panels/verify', methods=['POST'])
+@api_bp.route('/panels/verify', methods=['POST'])
 def verify_all_panels():
     """Verificar el estado de todos los paneles mediante ping"""
     try:
@@ -2146,7 +2150,7 @@ def verify_all_panels():
 # ENDPOINTS DE PROGRAMACIONES DE PANELES
 # ============================================================================
 
-@app.route('/schedules', methods=['GET'])
+@api_bp.route('/schedules', methods=['GET'])
 def get_schedules():
     """Obtener todas las programaciones"""
     try:
@@ -2167,7 +2171,7 @@ def get_schedules():
         logger.error(f"Error obteniendo programaciones: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/schedules', methods=['POST'])
+@api_bp.route('/schedules', methods=['POST'])
 @require_superadmin
 def create_schedule():
     """Crear una nueva programación"""
@@ -2188,7 +2192,7 @@ def create_schedule():
         logger.error(f"Error creando programación: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/schedules/<int:schedule_id>', methods=['GET'])
+@api_bp.route('/schedules/<int:schedule_id>', methods=['GET'])
 def get_schedule(schedule_id):
     """Obtener una programación específica"""
     try:
@@ -2230,7 +2234,7 @@ def get_schedule(schedule_id):
         logger.error(f"Error obteniendo programación: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/schedules/<int:schedule_id>', methods=['PUT'])
+@api_bp.route('/schedules/<int:schedule_id>', methods=['PUT'])
 def update_schedule(schedule_id):
     """Actualizar una programación"""
     try:
@@ -2250,7 +2254,7 @@ def update_schedule(schedule_id):
         logger.error(f"Error actualizando programación: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/schedules/<int:schedule_id>', methods=['DELETE'])
+@api_bp.route('/schedules/<int:schedule_id>', methods=['DELETE'])
 def delete_schedule(schedule_id):
     """Eliminar una programación"""
     try:
@@ -2268,7 +2272,7 @@ def delete_schedule(schedule_id):
         logger.error(f"Error eliminando programación: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/schedules/<int:schedule_id>/toggle', methods=['POST'])
+@api_bp.route('/schedules/<int:schedule_id>/toggle', methods=['POST'])
 def toggle_schedule(schedule_id):
     """Activar/desactivar una programación"""
     try:
@@ -2286,7 +2290,7 @@ def toggle_schedule(schedule_id):
         logger.error(f"Error cambiando estado de programación: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/schedules/<int:schedule_id>/execute', methods=['POST'])
+@api_bp.route('/schedules/<int:schedule_id>/execute', methods=['POST'])
 def execute_schedule(schedule_id):
     """Ejecutar una programación manualmente"""
     try:
@@ -2310,7 +2314,7 @@ def execute_schedule(schedule_id):
         logger.error(f"Error ejecutando programación: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/schedules/logs', methods=['GET'])
+@api_bp.route('/schedules/logs', methods=['GET'])
 def get_schedule_logs():
     """Obtener logs de programaciones"""
     try:
@@ -2332,7 +2336,7 @@ def get_schedule_logs():
         logger.error(f"Error obteniendo logs de programaciones: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/parking/<int:pid>/schedules', methods=['GET'])
+@api_bp.route('/parking/<int:pid>/schedules', methods=['GET'])
 def get_parking_schedules(pid):
     """Obtener programaciones de un parking específico"""
     try:
@@ -2352,7 +2356,7 @@ def get_parking_schedules(pid):
         logger.error(f"Error obteniendo programaciones del parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/parking/<int:pid>/active-schedules', methods=['GET'])
+@api_bp.route('/parking/<int:pid>/active-schedules', methods=['GET'])
 def get_parking_active_schedules(pid):
     """Obtener programaciones activas para un parking en el momento actual"""
     try:
@@ -2383,7 +2387,7 @@ def get_parking_active_schedules(pid):
 # ENDPOINTS DE ADMINISTRACIÓN DE USUARIOS (solo superadmin)
 # ============================================================================
 
-@app.route('/admin/users', methods=['GET'])
+@api_bp.route('/admin/users', methods=['GET'])
 @require_superadmin
 def get_all_users():
     """Listar todos los usuarios (solo superadmin)"""
@@ -2434,7 +2438,7 @@ def get_all_users():
         logger.error(f"Error obteniendo usuarios: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/admin/users', methods=['POST'])
+@api_bp.route('/admin/users', methods=['POST'])
 @require_superadmin
 def create_admin_user():
     """Crear un nuevo usuario (solo superadmin)"""
@@ -2467,7 +2471,7 @@ def create_admin_user():
         logger.error(f"Error creando usuario: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/admin/users/<int:user_id>', methods=['GET'])
+@api_bp.route('/admin/users/<int:user_id>', methods=['GET'])
 @require_superadmin
 def get_user_details(user_id):
     """Obtener detalles de un usuario específico (solo superadmin)"""
@@ -2541,7 +2545,7 @@ def get_user_details(user_id):
         logger.error(f"Error obteniendo detalles de usuario: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/admin/users/<int:user_id>/assign', methods=['POST'])
+@api_bp.route('/admin/users/<int:user_id>/assign', methods=['POST'])
 @require_superadmin
 def assign_user_resources(user_id):
     """Asignar recursos (parkings, paneles, cámaras) a un usuario (solo superadmin)"""
@@ -2574,7 +2578,7 @@ def assign_user_resources(user_id):
         logger.error(f"Error asignando recursos: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/admin/users/<int:user_id>', methods=['DELETE'])
+@api_bp.route('/admin/users/<int:user_id>', methods=['DELETE'])
 @require_superadmin
 def delete_admin_user(user_id):
     """Eliminar un usuario (solo superadmin)"""
@@ -2598,7 +2602,7 @@ def delete_admin_user(user_id):
         logger.error(f"Error eliminando usuario: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/admin/users/<int:user_id>/role', methods=['PUT'])
+@api_bp.route('/admin/users/<int:user_id>/role', methods=['PUT'])
 @require_superadmin
 def update_user_role(user_id):
     """Actualizar rol de un usuario (solo superadmin)"""
@@ -2647,7 +2651,7 @@ def update_user_role(user_id):
         logger.error(f"Error actualizando rol: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/admin/users/<int:user_id>/toggle', methods=['POST'])
+@api_bp.route('/admin/users/<int:user_id>/toggle', methods=['POST'])
 @require_superadmin
 def toggle_user_status(user_id):
     """Activar/desactivar un usuario (solo superadmin)"""
@@ -2688,7 +2692,7 @@ def toggle_user_status(user_id):
         logger.error(f"Error cambiando estado de usuario: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/parkings/<int:parking_id>', methods=['DELETE'])
+@api_bp.route('/parkings/<int:parking_id>', methods=['DELETE'])
 @require_superadmin
 def delete_parking(parking_id):
     """Eliminar un parking (solo superadmin)"""
@@ -2738,6 +2742,9 @@ def delete_parking(parking_id):
     except Exception as e:
         logger.error(f"Error deleting parking {parking_id}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
+
+# Registrar el Blueprint con la aplicación
+app.register_blueprint(api_bp)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=API_PORT, debug=False)
