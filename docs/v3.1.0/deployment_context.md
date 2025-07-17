@@ -452,3 +452,65 @@ python3 test/send_en_proves_message.py
 6. **Confirman** que el script de envío está disponible
 
 ¿Quieres que ejecutemos alguno de estos scripts para actualizar el servidor remoto, o prefieres hacerlo manualmente? 
+
+## 🛡️ Procedimiento Manual Seguro de Despliegue (Checklist)
+
+> **Recomendado para despliegues críticos o cuando se requiere control total sobre cada paso.**
+
+### 1. Parar servicios y liberar puertos
+```bash
+sudo systemctl stop parking-api.service parking-camera.service parking-schedule-monitor.service
+sudo systemctl stop nginx
+# Verificar que los puertos estén libres (5000, 5001, 80, etc.)
+ss -tulnp | grep -E ':5000|:5001|:80'
+```
+
+### 2. Actualizar desde git descartando cambios locales
+```bash
+cd /opt/parking_altea
+sudo git fetch --all
+sudo git reset --hard origin/v3.1.0_login
+```
+> ⚠️ **Advertencia:** Este paso elimina cualquier cambio local no subido a git.
+
+### 3. Instalar dependencias (si aplica)
+```bash
+sudo pip3 install -r requirements.txt
+cd client
+sudo npm install
+cd ..
+```
+
+### 4. Levantar servicios backend
+```bash
+sudo systemctl start parking-api.service parking-camera.service parking-schedule-monitor.service
+sudo systemctl status parking-api.service parking-camera.service parking-schedule-monitor.service
+```
+
+### 5. Compilar y desplegar el frontend
+```bash
+cd /opt/parking_altea/client
+sudo npm run build
+# Copiar el contenido de dist/ a la carpeta servida por nginx (por ejemplo, /opt/parking_altea/static/)
+sudo cp -r dist/* /opt/parking_altea/static/
+```
+
+### 6. Arrancar el frontend (nginx)
+```bash
+sudo systemctl start nginx
+sudo systemctl status nginx
+```
+
+### 7. Verificación final
+- Acceder a la web y comprobar funcionamiento.
+- Verificar logs de servicios:
+```bash
+sudo journalctl -u parking-api.service -f
+sudo journalctl -u parking-camera.service -f
+sudo journalctl -u parking-schedule-monitor.service -f
+sudo tail -f /var/log/nginx/parking_altea_error.log
+```
+- Ejecutar tests automatizados si es necesario.
+
+---
+> **Este checklist puede copiarse y pegarse en cada despliegue para asegurar un proceso seguro y repetible.** 

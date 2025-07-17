@@ -6,7 +6,7 @@ import config
 import json
 import logging
 import time
-from models import Base, Parking, Access, OccupancyHistory, CameraLog
+from models import Base, Parking, Access, OccupancyHistory, CameraLog, CameraParking
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../backend')))
@@ -333,7 +333,7 @@ def handle_camera():
             
             return jsonify({'status': 'duplicate_ignored', 'message': 'Duplicate message ignored'}), 200
         
-        # NUEVA LÓGICA: Buscar TODAS las cámaras que coincidan con device + línea
+        # NUEVA LÓGICA: Buscar la cámara por device + línea usando la nueva relación muchos a muchos
         # Esto permite que una misma cámara esté asignada a múltiples parkings
         accesses = session.query(Access).filter(
             func.lower(Access.name) == func.lower(device),
@@ -373,7 +373,10 @@ def handle_camera():
         
         # Log de información de todos los accesos encontrados
         for access in accesses:
-            logger.info(f"Access found - ID: {access.id}, Parking ID: {access.parking_id}, Name: {access.name}")
+            # Obtener parkings asociados a esta cámara usando la nueva relación
+            camera_parkings = session.query(CameraParking).filter_by(camera_id=access.id).all()
+            parking_names = [cp.parking.name for cp in camera_parkings]
+            logger.info(f"Access found - ID: {access.id}, Name: {access.name}, Associated parkings: {parking_names}")
             logger.info(f"Previous counters - Last In: {access.last_vehicle_in}, Last Out: {access.last_vehicle_out}")
         
         # Actualizar estado de TODAS las cámaras a ONLINE y timestamp de último mensaje
@@ -408,13 +411,16 @@ def handle_camera():
             access.last_vehicle_in = veh_in
             access.last_vehicle_out = veh_out
         
-        # Procesar TODOS los parkings asociados a esta cámara
+        # Procesar TODOS los parkings asociados a esta cámara usando la nueva relación muchos a muchos
         updated_parkings = []
         
         for access in accesses:
-            # Actualizar parking
-            parking = access.parking
-            previous_occupancy = parking.current_occupancy
+            # Obtener todos los parkings asociados a esta cámara
+            camera_parkings = session.query(CameraParking).filter_by(camera_id=access.id).all()
+            
+            for camera_parking in camera_parkings:
+                parking = camera_parking.parking
+                previous_occupancy = parking.current_occupancy
             
             # UNIFICACIÓN: Calcular ocupación correctamente
             # Solo aplicar deltas si NO es un reinicio

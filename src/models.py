@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    Column, Integer, String, Boolean, ForeignKey, DateTime, Text, func, Float, JSON
+    Column, Integer, String, Boolean, ForeignKey, DateTime, Text, func, Float, JSON, UniqueConstraint
 )
 from sqlalchemy.orm import relationship, declarative_base
 Base = declarative_base()
@@ -44,16 +44,19 @@ class Parking(Base):
     current_occupancy = Column(Integer, default=0, nullable=False)
     status = Column(String, default='LIBRE', nullable=False)
     fixed_message_flag = Column(Boolean, default=False, nullable=False)
-    accesses = relationship('Access', back_populates='parking')
+    accesses = relationship('Access', back_populates='parking', cascade="all, delete-orphan")
     panels = relationship('Panel', back_populates='parking')
     
     # Relación con usuarios a través de tabla intermedia
     user_parkings = relationship('UserParking', back_populates='parking')
+    
+    # NUEVA: Relación muchos a muchos con cámaras
+    camera_parkings = relationship('CameraParking', back_populates='parking')
 
 class Access(Base):
     __tablename__ = 'accesses'
     id = Column(Integer, primary_key=True)
-    parking_id = Column(Integer, ForeignKey('parkings.id'), nullable=False)
+    # QUITADO: parking_id = Column(Integer, ForeignKey('parkings.id'), nullable=False)
     ip = Column(String, nullable=False)
     line = Column(Integer, nullable=False)
     name = Column(String)
@@ -63,10 +66,29 @@ class Access(Base):
     last_message_received = Column(DateTime(timezone=True))  # Último mensaje recibido
     last_ping_check = Column(DateTime(timezone=True))  # Última verificación por ping
     ping_status = Column(String, default='UNKNOWN')  # ONLINE, OFFLINE, UNKNOWN
-    parking = relationship('Parking', back_populates='accesses')
+    
+    # QUITADO: parking = relationship('Parking', back_populates='accesses')
+    
+    # NUEVA: Relación muchos a muchos con parkings
+    camera_parkings = relationship('CameraParking', back_populates='camera')
     
     # Relación con usuarios a través de tabla intermedia
     user_accesses = relationship('UserAccess', back_populates='access')
+
+# NUEVA: Tabla intermedia para relación muchos a muchos entre cámaras y parkings
+class CameraParking(Base):
+    __tablename__ = 'camera_parkings'
+    id = Column(Integer, primary_key=True)
+    camera_id = Column(Integer, ForeignKey('accesses.id'), nullable=False)
+    parking_id = Column(Integer, ForeignKey('parkings.id'), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relaciones
+    camera = relationship('Access', back_populates='camera_parkings')
+    parking = relationship('Parking', back_populates='camera_parkings')
+    
+    # Índice único para evitar duplicados
+    __table_args__ = (UniqueConstraint('camera_id', 'parking_id'),)
 
 class Panel(Base):
     __tablename__ = 'panels'

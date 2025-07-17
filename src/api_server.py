@@ -12,7 +12,7 @@ from sqlalchemy.orm import sessionmaker
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from config import DB_URL, API_PORT
-from models import Base, User, Parking, Access, Panel, OccupancyHistory, ScheduledMessage, ActivityLog, PanelMessageLog, VehicleCount, CameraLog, UserParking, UserPanel, UserAccess, PanelSchedule, PanelScheduleLog, PanelType
+from models import Base, User, Parking, Access, Panel, OccupancyHistory, ScheduledMessage, ActivityLog, PanelMessageLog, VehicleCount, CameraLog, UserParking, UserPanel, UserAccess, PanelSchedule, PanelScheduleLog, PanelType, CameraParking
 from panel_schedule_service import PanelScheduleService
 from auth import (
     create_user, authenticate_user, delete_user, change_password, 
@@ -366,7 +366,7 @@ def create_parking():
         session.refresh(new_parking)
         parking_id = new_parking.id
         
-        # Asignar cámaras al parking
+        # Asignar cámaras al parking usando la nueva relación muchos a muchos
         cameras_created = []
         for camera_data in cameras:
             if camera_data.get('ip'):
@@ -377,8 +377,12 @@ def create_parking():
                 ).first()
                 
                 if existing_access:
-                    # Si existe, asignar al parking actual también
-                    existing_access.parking_id = parking_id
+                    # Si existe, crear relación con el parking actual
+                    new_camera_parking = CameraParking(
+                        camera_id=existing_access.id,
+                        parking_id=parking_id
+                    )
+                    session.add(new_camera_parking)
                     cameras_created.append({
                         'id': existing_access.id,
                         'ip': existing_access.ip,
@@ -389,7 +393,6 @@ def create_parking():
                 else:
                     # Crear nueva cámara
                     new_access = Access(
-                        parking_id=parking_id,
                         ip=camera_data['ip'],
                         line=camera_data.get('line', 0),
                         name=camera_data.get('name', ''),
@@ -398,7 +401,16 @@ def create_parking():
                         status='OFFLINE'
                     )
                     session.add(new_access)
+                    session.flush()  # Para obtener el ID
+                    
+                    # Crear relación con el parking
+                    new_camera_parking = CameraParking(
+                        camera_id=new_access.id,
+                        parking_id=parking_id
+                    )
+                    session.add(new_camera_parking)
                     cameras_created.append({
+                        'id': new_access.id,
                         'ip': new_access.ip,
                         'line': new_access.line,
                         'name': new_access.name,
@@ -757,7 +769,7 @@ def update_parking_config(pid):
 @app.route('/parking/<int:pid>/cameras', methods=['PUT'])
 @require_parking_access('pid')
 def update_parking_cameras(pid):
-    """Actualizar cámaras de un parking"""
+    """Actualizar cámaras de un parking usando la nueva relación muchos a muchos"""
     try:
         req = request.get_json(force=True)
         cameras = req.get('cameras', [])
@@ -770,10 +782,10 @@ def update_parking_cameras(pid):
             session.close()
             return jsonify({'error': 'Parking not found'}), 404
         
-        # Eliminar cámaras existentes del parking
-        session.query(Access).filter(Access.parking_id == pid).delete()
+        # Eliminar relaciones existentes del parking
+        session.query(CameraParking).filter(CameraParking.parking_id == pid).delete()
         
-        # Crear nuevas cámaras
+        # Crear nuevas relaciones
         cameras_created = []
         for camera_data in cameras:
             if camera_data.get('ip'):
@@ -784,8 +796,12 @@ def update_parking_cameras(pid):
                 ).first()
                 
                 if existing_access:
-                    # Si existe, asignar al parking actual también
-                    existing_access.parking_id = pid
+                    # Si existe, crear relación con el parking actual
+                    new_camera_parking = CameraParking(
+                        camera_id=existing_access.id,
+                        parking_id=pid
+                    )
+                    session.add(new_camera_parking)
                     cameras_created.append({
                         'id': existing_access.id,
                         'ip': existing_access.ip,
@@ -796,7 +812,6 @@ def update_parking_cameras(pid):
                 else:
                     # Crear nueva cámara
                     new_access = Access(
-                        parking_id=pid,
                         ip=camera_data['ip'],
                         line=camera_data.get('line', 0),
                         name=camera_data.get('name', ''),
@@ -805,7 +820,16 @@ def update_parking_cameras(pid):
                         status='OFFLINE'
                     )
                     session.add(new_access)
+                    session.flush()  # Para obtener el ID
+                    
+                    # Crear relación con el parking
+                    new_camera_parking = CameraParking(
+                        camera_id=new_access.id,
+                        parking_id=pid
+                    )
+                    session.add(new_camera_parking)
                     cameras_created.append({
+                        'id': new_access.id,
                         'ip': new_access.ip,
                         'line': new_access.line,
                         'name': new_access.name,
@@ -1754,7 +1778,7 @@ def get_camera_logs_stats():
 
 @app.route('/parking/<int:pid>/cameras', methods=['GET'])
 def get_parking_cameras(pid):
-    """Obtener cámaras de un parking específico"""
+    """Obtener cámaras de un parking específico usando la nueva relación muchos a muchos"""
     try:
         session = Session()
         
@@ -1764,11 +1788,12 @@ def get_parking_cameras(pid):
             session.close()
             return jsonify({'error': 'Parking not found'}), 404
         
-        # Obtener cámaras del parking
-        cameras = session.query(Access).filter_by(parking_id=pid).all()
+        # Obtener cámaras del parking usando la nueva relación muchos a muchos
+        camera_parkings = session.query(CameraParking).filter_by(parking_id=pid).all()
         
         data = []
-        for camera in cameras:
+        for cp in camera_parkings:
+            camera = cp.camera
             camera_data = {
                 'id': camera.id,
                 'name': camera.name,
@@ -1854,15 +1879,17 @@ def update_camera_line(access_id):
 
 @app.route('/cameras/status', methods=['GET'])
 def get_all_cameras_status():
-    """Obtener estado de todas las cámaras"""
+    """Obtener estado de todas las cámaras usando la nueva relación muchos a muchos"""
     try:
         session = Session()
         
-        # Obtener todas las cámaras con información del parking
-        cameras = session.query(Access).join(Parking).all()
+        # Obtener todas las cámaras con información de sus parkings asociados
+        camera_parkings = session.query(CameraParking).join(Access).join(Parking).all()
         
         data = []
-        for camera in cameras:
+        for cp in camera_parkings:
+            camera = cp.camera
+            parking = cp.parking
             camera_data = {
                 'id': camera.id,
                 'name': camera.name,
@@ -1872,8 +1899,8 @@ def get_all_cameras_status():
                 'last_message_received': camera.last_message_received.isoformat() if camera.last_message_received else None,
                 'last_ping_check': camera.last_ping_check.isoformat() if camera.last_ping_check else None,
                 'ping_status': getattr(camera, 'ping_status', 'UNKNOWN'),
-                'parking_id': camera.parking_id,
-                'parking_name': camera.parking.name,
+                'parking_id': parking.id,
+                'parking_name': parking.name,
                 'last_vehicle_in': camera.last_vehicle_in,
                 'last_vehicle_out': camera.last_vehicle_out
             }
