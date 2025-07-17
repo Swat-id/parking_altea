@@ -17,7 +17,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from sqlalchemy import create_engine, text, MetaData, Table, Column, Integer, String, Boolean, ForeignKey, DateTime, UniqueConstraint
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
-from config import DATABASE_URL
+from config import DB_URL as DATABASE_URL
 
 def migrate_camera_parking_relationship():
     """Migra la relación de cámaras y parkings a muchos a muchos"""
