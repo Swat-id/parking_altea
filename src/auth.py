@@ -270,10 +270,38 @@ def require_auth(f):
 def require_superadmin(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # Primero verificar autenticación
-        auth_result = require_auth(lambda: None)()
-        if hasattr(auth_result, 'status_code') and auth_result.status_code == 401:
-            return auth_result
+        token = None
+        # Obtener token del header Authorization
+        if 'Authorization' in request.headers:
+            auth_header = request.headers['Authorization']
+            if auth_header.startswith('Bearer '):
+                token = auth_header.split(' ')[1]
+
+        if not token:
+            # Modo sin login: asignar usuario superadmin por defecto
+            from models import User
+            from sqlalchemy.orm import sessionmaker
+            from config import DB_URL
+            from sqlalchemy import create_engine
+            engine = create_engine(DB_URL, echo=False)
+            SessionLocal = sessionmaker(bind=engine)
+            db_session = SessionLocal()
+            user = db_session.query(User).filter(User.email == 'info@swat-id.com').first()
+            db_session.close()
+            if not user:
+                return jsonify({"error": "Usuario superadmin info@swat-id.com no existe"}), 401
+            request.user_data = {
+                "user_id": user.id,
+                "email": user.email,
+                "name": user.name,
+                "role": user.role
+            }
+        else:
+            # Verificar token normalmente
+            token_data = verify_token(token)
+            if not token_data["success"]:
+                return jsonify({"error": token_data["error"]}), 401
+            request.user_data = token_data["user_data"]
         
         # Verificar que el usuario es superadmin
         user_role = request.user_data.get('role')
@@ -288,10 +316,38 @@ def require_parking_access(parking_id_param='pid'):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            # Primero verificar autenticación
-            auth_result = require_auth(lambda: None)()
-            if hasattr(auth_result, 'status_code') and auth_result.status_code == 401:
-                return auth_result
+            token = None
+            # Obtener token del header Authorization
+            if 'Authorization' in request.headers:
+                auth_header = request.headers['Authorization']
+                if auth_header.startswith('Bearer '):
+                    token = auth_header.split(' ')[1]
+
+            if not token:
+                # Modo sin login: asignar usuario superadmin por defecto
+                from models import User
+                from sqlalchemy.orm import sessionmaker
+                from config import DB_URL
+                from sqlalchemy import create_engine
+                engine = create_engine(DB_URL, echo=False)
+                SessionLocal = sessionmaker(bind=engine)
+                db_session = SessionLocal()
+                user = db_session.query(User).filter(User.email == 'info@swat-id.com').first()
+                db_session.close()
+                if not user:
+                    return jsonify({"error": "Usuario superadmin info@swat-id.com no existe"}), 401
+                request.user_data = {
+                    "user_id": user.id,
+                    "email": user.email,
+                    "name": user.name,
+                    "role": user.role
+                }
+            else:
+                # Verificar token normalmente
+                token_data = verify_token(token)
+                if not token_data["success"]:
+                    return jsonify({"error": token_data["error"]}), 401
+                request.user_data = token_data["user_data"]
             
             user_id = request.user_data.get('user_id')
             user_role = request.user_data.get('role')
@@ -335,10 +391,38 @@ def require_panel_access(panel_id_param='panel_id'):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            # Primero verificar autenticación
-            auth_result = require_auth(lambda: None)()
-            if hasattr(auth_result, 'status_code') and auth_result.status_code == 401:
-                return auth_result
+            token = None
+            # Obtener token del header Authorization
+            if 'Authorization' in request.headers:
+                auth_header = request.headers['Authorization']
+                if auth_header.startswith('Bearer '):
+                    token = auth_header.split(' ')[1]
+
+            if not token:
+                # Modo sin login: asignar usuario superadmin por defecto
+                from models import User
+                from sqlalchemy.orm import sessionmaker
+                from config import DB_URL
+                from sqlalchemy import create_engine
+                engine = create_engine(DB_URL, echo=False)
+                SessionLocal = sessionmaker(bind=engine)
+                db_session = SessionLocal()
+                user = db_session.query(User).filter(User.email == 'info@swat-id.com').first()
+                db_session.close()
+                if not user:
+                    return jsonify({"error": "Usuario superadmin info@swat-id.com no existe"}), 401
+                request.user_data = {
+                    "user_id": user.id,
+                    "email": user.email,
+                    "name": user.name,
+                    "role": user.role
+                }
+            else:
+                # Verificar token normalmente
+                token_data = verify_token(token)
+                if not token_data["success"]:
+                    return jsonify({"error": token_data["error"]}), 401
+                request.user_data = token_data["user_data"]
             
             user_id = request.user_data.get('user_id')
             user_role = request.user_data.get('role')
