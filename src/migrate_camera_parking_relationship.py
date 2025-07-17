@@ -98,15 +98,52 @@ def migrate_camera_parking_relationship():
         for row in result.fetchall():
             print(f"   Cámara {row.ip}:{row.line} ({row.name}) -> Parking {row.parking_name}")
         
-        # Paso 4: Eliminar la columna parking_id de accesses
-        print("📋 Paso 4: Eliminando columna parking_id de accesses...")
+        # Paso 4: Actualizar vista camera_status_view y eliminar columna parking_id
+        print("📋 Paso 4: Actualizando vista y eliminando columna parking_id...")
         
-        # Primero eliminar la restricción de clave foránea
+        # Primero eliminar la vista existente
+        session.execute(text("DROP VIEW IF EXISTS camera_status_view"))
+        
+        # Crear nueva vista con la relación muchos a muchos
+        new_view_sql = """
+        CREATE OR REPLACE VIEW camera_status_view AS
+        SELECT 
+            a.id,
+            a.name as camera_name,
+            a.ip as camera_ip,
+            a.line as camera_line,
+            a.status,
+            a.last_message_received,
+            a.last_ping_check,
+            a.ping_status,
+            a.last_vehicle_in,
+            a.last_vehicle_out,
+            p.id as parking_id,
+            p.name as parking_name,
+            p.current_occupancy,
+            p.max_capacity as capacity,
+            CASE 
+                WHEN a.status = 'ONLINE' AND a.ping_status = 'ONLINE' THEN 'FULLY_ONLINE'
+                WHEN a.status = 'ONLINE' AND a.ping_status = 'OFFLINE' THEN 'ONLINE_NO_PING'
+                WHEN a.status = 'OFFLINE' AND a.ping_status = 'ONLINE' THEN 'OFFLINE_PING_OK'
+                WHEN a.status = 'OFFLINE' AND a.ping_status = 'OFFLINE' THEN 'FULLY_OFFLINE'
+                ELSE 'UNKNOWN'
+            END as overall_status
+        FROM accesses a
+        LEFT JOIN camera_parkings cp ON a.id = cp.camera_id
+        LEFT JOIN parkings p ON cp.parking_id = p.id
+        ORDER BY p.name, a.name
+        """
+        
+        session.execute(text(new_view_sql))
+        print("✅ Vista camera_status_view actualizada con nueva relación")
+        
+        # Eliminar la restricción de clave foránea
         session.execute(text("""
             ALTER TABLE accesses DROP CONSTRAINT IF EXISTS accesses_parking_id_fkey
         """))
         
-        # Luego eliminar la columna
+        # Eliminar la columna parking_id
         session.execute(text("""
             ALTER TABLE accesses DROP COLUMN IF EXISTS parking_id
         """))
