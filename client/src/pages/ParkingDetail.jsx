@@ -22,9 +22,13 @@ import {
   Calendar,
   Send,
   Wifi,
-  WifiOff
+  WifiOff,
+  Camera,
+  Trash2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import CameraAssignmentModal from '../components/CameraAssignmentModal'
+import { useAuth } from '../context/AuthContext'
 
 const ParkingDetail = () => {
   const { id } = useParams()
@@ -48,6 +52,9 @@ const ParkingDetail = () => {
   const [newOccupancy, setNewOccupancy] = useState('')
   const [occupancyError, setOccupancyError] = useState('')
   const [saving, setSaving] = useState(false)
+  const { isSuperadmin } = useAuth()
+  const [showCameraModal, setShowCameraModal] = useState(false)
+  const [assignedCameras, setAssignedCameras] = useState([])
 
   // Obtener datos del parking
   const { data: parkingData, isLoading, error: parkingError } = useQuery(
@@ -390,6 +397,40 @@ const ParkingDetail = () => {
     return `Hace ${Math.floor(diffHours / 24)} días`
   }
 
+  // Mutación para actualizar cámaras
+  const updateCamerasMutation = useMutation(
+    (cameras) => parkingService.updateCameras(id, cameras),
+    {
+      onSuccess: () => {
+        toast.success('Cámaras actualizadas correctamente')
+        setShowCameraModal(false)
+        loadParkingData()
+      },
+      onError: () => {
+        toast.error('Error al actualizar las cámaras')
+      }
+    }
+  )
+
+  // Abrir modal y cargar cámaras actuales
+  const openCameraModal = () => {
+    setAssignedCameras(cameras)
+    setShowCameraModal(true)
+  }
+
+  // Guardar cámaras desde el modal
+  const handleCameraAssignment = async (newCameras) => {
+    setAssignedCameras(newCameras)
+    updateCamerasMutation.mutate(newCameras)
+  }
+
+  // Eliminar cámara individual
+  const handleRemoveCamera = (cameraId) => {
+    if (!window.confirm('¿Seguro que quieres desvincular esta cámara del parking?')) return
+    const updatedCameras = cameras.filter(cam => cam.id !== cameraId)
+    updateCamerasMutation.mutate(updatedCameras)
+  }
+
   if (loading && !parking) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -535,12 +576,20 @@ const ParkingDetail = () => {
 
       {/* Cámaras */}
       <div className="bg-white rounded-lg shadow mb-6">
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">
             📹 Cámaras ({cameras.length})
           </h2>
+          {isSuperadmin && (
+            <button
+              onClick={openCameraModal}
+              className="flex items-center px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
+            >
+              <Camera className="h-4 w-4 mr-1" />
+              Editar cámaras
+            </button>
+          )}
         </div>
-        
         <div className="overflow-x-auto">
           {cameras.length === 0 ? (
             <div className="text-center py-8">
@@ -615,10 +664,19 @@ const ParkingDetail = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <button
                         onClick={() => navigate(`/camera-logs?parking=${id}&camera=${camera.id}`)}
-                        className="text-blue-600 hover:text-blue-900"
+                        className="text-blue-600 hover:text-blue-900 mr-2"
                       >
                         Ver logs
                       </button>
+                      {isSuperadmin && (
+                        <button
+                          onClick={() => handleRemoveCamera(camera.id)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Desvincular cámara"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -626,6 +684,13 @@ const ParkingDetail = () => {
             </table>
           )}
         </div>
+        {/* Modal de asignación de cámaras */}
+        <CameraAssignmentModal
+          isOpen={showCameraModal}
+          onClose={() => setShowCameraModal(false)}
+          onSave={handleCameraAssignment}
+          existingCameras={assignedCameras}
+        />
       </div>
 
       {/* Paneles */}

@@ -17,7 +17,8 @@ import {
   Save,
   X,
   Plus,
-  Camera
+  Camera,
+  Trash2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -91,6 +92,27 @@ const Parkings = () => {
       }
     }
   )
+
+  // Mutación para eliminar parking
+  const deleteParkingMutation = useMutation(
+    (parkingId) => parkingService.deleteParking(parkingId),
+    {
+      onSuccess: (data) => {
+        queryClient.invalidateQueries('allParkings')
+        toast.success(data?.message || 'Parking eliminado correctamente')
+      },
+      onError: (error) => {
+        toast.error(error?.response?.data?.error || 'Error al eliminar el parking')
+      }
+    }
+  )
+
+  const handleDeleteParking = (parking) => {
+    if (!isSuperadmin) return
+    if (window.confirm(`¿Seguro que quieres eliminar el parking "${parking.name}"? Esta acción no se puede deshacer.`)) {
+      deleteParkingMutation.mutate(parking.id)
+    }
+  }
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -522,6 +544,16 @@ const Parkings = () => {
                       >
                         <Camera className="h-4 w-4" />
                       </button>
+                      {isSuperadmin && (
+                        <button
+                          onClick={() => handleDeleteParking(parking)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Eliminar parking"
+                          disabled={deleteParkingMutation.isLoading}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

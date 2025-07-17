@@ -2661,5 +2661,56 @@ def toggle_user_status(user_id):
         logger.error(f"Error cambiando estado de usuario: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@app.route('/parkings/<int:parking_id>', methods=['DELETE'])
+@require_superadmin
+def delete_parking(parking_id):
+    """Eliminar un parking (solo superadmin)"""
+    try:
+        session = Session()
+        
+        # Verificar que el parking existe
+        parking = session.query(Parking).get(parking_id)
+        if not parking:
+            session.close()
+            return jsonify({'error': 'Parking not found'}), 404
+        
+        parking_name = parking.name
+        
+        # Verificar que no hay ocupación actual
+        if parking.current_occupancy > 0:
+            session.close()
+            return jsonify({
+                'error': 'No se puede eliminar un parking con ocupación actual',
+                'current_occupancy': parking.current_occupancy
+            }), 400
+        
+        # Eliminar asignaciones de usuarios
+        session.query(UserParking).filter(UserParking.parking_id == parking_id).delete()
+        
+        # Eliminar cámaras del parking
+        session.query(Access).filter(Access.parking_id == parking_id).delete()
+        
+        # Eliminar paneles del parking
+        session.query(Panel).filter(Panel.parking_id == parking_id).delete()
+        
+        # Eliminar programaciones del parking
+        session.query(ScheduledMessage).filter(ScheduledMessage.parking_id == parking_id).delete()
+        
+        # Eliminar el parking
+        session.delete(parking)
+        session.commit()
+        session.close()
+        
+        logger.info(f"Parking deleted - ID: {parking_id}, Name: {parking_name}")
+        return jsonify({
+            'status': 'ok',
+            'message': f'Parking "{parking_name}" eliminado correctamente',
+            'parking_id': parking_id
+        })
+        
+    except Exception as e:
+        logger.error(f"Error deleting parking {parking_id}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=API_PORT, debug=False)

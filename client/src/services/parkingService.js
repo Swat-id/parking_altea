@@ -151,5 +151,18 @@ export const parkingService = {
       console.error('Error creando parking:', error)
       throw error
     }
+  },
+
+  /**
+   * Eliminar un parking
+   */
+  async deleteParking(parkingId) {
+    try {
+      const response = await api.delete(`/parkings/${parkingId}`)
+      return response.data
+    } catch (error) {
+      console.error('Error eliminando parking:', error)
+      throw error
+    }
   }
 } 
