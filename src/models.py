@@ -272,7 +272,7 @@ class CameraLog(Base):
     
     # Información de la cámara
     access_id = Column(Integer, ForeignKey('accesses.id'), nullable=True)
-    parking_id = Column(Integer, ForeignKey('parkings.id'), nullable=False)
+    parking_id = Column(Integer, ForeignKey('parkings.id'), nullable=True)  # Nullable para relación muchos a muchos
     camera_ip = Column(String, nullable=False)
     camera_line = Column(Integer, nullable=False)
     camera_name = Column(String)
