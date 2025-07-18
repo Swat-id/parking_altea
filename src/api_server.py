@@ -1847,21 +1847,33 @@ def update_camera_line(access_id):
             session.close()
             return jsonify({'error': 'Camera not found'}), 404
         
-        # Verificar que no haya conflicto con otra cámara del mismo parking
-        existing_camera = session.query(Access).filter(
-            Access.parking_id == access.parking_id,
-            Access.line == new_line,
-            Access.id != access_id
-        ).first()
+        # Obtener los parkings asociados a esta cámara
+        camera_parkings = session.query(CameraParking).filter(CameraParking.camera_id == access_id).all()
+        parking_ids = [cp.parking_id for cp in camera_parkings]
         
-        if existing_camera:
-            session.close()
-            return jsonify({'error': f'Line {new_line} is already used by camera {existing_camera.name}'}), 400
+        # Verificar que no haya conflicto con otra cámara de los mismos parkings
+        for parking_id in parking_ids:
+            existing_camera = session.query(Access).join(CameraParking).filter(
+                CameraParking.parking_id == parking_id,
+                Access.line == new_line,
+                Access.id != access_id
+            ).first()
+            
+            if existing_camera:
+                session.close()
+                return jsonify({'error': f'Line {new_line} is already used by camera {existing_camera.name} in parking {parking_id}'}), 400
         
         # Guardar línea anterior para logging
         old_line = access.line
         camera_name = access.name
-        parking_name = access.parking.name
+        
+        # Obtener nombres de parkings para logging
+        parking_names = []
+        for cp in camera_parkings:
+            parking = session.query(Parking).get(cp.parking_id)
+            if parking:
+                parking_names.append(parking.name)
+        parking_name = ", ".join(parking_names) if parking_names else "Unknown"
         
         # Actualizar línea
         access.line = new_line
@@ -1999,9 +2011,11 @@ def get_parking_hourly_statistics(pid):
         
         # Obtener estadísticas de cámaras para el período
         camera_stats = []
-        cameras = session.query(Access).filter(Access.parking_id == pid).all()
+        # Usar la nueva relación muchos a muchos para obtener cámaras del parking
+        camera_parkings = session.query(CameraParking).filter(CameraParking.parking_id == pid).all()
         
-        for camera in cameras:
+        for cp in camera_parkings:
+            camera = cp.camera
             camera_logs = session.query(CameraLog).filter(
                 CameraLog.access_id == camera.id,
                 CameraLog.received_at >= start_date,
@@ -2721,8 +2735,8 @@ def delete_parking(parking_id):
         # Eliminar asignaciones de usuarios
         session.query(UserParking).filter(UserParking.parking_id == parking_id).delete()
         
-        # Eliminar cámaras del parking
-        session.query(Access).filter(Access.parking_id == parking_id).delete()
+        # Eliminar relaciones de cámaras del parking (usando la nueva relación muchos a muchos)
+        session.query(CameraParking).filter(CameraParking.parking_id == parking_id).delete()
         
         # Eliminar paneles del parking
         session.query(Panel).filter(Panel.parking_id == parking_id).delete()
