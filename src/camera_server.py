@@ -421,124 +421,124 @@ def handle_camera():
             for camera_parking in camera_parkings:
                 parking = camera_parking.parking
                 previous_occupancy = parking.current_occupancy
-            
-            # UNIFICACIÓN: Calcular ocupación correctamente
-            # Solo aplicar deltas si NO es un reinicio
-            if not is_reset:
-                parking.current_occupancy += (delta_in - delta_out)
-                logger.info(f"Occupancy updated for parking {parking.name} - Previous: {previous_occupancy}, Delta: +{delta_in} -{delta_out} = {delta_in - delta_out}, New: {parking.current_occupancy}")
-            else:
-                # En caso de reinicio, mantener la ocupación actual
-                logger.info(f"Reset detected for parking {parking.name} - Keeping current occupancy: {parking.current_occupancy}")
-            
-            # PERMITIR OCUPACIÓN POR ENCIMA DEL MÁXIMO Y VALORES NEGATIVOS
-            # No limitar la ocupación al máximo de capacidad
-            # Esto permite reflejar la realidad cuando hay exceso de vehículos
-            
-            logger.info(f"Parking occupancy updated - {parking.name}: Previous: {previous_occupancy}, New: {parking.current_occupancy}, Max Capacity: {parking.max_capacity}")
-            if is_reset:
-                logger.info(f"Reset impact on occupancy for {parking.name}: +{delta_in} in, -{delta_out} out, Net change: {delta_in - delta_out}")
-            
-            # Calcular descuadre para estadísticas
-            free_spaces = parking.max_capacity - parking.current_occupancy
-            occupancy_discrepancy = None
-            
-            if parking.current_occupancy > parking.max_capacity:
-                # Exceso de vehículos
-                occupancy_discrepancy = f"EXCESS:{parking.current_occupancy - parking.max_capacity}"
-                logger.warning(f"OCCUPANCY EXCESS - Parking: {parking.name}, Capacity: {parking.max_capacity}, Current: {parking.current_occupancy}, Excess: {parking.current_occupancy - parking.max_capacity}")
-            elif free_spaces < 0:
-                # Plazas libres negativas
-                occupancy_discrepancy = f"NEGATIVE_FREE:{abs(free_spaces)}"
-                logger.warning(f"NEGATIVE FREE SPACES - Parking: {parking.name}, Free spaces: {free_spaces}, This indicates counting errors or overflow")
-            
-            # Registrar histórico con información de descuadre
-            hist = OccupancyHistory(
-                parking_id=parking.id,
-                occupancy=parking.current_occupancy,
-                source='camera'
-            )
-            session.add(hist)
-            
-            # Calcular estado (permitir estados especiales para descuadres)
-            occ = parking.current_occupancy
-            parking_name = parking.name  # Obtener el nombre antes de cerrar la sesión
-            previous_status = parking.status
-            free = parking.max_capacity - occ
-            
-            if parking.fixed_message_flag:
-                message = None
-                parking_status = parking.status  # Mantener estado actual
-                logger.info(f"Fixed message flag is active for {parking.name} - no status update")
-            else:
-                # NUEVA LÓGICA: Descuadre negativo = COMPLETO
-                if free < 0:
-                    # Estado especial para descuadres negativos - MOSTRAR COMO COMPLETO
-                    parking.status = 'COMPLETO'
-                    message = f"{parking_name}: COMPLETO"
-                    logger.warning(f"Status set to COMPLETO (descuadre negativo) for {parking.name} - Free spaces: {free}")
-                elif occ > parking.max_capacity:
-                    # Estado para exceso de ocupación
-                    parking.status = 'COMPLETO'
-                    message = f"{parking_name}: COMPLETO"
-                    logger.warning(f"Status set to COMPLETO (exceso) for {parking.name} - Occupancy: {occ}, Capacity: {parking.max_capacity}")
-                elif free <= parking.threshold_full:
-                    parking.status = 'COMPLETO'
-                    message = f"{parking_name}: {free} libres ({parking.status})"
-                elif free <= parking.threshold_dense:
-                    parking.status = 'DENSO'
-                    message = f"{parking_name}: {free} libres ({parking.status})"
+                
+                # UNIFICACIÓN: Calcular ocupación correctamente
+                # Solo aplicar deltas si NO es un reinicio
+                if not is_reset:
+                    parking.current_occupancy += (delta_in - delta_out)
+                    logger.info(f"Occupancy updated for parking {parking.name} - Previous: {previous_occupancy}, Delta: +{delta_in} -{delta_out} = {delta_in - delta_out}, New: {parking.current_occupancy}")
                 else:
-                    parking.status = 'LIBRE'
-                    message = f"{parking_name}: {free} libres ({parking.status})"
+                    # En caso de reinicio, mantener la ocupación actual
+                    logger.info(f"Reset detected for parking {parking.name} - Keeping current occupancy: {parking.current_occupancy}")
                 
-                parking_status = parking.status
-                logger.info(f"Status updated for {parking.name} - Previous: {previous_status}, New: {parking.status}, Free spaces: {free}")
-                logger.info(f"Thresholds evaluation for {parking.name} - Free spaces: {free}, Dense threshold: {parking.threshold_dense}, Full threshold: {parking.threshold_full}")
+                # PERMITIR OCUPACIÓN POR ENCIMA DEL MÁXIMO Y VALORES NEGATIVOS
+                # No limitar la ocupación al máximo de capacidad
+                # Esto permite reflejar la realidad cuando hay exceso de vehículos
                 
-                # Enviar mensaje a paneles (con manejo de errores)
-                try:
-                    update_parking_panels(parking.id, parking.current_occupancy, parking.max_capacity, parking.status)
-                    logger.info(f"Message sent to panels for {parking.name}: {parking.current_occupancy}/{parking.max_capacity} ({parking.status})")
-                except Exception as e:
-                    logger.error(f"Error sending to panels for {parking.name}: {e}")
-                    # Log detallado del error para debugging
-                    import traceback
-                    logger.error(f"Traceback: {traceback.format_exc()}")
-            
-            # Preparar información adicional para el log en caso de reinicio
-            error_message = None
-            if is_reset:
-                error_message = f"Camera reset detected - Previous: In={previous_vehicle_in}, Out={previous_vehicle_out} -> New: In={veh_in}, Out={veh_out}"
-            
-            # Registrar log de cámara exitoso para cada parking
-            log_camera_message(
-                session=session,
-                camera_ip=ip,
-                camera_line=original_line,
-                camera_name=device,
-                raw_message=raw_data,
-                vehicle_in=veh_in,
-                vehicle_out=veh_out,
-                status="processed" if not is_reset else "reset_processed",
-                error_message=error_message,
-                access_id=access.id,
-                parking_id=parking.id,
-                processing_time=(time.time() - start_time) * 1000,
-                previous_vehicle_in=reset_info["adjusted_previous_in"],
-                previous_vehicle_out=reset_info["adjusted_previous_out"],
-                delta_in=delta_in,
-                delta_out=delta_out,
-                new_occupancy=occ,
-                occupancy_change=occ - previous_occupancy,
-                parking_status=parking_status
-            )
-            
-            updated_parkings.append({
-                'name': parking.name,
-                'occupancy': occ,
-                'status': parking.status
-            })
+                logger.info(f"Parking occupancy updated - {parking.name}: Previous: {previous_occupancy}, New: {parking.current_occupancy}, Max Capacity: {parking.max_capacity}")
+                if is_reset:
+                    logger.info(f"Reset impact on occupancy for {parking.name}: +{delta_in} in, -{delta_out} out, Net change: {delta_in - delta_out}")
+                
+                # Calcular descuadre para estadísticas
+                free_spaces = parking.max_capacity - parking.current_occupancy
+                occupancy_discrepancy = None
+                
+                if parking.current_occupancy > parking.max_capacity:
+                    # Exceso de vehículos
+                    occupancy_discrepancy = f"EXCESS:{parking.current_occupancy - parking.max_capacity}"
+                    logger.warning(f"OCCUPANCY EXCESS - Parking: {parking.name}, Capacity: {parking.max_capacity}, Current: {parking.current_occupancy}, Excess: {parking.current_occupancy - parking.max_capacity}")
+                elif free_spaces < 0:
+                    # Plazas libres negativas
+                    occupancy_discrepancy = f"NEGATIVE_FREE:{abs(free_spaces)}"
+                    logger.warning(f"NEGATIVE FREE SPACES - Parking: {parking.name}, Free spaces: {free_spaces}, This indicates counting errors or overflow")
+                
+                # Registrar histórico con información de descuadre
+                hist = OccupancyHistory(
+                    parking_id=parking.id,
+                    occupancy=parking.current_occupancy,
+                    source='camera'
+                )
+                session.add(hist)
+                
+                # Calcular estado (permitir estados especiales para descuadres)
+                occ = parking.current_occupancy
+                parking_name = parking.name  # Obtener el nombre antes de cerrar la sesión
+                previous_status = parking.status
+                free = parking.max_capacity - occ
+                
+                if parking.fixed_message_flag:
+                    message = None
+                    parking_status = parking.status  # Mantener estado actual
+                    logger.info(f"Fixed message flag is active for {parking.name} - no status update")
+                else:
+                    # NUEVA LÓGICA: Descuadre negativo = COMPLETO
+                    if free < 0:
+                        # Estado especial para descuadres negativos - MOSTRAR COMO COMPLETO
+                        parking.status = 'COMPLETO'
+                        message = f"{parking_name}: COMPLETO"
+                        logger.warning(f"Status set to COMPLETO (descuadre negativo) for {parking.name} - Free spaces: {free}")
+                    elif occ > parking.max_capacity:
+                        # Estado para exceso de ocupación
+                        parking.status = 'COMPLETO'
+                        message = f"{parking_name}: COMPLETO"
+                        logger.warning(f"Status set to COMPLETO (exceso) for {parking.name} - Occupancy: {occ}, Capacity: {parking.max_capacity}")
+                    elif free <= parking.threshold_full:
+                        parking.status = 'COMPLETO'
+                        message = f"{parking_name}: {free} libres ({parking.status})"
+                    elif free <= parking.threshold_dense:
+                        parking.status = 'DENSO'
+                        message = f"{parking_name}: {free} libres ({parking.status})"
+                    else:
+                        parking.status = 'LIBRE'
+                        message = f"{parking_name}: {free} libres ({parking.status})"
+                    
+                    parking_status = parking.status
+                    logger.info(f"Status updated for {parking.name} - Previous: {previous_status}, New: {parking.status}, Free spaces: {free}")
+                    logger.info(f"Thresholds evaluation for {parking.name} - Free spaces: {free}, Dense threshold: {parking.threshold_dense}, Full threshold: {parking.threshold_full}")
+                    
+                    # Enviar mensaje a paneles (con manejo de errores)
+                    try:
+                        update_parking_panels(parking.id, parking.current_occupancy, parking.max_capacity, parking.status)
+                        logger.info(f"Message sent to panels for {parking.name}: {parking.current_occupancy}/{parking.max_capacity} ({parking.status})")
+                    except Exception as e:
+                        logger.error(f"Error sending to panels for {parking.name}: {e}")
+                        # Log detallado del error para debugging
+                        import traceback
+                        logger.error(f"Traceback: {traceback.format_exc()}")
+                
+                # Preparar información adicional para el log en caso de reinicio
+                error_message = None
+                if is_reset:
+                    error_message = f"Camera reset detected - Previous: In={previous_vehicle_in}, Out={previous_vehicle_out} -> New: In={veh_in}, Out={veh_out}"
+                
+                # Registrar log de cámara exitoso para cada parking
+                log_camera_message(
+                    session=session,
+                    camera_ip=ip,
+                    camera_line=original_line,
+                    camera_name=device,
+                    raw_message=raw_data,
+                    vehicle_in=veh_in,
+                    vehicle_out=veh_out,
+                    status="processed" if not is_reset else "reset_processed",
+                    error_message=error_message,
+                    access_id=access.id,
+                    parking_id=parking.id,
+                    processing_time=(time.time() - start_time) * 1000,
+                    previous_vehicle_in=reset_info["adjusted_previous_in"],
+                    previous_vehicle_out=reset_info["adjusted_previous_out"],
+                    delta_in=delta_in,
+                    delta_out=delta_out,
+                    new_occupancy=occ,
+                    occupancy_change=occ - previous_occupancy,
+                    parking_status=parking_status
+                )
+                
+                updated_parkings.append({
+                    'name': parking.name,
+                    'occupancy': occ,
+                    'status': parking.status
+                })
         
         session.commit()
         session.close()
