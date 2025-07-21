@@ -152,7 +152,7 @@ def test_create_schedule():
             data=json.dumps(schedule_data)
         )
         
-        if response.status_code == 200:
+        if response.status_code in [200, 201]:
             result = response.json()
             if result.get('success'):
                 print(f"✅ Programación creada exitosamente: {result.get('schedule_id')}")
