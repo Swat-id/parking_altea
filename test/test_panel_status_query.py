@@ -87,7 +87,7 @@ def test_panel_status_query():
                 schedule = schedules[0]
                 print(f"Probando ejecución de programación: {schedule.name}")
                 
-                schedule_service = PanelScheduleService(session)
+                schedule_service = PanelScheduleService(session, "http://localhost:8888/api/v1/panels/send")
                 result = schedule_service.execute_schedule(schedule)
                 print(f"Resultado: {result}")
         

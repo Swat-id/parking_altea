@@ -73,7 +73,7 @@ def test_date_handling():
         print(f"Día actual: {current_weekday_field}")
         
         # Crear servicio de programaciones
-        schedule_service = PanelScheduleService(session)
+        schedule_service = PanelScheduleService(session, "http://localhost:8888/api/v1/panels/send")
         
         # PRUEBA 1: Programación que debe ejecutarse ahora
         print(f"\n🧪 PRUEBA 1: Programación que debe ejecutarse ahora")
