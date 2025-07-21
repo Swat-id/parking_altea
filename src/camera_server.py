@@ -411,7 +411,8 @@ def handle_camera():
             access.last_vehicle_in = veh_in
             access.last_vehicle_out = veh_out
         
-        # Procesar TODOS los parkings asociados a esta cámara usando la nueva relación muchos a muchos
+        # CORRECCIÓN CRÍTICA: Los deltas se calculan por cámara, pero el aforo se gestiona por parking
+        # Cada parking debe tener su propio cálculo de ocupación basado en sus cámaras asociadas
         updated_parkings = []
         
         for access in accesses:
@@ -420,13 +421,27 @@ def handle_camera():
             
             for camera_parking in camera_parkings:
                 parking = camera_parking.parking
+                
+                # CORRECCIÓN: Calcular ocupación del parking basada en TODAS sus cámaras asociadas
+                # No solo en el delta de esta cámara específica
+                all_camera_parkings = session.query(CameraParking).filter_by(parking_id=parking.id).all()
+                
+                # Calcular ocupación total del parking basada en todas sus cámaras
+                total_occupancy = 0
+                for cp in all_camera_parkings:
+                    camera_access = session.query(Access).get(cp.camera_id)
+                    if camera_access:
+                        # Calcular ocupación de esta cámara específica
+                        camera_occupancy = camera_access.last_vehicle_in - camera_access.last_vehicle_out
+                        total_occupancy += camera_occupancy
+                
                 previous_occupancy = parking.current_occupancy
                 
-                # UNIFICACIÓN: Calcular ocupación correctamente
-                # Solo aplicar deltas si NO es un reinicio
+                # CORRECCIÓN: Solo aplicar deltas si NO es un reinicio
                 if not is_reset:
-                    parking.current_occupancy += (delta_in - delta_out)
-                    logger.info(f"Occupancy updated for parking {parking.name} - Previous: {previous_occupancy}, Delta: +{delta_in} -{delta_out} = {delta_in - delta_out}, New: {parking.current_occupancy}")
+                    # Actualizar ocupación del parking con el cálculo total
+                    parking.current_occupancy = total_occupancy
+                    logger.info(f"Occupancy updated for parking {parking.name} - Previous: {previous_occupancy}, Total from all cameras: {total_occupancy}, Delta applied: +{delta_in} -{delta_out} = {delta_in - delta_out}")
                 else:
                     # En caso de reinicio, mantener la ocupación actual
                     logger.info(f"Reset detected for parking {parking.name} - Keeping current occupancy: {parking.current_occupancy}")
