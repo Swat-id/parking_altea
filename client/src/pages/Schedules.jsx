@@ -65,7 +65,7 @@ const Schedules = () => {
   // Obtener parkings
   const { data: parkings = [] } = useQuery(
     'parkings',
-    () => fetch(`${API_BASE_URL}/parkings`).then(res => res.json())
+    () => fetch(`${API_BASE_URL}/api/parkings`).then(res => res.json())
   )
 
   // Obtener programaciones
