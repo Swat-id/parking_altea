@@ -27,7 +27,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-const API_BASE_URL = 'http://157.180.91.63:6001'
+const API_BASE_URL = 'http://157.180.91.63:8888/api'
 
 const Schedules = () => {
   const queryClient = useQueryClient()
@@ -65,7 +65,7 @@ const Schedules = () => {
   // Obtener parkings
   const { data: parkings = [] } = useQuery(
     'parkings',
-    () => fetch(`${API_BASE_URL}/api/parkings`).then(res => res.json())
+    () => fetch(`${API_BASE_URL}/parkings`).then(res => res.json())
   )
 
   // Obtener programaciones
