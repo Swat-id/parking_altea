@@ -27,10 +27,10 @@ def test_schedule_priority_over_occupancy():
     session = Session()
     
     try:
-        # 1. Obtener un parking de prueba
-        parking = session.query(Parking).first()
+        # 1. Obtener un parking de prueba con paneles
+        parking = session.query(Parking).filter(Parking.id == 1).first()  # P. Ciutat Esportiva
         if not parking:
-            print("❌ No se encontró ningún parking para la prueba")
+            print("❌ No se encontró el parking de prueba (ID: 1)")
             return False
         
         print(f"✅ Parking de prueba: {parking.name} (ID: {parking.id})")
@@ -213,10 +213,10 @@ def test_schedule_creation_with_auto_execution():
     session = Session()
     
     try:
-        # Obtener un parking
-        parking = session.query(Parking).first()
+        # Obtener un parking con paneles
+        parking = session.query(Parking).filter(Parking.id == 1).first()  # P. Ciutat Esportiva
         if not parking:
-            print("❌ No se encontró ningún parking para la prueba")
+            print("❌ No se encontró el parking de prueba (ID: 1)")
             return False
         
         print(f"✅ Parking de prueba: {parking.name} (ID: {parking.id})")
