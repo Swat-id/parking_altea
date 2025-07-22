@@ -191,6 +191,16 @@ class ScheduleMonitorService:
             if not schedule_data.get('is_active', False):
                 return False
             
+            # NUEVA LÓGICA: Solo ejecutar si la programación acaba de empezar (dentro del primer minuto)
+            # Esto evita ejecuciones repetidas cada minuto
+            start_hour, start_minute = map(int, start_time.split(':'))
+            today_start = current_time.replace(hour=start_hour, minute=start_minute, second=0, microsecond=0)
+            time_diff = current_time - today_start
+            
+            # Solo ejecutar si estamos dentro del primer minuto después del inicio
+            if not (0 <= time_diff.total_seconds() <= 60):
+                return False
+            
             return True
             
         except Exception as e:
