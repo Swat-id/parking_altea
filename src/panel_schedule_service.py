@@ -316,16 +316,13 @@ class PanelScheduleService:
     def execute_schedule(self, schedule: PanelSchedule) -> dict:
         """Ejecutar una programación enviando el mensaje a los paneles"""
         try:
-            # Obtener paneles del parking
+            # Obtener paneles del parking (todos, no solo los online)
             panels = self.session.query(Panel).filter(
-                and_(
-                    Panel.parking_id == schedule.parking_id,
-                    Panel.status == 'ONLINE'
-                )
+                Panel.parking_id == schedule.parking_id
             ).all()
             
             if not panels:
-                return {'success': False, 'error': 'No hay paneles online para este parking'}
+                return {'success': False, 'error': 'No hay paneles configurados para este parking'}
             
             # Enviar mensaje a todos los paneles
             success_count = 0
@@ -369,16 +366,13 @@ class PanelScheduleService:
     def end_schedule(self, schedule: PanelSchedule) -> dict:
         """Finalizar una programación restaurando el estado del parking"""
         try:
-            # Obtener paneles del parking
+            # Obtener paneles del parking (todos, no solo los online)
             panels = self.session.query(Panel).filter(
-                and_(
-                    Panel.parking_id == schedule.parking_id,
-                    Panel.status == 'ONLINE'
-                )
+                Panel.parking_id == schedule.parking_id
             ).all()
             
             if not panels:
-                return {'success': False, 'error': 'No hay paneles online para este parking'}
+                return {'success': False, 'error': 'No hay paneles configurados para este parking'}
             
             # Obtener estado actual del parking
             parking = self.session.query(Parking).filter(Parking.id == schedule.parking_id).first()
