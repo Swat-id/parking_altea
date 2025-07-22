@@ -29,7 +29,7 @@ Este documento describe el contexto completo del despliegue de la versión v3.1.
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Frontend      │    │   API Server    │    │   Database      │
 │   (React)       │◄──►│   (Flask)       │◄──►│   (PostgreSQL)  │
-│   Port 80       │    │   Port 5000     │    │   Port 5432     │
+│   Port 5789     │    │   Port 6001     │    │   Port 5432     │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          │                       │                       │
@@ -37,7 +37,7 @@ Este documento describe el contexto completo del despliegue de la versión v3.1.
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Nginx         │    │   Camera Server │    │   Schedule      │
 │   (Reverse      │    │   (Python)      │    │   Monitor       │
-│    Proxy)       │    │   Port 5001     │    │   (Python)      │
+│    Proxy)       │    │   Port 6400     │    │   (Python)      │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
