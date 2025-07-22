@@ -457,6 +457,15 @@ def update_parking_panels(parking_id: int, current_occupancy: int, max_capacity:
                     'panels_updated': 0
                 }
             
+            # VERIFICAR SI HAY PROGRAMACIONES ACTIVAS ANTES DE ACTUALIZAR PANELES
+            from panel_schedule_service import PanelScheduleService
+            schedule_service = PanelScheduleService(db_session)
+            active_schedules = schedule_service.get_active_schedules_for_parking(parking_id)
+            
+            if active_schedules:
+                logger.info(f"Active schedules found for parking {parking_id}, skipping panel update for occupancy change")
+                return "SCHEDULE_ACTIVE"  # NO actualizar paneles si hay programación activa
+            
             # Calcular porcentaje de ocupación
             if max_capacity > 0:
                 occupancy_percentage = int((current_occupancy / max_capacity) * 100)
