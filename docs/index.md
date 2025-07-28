@@ -1,11 +1,11 @@
-# Documentación del Sistema Parking Altea v2.6
+# Documentación del Sistema Parking Altea v3.2.0_alarms
 
 ## Índice de Documentación
 
-Esta documentación proporciona información completa sobre el sistema de gestión de aparcamientos Parking Altea v2.6, incluyendo su arquitectura, API, protocolos de comunicación, base de datos, despliegue y mantenimiento.
+Esta documentación proporciona información completa sobre el sistema de gestión de aparcamientos Parking Altea v3.2.0_alarms, incluyendo su arquitectura, API, protocolos de comunicación, base de datos, despliegue y mantenimiento.
 
-**Versión Actual**: v2.6 - Sistema Completo con Paneles Electrónicos  
-**Fecha de Actualización**: 1 de Julio de 2025  
+**Versión Actual**: v3.2.0_alarms - Sistema Completo con Mejoras de Programaciones y Alarmas  
+**Fecha de Actualización**: 28 de Julio de 2025  
 **Estado**: ✅ PRODUCCIÓN - FUNCIONAL COMPLETO
 
 ---
@@ -21,6 +21,15 @@ Documentación general del proyecto con descripción, arquitectura, componentes 
 - Componentes principales
 - Tecnologías utilizadas
 - Estado del proyecto
+
+## 📚 Documentación por Versiones
+
+### v3.2.0_alarms
+- [Contexto y Estado del Desarrollo](v3.2.0/contexto_y_estado_desarrollo_v3.2.0.md) - Estado completo del sistema v3.2.0
+- [Guía de Despliegue](v3.2.0/guia_despliegue_v3.2.0.md) - Guía completa de despliegue en servidor remoto
+
+### v3.1.0
+- [Análisis Profundo Sistema Cámaras y Programaciones](analisis_profundo_sistema_camaras_programaciones.md) - Análisis y correcciones implementadas
 
 ### [Estado del Proyecto](./project_status.md)
 Documento completo del estado actual del proyecto con resultados de pruebas y funcionalidades implementadas.
