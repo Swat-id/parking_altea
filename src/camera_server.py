@@ -498,22 +498,36 @@ def handle_camera():
                     logger.info(f"Status updated for {parking.name} - Previous: {previous_status}, New: {parking.status}, Free spaces: {free}")
                     logger.info(f"Thresholds evaluation for {parking.name} - Free spaces: {free}, Dense threshold: {parking.threshold_dense}, Full threshold: {parking.threshold_full}")
                     
-                    # Enviar mensaje a paneles (con manejo de errores)
-                    try:
-                        update_parking_panels(parking.id, parking.current_occupancy, parking.max_capacity, parking.status)
-                        logger.info(f"Message sent to panels for {parking.name}: {parking.current_occupancy}/{parking.max_capacity} ({parking.status})")
-                    except Exception as e:
-                        logger.error(f"Error sending to panels for {parking.name}: {e}")
-                        # Log detallado del error para debugging
-                        import traceback
-                        logger.error(f"Traceback: {traceback.format_exc()}")
+                    # Verificar programaciones activas antes de actualizar paneles
+                    from panel_schedule_service import PanelScheduleService
+                    schedule_service = PanelScheduleService(session)
+                    active_schedules = schedule_service.get_active_schedules_for_parking(parking.id)
+                    
+                    # Determinar el estado del procesamiento
+                    if active_schedules:
+                        logger.info(f"Active schedule found for parking {parking.name}, skipping panel update")
+                        processing_status = "schedule_active"
+                        error_message = f"Panel update skipped due to active schedule: {active_schedules[0].name}"
+                    else:
+                        # Solo actualizar paneles si no hay programación activa
+                        try:
+                            update_parking_panels(parking.id, parking.current_occupancy, parking.max_capacity, parking.status)
+                            logger.info(f"Message sent to panels for {parking.name}: {parking.current_occupancy}/{parking.max_capacity} ({parking.status})")
+                            processing_status = "processed" if not is_reset else "reset_processed"
+                            error_message = None
+                        except Exception as e:
+                            logger.error(f"Error sending to panels for {parking.name}: {e}")
+                            # Log detallado del error para debugging
+                            import traceback
+                            logger.error(f"Traceback: {traceback.format_exc()}")
+                            processing_status = "panel_error"
+                            error_message = f"Error sending to panels: {e}"
                 
                 # Preparar información adicional para el log en caso de reinicio
-                error_message = None
-                if is_reset:
+                if is_reset and error_message is None:
                     error_message = f"Camera reset detected - Previous: In={previous_vehicle_in}, Out={previous_vehicle_out} -> New: In={veh_in}, Out={veh_out}"
                 
-                # Registrar log de cámara exitoso para cada parking
+                # Registrar log de cámara para cada parking
                 log_camera_message(
                     session=session,
                     camera_ip=ip,
@@ -522,7 +536,7 @@ def handle_camera():
                     raw_message=raw_data,
                     vehicle_in=veh_in,
                     vehicle_out=veh_out,
-                    status="processed" if not is_reset else "reset_processed",
+                    status=processing_status,
                     error_message=error_message,
                     access_id=access.id,
                     parking_id=parking.id,

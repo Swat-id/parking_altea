@@ -98,6 +98,18 @@ Protocolo de comunicación con los paneles electrónicos.
 **Contenido:**
 - Endpoints de paneles
 - Tipos de mensajes
+
+### [Análisis Profundo del Sistema](./analisis_profundo_sistema_camaras_programaciones.md)
+Análisis exhaustivo del sistema de cámaras, programaciones y paneles con correcciones propuestas.
+
+**Contenido:**
+- Análisis del servicio de cámaras
+- Análisis del servicio de comunicación con paneles
+- Análisis del servicio de programaciones
+- Análisis del frontend
+- Correcciones propuestas
+- Plan de implementación
+- Impacto de las correcciones
 - Lógica de envío
 - Configuración de paneles
 - Gestión de errores

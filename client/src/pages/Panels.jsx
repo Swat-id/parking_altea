@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { panelService } from '../services/panelService'
 import { panelTypeService } from '../services/panelTypeService'
 import { useAuth } from '../context/AuthContext'
+import ScheduleInfoModal from '../components/ScheduleInfoModal'
 import { 
   Monitor, 
   Wifi, 
@@ -25,7 +26,11 @@ import {
   Edit,
   Save,
   Type,
-  Plus
+  Plus,
+  Calendar,
+  CalendarDays,
+  Timer,
+  ExternalLink
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -35,6 +40,8 @@ const Panels = () => {
   const [selectedPanel, setSelectedPanel] = useState(null)
   const [showMessageForm, setShowMessageForm] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showScheduleModal, setShowScheduleModal] = useState(false)
+  const [selectedSchedule, setSelectedSchedule] = useState(null)
   const [messageText, setMessageText] = useState('')
   const [messageDuration, setMessageDuration] = useState(30)
   const [verificationResults, setVerificationResults] = useState(null)
@@ -109,11 +116,10 @@ const Panels = () => {
     {
       onSuccess: (data) => {
         setVerificationResults(data)
-        queryClient.invalidateQueries('panels')
-        toast.success(`Verificación completada: ${data.online_count} online, ${data.offline_count} offline`)
+        toast.success('Verificación completada')
       },
       onError: (error) => {
-        toast.error(error?.response?.data?.message || 'Error en verificación de paneles')
+        toast.error(error?.response?.data?.message || 'Error en verificación')
       }
     }
   )
@@ -123,23 +129,27 @@ const Panels = () => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries('panels')
-        toast.success('Tipo de panel actualizado correctamente')
         setEditingPanelId(null)
         setEditingPanelTypeId(null)
+        toast.success('Tipo de panel actualizado')
       },
       onError: (error) => {
-        toast.error(error?.response?.data?.message || 'Error al actualizar tipo de panel')
+        toast.error(error?.response?.data?.message || 'Error actualizando tipo de panel')
       }
     }
   )
 
-  // Mutación para crear panel
   const createPanelMutation = useMutation(
-    (panelData) => panelService.createPanel(panelData),
+    (panelData) => fetch('/api/panels', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(panelData)
+    }).then(res => res.json()),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('panels')
-        toast.success('Panel creado correctamente')
         setShowCreateModal(false)
         setCreateForm({
           name: '',
@@ -148,69 +158,113 @@ const Panels = () => {
           panel_type_id: '',
           port: 5200
         })
+        toast.success('Panel creado correctamente')
       },
       onError: (error) => {
-        toast.error(error?.response?.data?.message || 'Error al crear el panel')
+        toast.error(error?.response?.data?.message || 'Error creando panel')
       }
     }
   )
 
+  // Funciones auxiliares
   const getStatusColor = (status) => {
     switch (status) {
       case 'ONLINE':
-        return 'text-green-600 bg-green-100'
+        return 'bg-green-100 text-green-800'
       case 'OFFLINE':
-        return 'text-red-600 bg-red-100'
+        return 'bg-red-100 text-red-800'
+      case 'ERROR':
+        return 'bg-yellow-100 text-yellow-800'
       default:
-        return 'text-gray-600 bg-gray-100'
+        return 'bg-gray-100 text-gray-800'
     }
   }
 
   const getStatusIcon = (status) => {
     switch (status) {
       case 'ONLINE':
-        return <Wifi className="h-5 w-5" />
+        return <Wifi className="h-4 w-4 text-green-600" />
       case 'OFFLINE':
-        return <WifiOff className="h-5 w-5" />
+        return <WifiOff className="h-4 w-4 text-red-600" />
+      case 'ERROR':
+        return <AlertCircle className="h-4 w-4 text-yellow-600" />
       default:
-        return <Clock className="h-5 w-5" />
+        return <Server className="h-4 w-4 text-gray-600" />
     }
   }
 
   const getColorName = (colorCode) => {
     switch (colorCode) {
-      case 1: return 'Rojo'
-      case 2: return 'Verde'
-      case 3: return 'Amarillo'
-      case 4: return 'Azul'
-      case 5: return 'Magenta'
-      case 6: return 'Cian'
-      case 7: return 'Blanco'
-      default: return 'Rojo'
+      case 1:
+        return 'Rojo'
+      case 2:
+        return 'Verde'
+      case 3:
+        return 'Amarillo'
+      default:
+        return 'Desconocido'
     }
   }
 
+  // Nueva función para obtener el color del tipo de mensaje
+  const getMessageTypeColor = (messageType) => {
+    switch (messageType) {
+      case 'schedule':
+        return 'bg-blue-100 text-blue-800'
+      case 'occupancy':
+        return 'bg-green-100 text-green-800'
+      case 'temporary':
+        return 'bg-yellow-100 text-yellow-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  // Nueva función para obtener el icono del tipo de mensaje
+  const getMessageTypeIcon = (messageType) => {
+    switch (messageType) {
+      case 'schedule':
+        return <Calendar className="h-4 w-4 text-blue-600" />
+      case 'occupancy':
+        return <Monitor className="h-4 w-4 text-green-600" />
+      case 'temporary':
+        return <Timer className="h-4 w-4 text-yellow-600" />
+      default:
+        return <MessageSquare className="h-4 w-4 text-gray-600" />
+    }
+  }
+
+  // Nueva función para formatear el horario de programación
+  const formatScheduleTime = (timeString) => {
+    if (!timeString) return ''
+    try {
+      const time = new Date(`2000-01-01T${timeString}`)
+      return time.toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    } catch (error) {
+      return timeString
+    }
+  }
+
+  // Handlers
   const handleSendMessage = () => {
-    if (!selectedPanel) {
-      toast.error('Selecciona un panel')
+    if (!selectedPanel || !messageText.trim()) {
+      toast.error('Selecciona un panel y escribe un mensaje')
       return
     }
 
-    if (!messageText.trim()) {
-      toast.error('El mensaje no puede estar vacío')
-      return
+    const messageData = {
+      message: messageText,
+      duration: messageDuration,
+      color: selectedColor,
+      fontSize: 2,
+      showEffect: "fijo",
+      window: 1
     }
 
-    sendMessageMutation.mutate({
-      panelId: selectedPanel.id,
-      messageData: {
-        message: messageText,
-        duration: messageDuration,
-        color: selectedColor,
-        fontSize: 2,
-        showEffect: "fijo"
-      }
-    })
+    sendMessageMutation.mutate({ panelId: selectedPanel.id, messageData })
   }
 
   const handleTestPanel = (panelId) => {
@@ -231,7 +285,6 @@ const Panels = () => {
     setSelectedColor(1)
   }
 
-  // Funciones para manejar la edición del tipo de panel
   const handleEditPanelType = (panelId, currentPanelTypeId) => {
     setEditingPanelId(panelId)
     setEditingPanelTypeId(currentPanelTypeId)
@@ -239,10 +292,7 @@ const Panels = () => {
 
   const handleSavePanelType = (panelId) => {
     if (editingPanelTypeId) {
-      updatePanelTypeMutation.mutate({
-        panelId: panelId,
-        panelTypeId: editingPanelTypeId
-      })
+      updatePanelTypeMutation.mutate({ panelId, panelTypeId: editingPanelTypeId })
     }
   }
 
@@ -253,34 +303,38 @@ const Panels = () => {
 
   const getPanelTypeDisplayName = (panelType) => {
     if (!panelType) return 'Sin tipo'
-    return `${panelType.manufacturer} - ${panelType.name} (${panelType.protocol})`
+    return `${panelType.name} (${panelType.manufacturer})`
   }
 
   const handleCreatePanel = (e) => {
     e.preventDefault()
-    
-    // Validaciones
-    if (!createForm.name.trim()) {
-      toast.error('El nombre del panel es requerido')
+    if (!createForm.name || !createForm.ip || !createForm.parking_id || !createForm.panel_type_id) {
+      toast.error('Completa todos los campos obligatorios')
       return
     }
-
-    if (!createForm.ip.trim()) {
-      toast.error('La IP del panel es requerida')
-      return
-    }
-
-    if (!createForm.parking_id) {
-      toast.error('Debe seleccionar un parking')
-      return
-    }
-
-    if (!createForm.panel_type_id) {
-      toast.error('Debe seleccionar un tipo de panel')
-      return
-    }
-
     createPanelMutation.mutate(createForm)
+  }
+
+  // Nueva función para mostrar detalles de programación
+  const handleShowScheduleDetails = (panel, schedule) => {
+    setSelectedPanel(panel)
+    setSelectedSchedule(schedule)
+    setShowScheduleModal(true)
+  }
+
+  const handleCloseScheduleModal = () => {
+    setShowScheduleModal(false)
+    setSelectedSchedule(null)
+    setSelectedPanel(null)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader className="h-8 w-8 animate-spin text-primary-600" />
+        <span className="ml-2 text-gray-600">Cargando paneles...</span>
+      </div>
+    )
   }
 
   return (
@@ -288,12 +342,19 @@ const Panels = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Paneles</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Gestión y control de paneles informativos
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">Gestión de Paneles</h1>
+          <p className="text-gray-600">Administra y monitorea los paneles LED del sistema</p>
         </div>
-        <div className="flex space-x-2">
+        
+        <div className="flex space-x-3">
+          <button
+            onClick={refetch}
+            className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 flex items-center"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Actualizar
+          </button>
+          
           <button
             onClick={handleVerifyAllPanels}
             disabled={verifyPanelsMutation.isLoading}
@@ -325,7 +386,7 @@ const Panels = () => {
       </div>
 
       {/* Estadísticas */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-5">
         <div className="card">
           <div className="flex items-center">
             <Monitor className="h-8 w-8 text-primary-600" />
@@ -359,7 +420,18 @@ const Panels = () => {
         </div>
         <div className="card">
           <div className="flex items-center">
-            <Server className="h-8 w-8 text-blue-600" />
+            <Calendar className="h-8 w-8 text-blue-600" />
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-500">Con Programación</p>
+              <p className="text-lg font-semibold text-gray-900">
+                {panels.filter(p => p.active_schedule).length}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="card">
+          <div className="flex items-center">
+            <Server className="h-8 w-8 text-purple-600" />
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-500">Tipos</p>
               <p className="text-lg font-semibold text-gray-900">{panelTypes.length}</p>
@@ -390,6 +462,9 @@ const Panels = () => {
                   Tipo
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Programación Activa
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Último Mensaje
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -406,7 +481,7 @@ const Panels = () => {
                         {panel.name}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {panel.ip}:{panel.port || 5200}
+                        {panel.ip_address}:{panel.port || 5200}
                       </div>
                     </div>
                   </td>
@@ -490,6 +565,28 @@ const Panels = () => {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {panel.active_schedule ? (
+                      <div className="flex items-center">
+                        <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                        <div className="flex-1">
+                          <div className="font-medium text-green-700">{panel.active_schedule.name}</div>
+                          <div className="text-xs text-gray-400">
+                            {formatScheduleTime(panel.active_schedule.start_time)} - {formatScheduleTime(panel.active_schedule.end_time)}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleShowScheduleDetails(panel, panel.active_schedule)}
+                          className="ml-2 text-blue-600 hover:text-blue-900"
+                          title="Ver detalles de programación"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400">Sin programación</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div>
                       <div className="font-medium text-gray-900">
                         {panel.last_message || 'Sin mensajes'}
@@ -502,6 +599,15 @@ const Panels = () => {
                             hour: '2-digit',
                             minute: '2-digit'
                           })}
+                        </div>
+                      )}
+                      {panel.message_type && (
+                        <div className={`text-xs px-2 py-1 rounded mt-1 inline-flex items-center ${getMessageTypeColor(panel.message_type)}`}>
+                          {getMessageTypeIcon(panel.message_type)}
+                          <span className="ml-1">
+                            {panel.message_type === 'schedule' ? 'Programación' :
+                             panel.message_type === 'occupancy' ? 'Ocupación' : 'Temporal'}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -849,6 +955,14 @@ const Panels = () => {
           </div>
         </div>
       )}
+
+      {/* Modal de información de programación */}
+      <ScheduleInfoModal
+        isOpen={showScheduleModal}
+        onClose={handleCloseScheduleModal}
+        panel={selectedPanel}
+        schedule={selectedSchedule}
+      />
     </div>
   )
 }

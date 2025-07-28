@@ -1069,7 +1069,7 @@ def delete_scheduled_message(pid):
 
 @api_bp.route('/panels', methods=['GET'])
 def get_all_panels():
-    """Obtener todos los paneles con su estado actual"""
+    """Obtener todos los paneles con su estado actual e información de programaciones activas"""
     try:
         parking_id = request.args.get('parking_id', type=int)
         
@@ -1086,6 +1086,11 @@ def get_all_panels():
         data = []
         
         for panel in panels:
+            # Verificar programaciones activas para este parking
+            from panel_schedule_service import PanelScheduleService
+            schedule_service = PanelScheduleService(session)
+            active_schedules = schedule_service.get_active_schedules_for_parking(panel.parking_id)
+            
             panel_data = {
                 'id': panel.id,
                 'name': panel.name,
@@ -1101,8 +1106,22 @@ def get_all_panels():
                     'name': panel.panel_type.name,
                     'manufacturer': panel.panel_type.manufacturer.name,
                     'protocol': panel.panel_type.protocol_type
-                } if panel.panel_type else None
+                } if panel.panel_type else None,
+                'active_schedule': None,
+                'message_type': 'occupancy'  # Por defecto
             }
+            
+            # Determinar tipo de mensaje y programación activa
+            if active_schedules:
+                panel_data['active_schedule'] = {
+                    'id': active_schedules[0].id,
+                    'name': active_schedules[0].name,
+                    'start_time': active_schedules[0].start_time,
+                    'end_time': active_schedules[0].end_time,
+                    'message': active_schedules[0].message
+                }
+                panel_data['message_type'] = 'schedule'
+            
             if panel_data['last_update']:
                 panel_data['last_update'] = panel_data['last_update'].isoformat()
             data.append(panel_data)
