@@ -26,9 +26,9 @@ const AlarmConfigurationForm = ({
   const [availableTargets, setAvailableTargets] = useState([]);
   const [selectedTargets, setSelectedTargets] = useState([]);
   const [thresholds, setThresholds] = useState([
-    { severity: 'LEVE', threshold_value: '' },
-    { severity: 'NORMAL', threshold_value: '' },
-    { severity: 'GRAVE', threshold_value: '' }
+    { severity: 'LEVE', threshold_value: '', threshold_type: 'disconnection_time' },
+    { severity: 'NORMAL', threshold_value: '', threshold_type: 'disconnection_time' },
+    { severity: 'GRAVE', threshold_value: '', threshold_type: 'disconnection_time' }
   ]);
   const [errors, setErrors] = useState({});
   const [loadingTargets, setLoadingTargets] = useState(false);
@@ -63,9 +63,9 @@ const AlarmConfigurationForm = ({
       });
       setSelectedTargets([]);
       setThresholds([
-        { severity: 'LEVE', threshold_value: '' },
-        { severity: 'NORMAL', threshold_value: '' },
-        { severity: 'GRAVE', threshold_value: '' }
+        { severity: 'LEVE', threshold_value: '', threshold_type: 'disconnection_time' },
+        { severity: 'NORMAL', threshold_value: '', threshold_type: 'disconnection_time' },
+        { severity: 'GRAVE', threshold_value: '', threshold_type: 'disconnection_time' }
       ]);
     }
     loadAvailableTargets();
@@ -184,10 +184,30 @@ const AlarmConfigurationForm = ({
       return;
     }
     
+    // Determinar el tipo de umbral según el tipo de alarma
+    const getThresholdType = (alarmType) => {
+      switch (alarmType) {
+        case 'panel':
+        case 'camera':
+          return 'disconnection_time';
+        case 'parking':
+          return 'occupancy_high';
+        default:
+          return 'disconnection_time';
+      }
+    };
+    
+    const thresholdType = getThresholdType(formData.alarm_type);
+    
     const submitData = {
       ...formData,
-      targets: selectedTargets.map(id => ({ target_id: id })),
-      thresholds: thresholds.filter(t => t.threshold_value)
+      targets: selectedTargets, // Array de IDs directamente
+      thresholds: thresholds
+        .filter(t => t.threshold_value)
+        .map(t => ({
+          ...t,
+          threshold_type: thresholdType
+        }))
     };
     
     onSubmit(submitData);
@@ -315,6 +335,16 @@ const AlarmConfigurationForm = ({
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Umbrales de Alarma
         </label>
+        <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <p className="text-sm text-blue-800">
+            <strong>Información sobre los umbrales:</strong>
+          </p>
+          <ul className="text-sm text-blue-700 mt-1 space-y-1">
+            <li>• <strong>Paneles:</strong> Tiempo de desconexión en <strong>minutos</strong></li>
+            <li>• <strong>Cámaras:</strong> Tiempo de desconexión en <strong>minutos</strong></li>
+            <li>• <strong>Aparcamientos:</strong> Porcentaje de ocupación (0-100)</li>
+          </ul>
+        </div>
         <div className="space-y-3">
           {thresholds.map((threshold, index) => (
             <div key={threshold.severity} className="flex items-center space-x-3">
@@ -327,13 +357,19 @@ const AlarmConfigurationForm = ({
                   {alarmService.getSeverityLabel(threshold.severity)}
                 </span>
               </div>
-              <input
-                type="text"
-                value={threshold.threshold_value}
-                onChange={(e) => handleThresholdChange(index, { threshold_value: e.target.value })}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Valor del umbral..."
-              />
+              <div className="flex-1 flex items-center space-x-2">
+                <input
+                  type="number"
+                  min="0"
+                  value={threshold.threshold_value}
+                  onChange={(e) => handleThresholdChange(index, { threshold_value: e.target.value })}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder={formData.alarm_type === 'parking' ? '0-100' : '0'}
+                />
+                <span className="text-sm text-gray-500 whitespace-nowrap">
+                  {formData.alarm_type === 'parking' ? '%' : 'min'}
+                </span>
+              </div>
             </div>
           ))}
         </div>
