@@ -5,7 +5,7 @@ import {
   AlertCircle, 
   AlertOctagon,
   Bell,
-  Gear,
+  Settings,
   Trash,
   Pencil,
   Eye,
@@ -213,7 +213,7 @@ const Alarms = () => {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                <Gear className="h-4 w-4 inline mr-2" />
+                <Settings className="h-4 w-4 inline mr-2" />
                 Configuraciones
               </button>
               <button
@@ -258,7 +258,7 @@ const Alarms = () => {
 
                 {configurations.length === 0 ? (
                   <div className="text-center py-12">
-                    <Gear className="mx-auto h-12 w-12 text-gray-400" />
+                    <Settings className="mx-auto h-12 w-12 text-gray-400" />
                     <p className="mt-4 text-gray-600">No hay configuraciones de alarmas</p>
                   </div>
                 ) : (
