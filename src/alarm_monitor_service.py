@@ -8,7 +8,8 @@ import logging
 import time
 import subprocess
 import threading
-from datetime import datetime, timedelta
+import os
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
@@ -235,7 +236,7 @@ class AlarmMonitorService:
         try:
             # Usar cache para evitar pings excesivos
             cache_key = f"panel_{panel.id}"
-            current_time = datetime.utcnow()
+            current_time = datetime.now(timezone.utc)
             
             if cache_key in self.last_ping_results:
                 last_check, last_result = self.last_ping_results[cache_key]
@@ -263,7 +264,7 @@ class AlarmMonitorService:
         try:
             # Usar cache para evitar pings excesivos
             cache_key = f"camera_{camera.id}"
-            current_time = datetime.utcnow()
+            current_time = datetime.now(timezone.utc)
             
             if cache_key in self.last_ping_results:
                 last_check, last_result = self.last_ping_results[cache_key]
@@ -289,9 +290,26 @@ class AlarmMonitorService:
     def _ping_host(self, ip: str) -> bool:
         """Realizar ping a una IP específica"""
         try:
+            # Usar rutas completas para ping en sistemas Unix
+            ping_paths = ["/bin/ping", "/usr/bin/ping", "/sbin/ping"]
+            ping_cmd = None
+            
+            for path in ping_paths:
+                try:
+                    import os
+                    if os.path.exists(path):
+                        ping_cmd = path
+                        break
+                except:
+                    continue
+            
+            if not ping_cmd:
+                # Si no encontramos ping, intentar con el PATH
+                ping_cmd = "ping"
+            
             # Usar ping con timeout de 5 segundos
             result = subprocess.run(
-                ['ping', '-c', '1', '-W', '5', ip],
+                [ping_cmd, '-c', '1', '-W', '5', ip],
                 capture_output=True,
                 text=True,
                 timeout=10
@@ -307,7 +325,7 @@ class AlarmMonitorService:
             if not equipment.last_ping_check:
                 return 999  # Valor alto si nunca se ha verificado
             
-            disconnect_duration = datetime.utcnow() - equipment.last_ping_check
+            disconnect_duration = datetime.now(timezone.utc) - equipment.last_ping_check
             return int(disconnect_duration.total_seconds() / 60)
         except Exception as e:
             logger.error(f"Error calculando tiempo de desconexión: {e}")
