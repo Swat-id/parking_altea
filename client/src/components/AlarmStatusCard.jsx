@@ -1,8 +1,8 @@
 import React from 'react';
 import { 
-  ExclamationTriangle, 
-  ExclamationCircle, 
-  ExclamationDiamond,
+  AlertTriangle, 
+  AlertCircle, 
+  AlertOctagon,
   Clock,
   CheckCircle,
   XCircle,
@@ -13,11 +13,11 @@ import alarmService from '../services/alarmService';
 const AlarmStatusCard = ({ alarm, onResolve, onViewDetails }) => {
   const getSeverityIcon = (severity) => {
     const icons = {
-      'LEVE': <ExclamationTriangle className="text-yellow-500" size={20} />,
-      'NORMAL': <ExclamationCircle className="text-blue-500" size={20} />,
-      'GRAVE': <ExclamationDiamond className="text-red-500" size={20} />
+      'LEVE': <AlertTriangle className="text-yellow-500" size={20} />,
+      'NORMAL': <AlertCircle className="text-blue-500" size={20} />,
+      'GRAVE': <AlertOctagon className="text-red-500" size={20} />
     };
-    return icons[severity] || <ExclamationTriangle className="text-yellow-500" size={20} />;
+    return icons[severity] || <AlertTriangle className="text-yellow-500" size={20} />;
   };
 
   const getSeverityColor = (severity) => {

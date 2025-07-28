@@ -3,14 +3,14 @@ import {
   ClockHistory, 
   Filter, 
   Search, 
-  Eye,
-  Calendar,
-  ExclamationTriangle,
-  ExclamationCircle,
-  ExclamationDiamond,
-  X,
-  ChevronLeft,
-  ChevronRight
+  Eye, 
+  Calendar, 
+  AlertTriangle, 
+  AlertCircle, 
+  AlertOctagon, 
+  X, 
+  ChevronLeft, 
+  ChevronRight 
 } from 'lucide-react';
 import AlarmStatusCard from '../components/AlarmStatusCard';
 import alarmService from '../services/alarmService';
@@ -89,11 +89,11 @@ const AlarmHistory = () => {
 
   const getSeverityIcon = (severity) => {
     const icons = {
-      'LEVE': <ExclamationTriangle className="text-yellow-500" size={20} />,
-      'NORMAL': <ExclamationCircle className="text-blue-500" size={20} />,
-      'GRAVE': <ExclamationDiamond className="text-red-500" size={20} />
+      'LEVE': <AlertTriangle className="text-yellow-500" size={20} />,
+      'NORMAL': <AlertCircle className="text-blue-500" size={20} />,
+      'GRAVE': <AlertOctagon className="text-red-500" size={20} />
     };
-    return icons[severity] || <ExclamationTriangle className="text-yellow-500" size={20} />;
+    return icons[severity] || <AlertTriangle className="text-yellow-500" size={20} />;
   };
 
   const formatDate = (dateString) => {
@@ -217,7 +217,7 @@ const AlarmHistory = () => {
           <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
             <div className="flex">
               <div className="flex-shrink-0">
-                <ExclamationTriangle className="h-5 w-5 text-red-400" />
+                <AlertTriangle className="h-5 w-5 text-red-400" />
               </div>
               <div className="ml-3">
                 <p className="text-sm text-red-800">{error}</p>

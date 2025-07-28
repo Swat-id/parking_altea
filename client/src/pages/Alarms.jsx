@@ -1,18 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Plus, 
-  ExclamationTriangle, 
-  ExclamationCircle, 
-  ExclamationDiamond,
+  AlertTriangle, 
+  AlertCircle, 
+  AlertOctagon,
   Bell,
-  BellFill,
   Gear,
   Trash,
   Pencil,
   Eye,
   CheckCircle,
-  X,
-  AlertTriangle
+  X
 } from 'lucide-react';
 import AlarmStatusCard from '../components/AlarmStatusCard';
 import AlarmConfigurationForm from '../components/AlarmConfigurationForm';
@@ -129,11 +127,11 @@ const Alarms = () => {
 
   const getSeverityIcon = (severity) => {
     const icons = {
-      'LEVE': <ExclamationTriangle className="text-yellow-500" size={20} />,
-      'NORMAL': <ExclamationCircle className="text-blue-500" size={20} />,
-      'GRAVE': <ExclamationDiamond className="text-red-500" size={20} />
+      'LEVE': <AlertTriangle className="text-yellow-500" size={20} />,
+      'NORMAL': <AlertCircle className="text-blue-500" size={20} />,
+      'GRAVE': <AlertOctagon className="text-red-500" size={20} />
     };
-    return icons[severity] || <ExclamationTriangle className="text-yellow-500" size={20} />;
+    return icons[severity] || <AlertTriangle className="text-yellow-500" size={20} />;
   };
 
   const getStatusBadge = (status) => {
