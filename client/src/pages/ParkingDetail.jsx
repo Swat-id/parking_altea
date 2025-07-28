@@ -5,7 +5,7 @@ import { authService } from '../services/authService'
 import { parkingService } from '../services/parkingService'
 import { cameraService } from '../services/cameraService'
 import { cameraLogService } from '../services/cameraLogService'
-import { panelService } from '../services/panelService'
+import panelService from '../services/panelService'
 import { 
   ArrowLeft, 
   Edit, 

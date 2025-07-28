@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
-import { panelService } from '../services/panelService'
+import panelService from '../services/panelService'
 import { panelTypeService } from '../services/panelTypeService'
 import { useAuth } from '../context/AuthContext'
 import ScheduleInfoModal from '../components/ScheduleInfoModal'
