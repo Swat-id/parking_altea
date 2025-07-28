@@ -291,19 +291,24 @@ def get_user_cameras():
             access_ids = [ua.access_id for ua in user_accesses]
             cameras = session.query(Access).filter(Access.id.in_(access_ids)).all()
         
-        data = [
-            {
-                'id': c.id,
-                'name': c.device,
-                'ip': c.ip,
-                'line': c.line,
-                'parking_id': c.parking_id,
-                'parking_name': c.parking.name if c.parking else None,
-                'status': getattr(c, 'status', 'OFFLINE'),
-                'last_message_received': c.last_message_received.isoformat() if c.last_message_received else None
-            }
-            for c in cameras
-        ]
+        data = []
+        for c in cameras:
+            # Obtener los parkings asociados a esta cámara usando la relación muchos a muchos
+            camera_parkings = session.query(CameraParking).filter(CameraParking.camera_id == c.id).all()
+            
+            for cp in camera_parkings:
+                parking = cp.parking
+                data.append({
+                    'id': c.id,
+                    'name': c.name,
+                    'ip': c.ip,
+                    'line': c.line,
+                    'parking_id': parking.id,
+                    'parking_name': parking.name,
+                    'status': getattr(c, 'status', 'OFFLINE'),
+                    'last_message_received': c.last_message_received.isoformat() if c.last_message_received else None
+                })
+        
         session.close()
         return jsonify(data)
         
