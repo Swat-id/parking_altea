@@ -3,15 +3,39 @@ import api from './api';
 const cameraService = {
   /**
    * Obtener cámaras de un parking específico
-   * @param {number} parkingId - ID del parking
-   * @returns {Promise<Object>} Datos de las cámaras del parking
    */
   async getParkingCameras(parkingId) {
     try {
       const response = await api.get(`/parking/${parkingId}/cameras`);
-      return response.data;
+      return response.data.cameras || [];
     } catch (error) {
       console.error('Error obteniendo cámaras del parking:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Obtener todas las cámaras del usuario autenticado
+   */
+  async getUserCameras() {
+    try {
+      const response = await api.get('/user/cameras');
+      return response.data;
+    } catch (error) {
+      console.error('Error obteniendo cámaras del usuario:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Obtener todas las cámaras (público)
+   */
+  async getCameras() {
+    try {
+      const response = await api.get('/cameras');
+      return response.data;
+    } catch (error) {
+      console.error('Error obteniendo cámaras:', error);
       throw error;
     }
   },

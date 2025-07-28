@@ -233,6 +233,84 @@ def get_user_parkings():
         logger.error(f"Error obteniendo parkings del usuario: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@api_bp.route('/user/panels', methods=['GET'])
+@require_auth
+def get_user_panels():
+    """Obtener paneles a los que tiene acceso el usuario autenticado"""
+    try:
+        user_id = request.user_data['user_id']
+        user_role = request.user_data.get('role', 'user')
+        
+        session = Session()
+        
+        if user_role == 'superadmin':
+            # Superadmin ve todos los paneles
+            panels = session.query(Panel).all()
+        else:
+            # Usuario normal solo ve sus paneles asignados
+            user_panels = session.query(UserPanel).filter(UserPanel.user_id == user_id).all()
+            panel_ids = [up.panel_id for up in user_panels]
+            panels = session.query(Panel).filter(Panel.id.in_(panel_ids)).all()
+        
+        data = [
+            {
+                'id': p.id,
+                'name': p.name,
+                'ip': p.ip,
+                'parking_id': p.parking_id,
+                'parking_name': p.parking.name if p.parking else None,
+                'status': p.status,
+                'last_message': p.last_message,
+                'last_update': p.last_update.isoformat() if p.last_update else None
+            }
+            for p in panels
+        ]
+        session.close()
+        return jsonify(data)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo paneles del usuario: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/user/cameras', methods=['GET'])
+@require_auth
+def get_user_cameras():
+    """Obtener cámaras a las que tiene acceso el usuario autenticado"""
+    try:
+        user_id = request.user_data['user_id']
+        user_role = request.user_data.get('role', 'user')
+        
+        session = Session()
+        
+        if user_role == 'superadmin':
+            # Superadmin ve todas las cámaras
+            cameras = session.query(Access).all()
+        else:
+            # Usuario normal solo ve sus cámaras asignadas
+            user_accesses = session.query(UserAccess).filter(UserAccess.user_id == user_id).all()
+            access_ids = [ua.access_id for ua in user_accesses]
+            cameras = session.query(Access).filter(Access.id.in_(access_ids)).all()
+        
+        data = [
+            {
+                'id': c.id,
+                'name': c.device,
+                'ip': c.ip,
+                'line': c.line,
+                'parking_id': c.parking_id,
+                'parking_name': c.parking.name if c.parking else None,
+                'status': getattr(c, 'status', 'OFFLINE'),
+                'last_message_received': c.last_message_received.isoformat() if c.last_message_received else None
+            }
+            for c in cameras
+        ]
+        session.close()
+        return jsonify(data)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo cámaras del usuario: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 @api_bp.route('/user/parking/<int:pid>', methods=['GET'])
 @require_auth
 def get_user_parking(pid):

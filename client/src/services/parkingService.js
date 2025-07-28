@@ -4,7 +4,7 @@ const parkingService = {
   /**
    * Obtener todos los parkings
    */
-  async getAllParkings() {
+  async getParkings() {
     try {
       const response = await api.get('/parkings')
       return response.data
@@ -15,23 +15,29 @@ const parkingService = {
   },
 
   /**
-   * Obtener un parking específico
+   * Obtener parkings del usuario autenticado
    */
-  async getParking(parkingId) {
+  async getUserParkings() {
     try {
-      const response = await api.get(`/parking/${parkingId}`)
+      const response = await api.get('/user/parkings')
       return response.data
     } catch (error) {
-      console.error('Error obteniendo parking:', error)
+      console.error('Error obteniendo parkings del usuario:', error)
       throw error
     }
   },
 
   /**
-   * Obtener parkings (alias para getAllParkings)
+   * Obtener un parking específico
    */
-  async getParkings() {
-    return this.getAllParkings()
+  async getParking(id) {
+    try {
+      const response = await api.get(`/parking/${id}`)
+      return response.data
+    } catch (error) {
+      console.error('Error obteniendo parking:', error)
+      throw error
+    }
   },
 
   /**

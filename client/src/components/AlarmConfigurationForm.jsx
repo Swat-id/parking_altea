@@ -62,7 +62,7 @@ const AlarmConfigurationForm = ({
       
       switch (formData.alarm_type) {
         case 'panel':
-          const panels = await panelService.getPanels();
+          const panels = await panelService.getUserPanels();
           targets = panels.map(panel => ({
             id: panel.id,
             name: panel.name,
@@ -70,7 +70,7 @@ const AlarmConfigurationForm = ({
           }));
           break;
         case 'camera':
-          const cameras = await cameraService.getCameras();
+          const cameras = await cameraService.getUserCameras();
           targets = cameras.map(camera => ({
             id: camera.id,
             name: camera.name,
@@ -78,7 +78,7 @@ const AlarmConfigurationForm = ({
           }));
           break;
         case 'parking':
-          const parkings = await parkingService.getParkings();
+          const parkings = await parkingService.getUserParkings();
           targets = parkings.map(parking => ({
             id: parking.id,
             name: parking.name,
