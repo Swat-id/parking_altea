@@ -14,7 +14,9 @@ import {
   Calendar,
   ShieldCheck,
   Users,
-  LogOut
+  LogOut,
+  Bell,
+  Clock
 } from 'lucide-react'
 
 const Layout = ({ children }) => {
@@ -36,6 +38,8 @@ const Layout = ({ children }) => {
     { name: 'Programaciones', href: '/schedules', current: location.pathname === '/schedules', icon: Calendar },
     { name: 'Estadísticas', href: '/statistics', current: location.pathname === '/statistics', icon: BarChart3 },
     { name: 'Camera Logs', href: '/camera-logs', current: location.pathname === '/camera-logs', icon: Camera },
+    { name: 'Alarmas', href: '/alarms', current: location.pathname === '/alarms', icon: Bell },
+    { name: 'Histórico Alarmas', href: '/alarms/history', current: location.pathname === '/alarms/history', icon: Clock },
     { name: 'Perfil', href: '/profile', current: location.pathname === '/profile', icon: User },
   ]
 

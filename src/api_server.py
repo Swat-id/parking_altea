@@ -12,7 +12,7 @@ from sqlalchemy.orm import sessionmaker
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from config import DB_URL, API_PORT
-from models import Base, User, Parking, Access, Panel, OccupancyHistory, ScheduledMessage, ActivityLog, PanelMessageLog, VehicleCount, CameraLog, UserParking, UserPanel, UserAccess, PanelSchedule, PanelScheduleLog, PanelType, CameraParking
+from models import Base, User, Parking, Access, Panel, OccupancyHistory, ScheduledMessage, ActivityLog, PanelMessageLog, VehicleCount, CameraLog, UserParking, UserPanel, UserAccess, PanelSchedule, PanelScheduleLog, PanelType, CameraParking, AlarmConfiguration, AlarmConfigurationTarget, AlarmConfigurationThreshold, Alarm, AlarmHistory
 from panel_schedule_service import PanelScheduleService
 from auth import (
     create_user, authenticate_user, delete_user, change_password, 
@@ -2777,6 +2777,588 @@ def delete_parking(parking_id):
         
     except Exception as e:
         logger.error(f"Error deleting parking {parking_id}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+# ============================================================================
+# ENDPOINTS DEL SISTEMA DE ALARMAS v3.2.0_alarms
+# ============================================================================
+
+@api_bp.route('/alarms/configurations', methods=['GET'])
+@require_auth
+def get_alarm_configurations():
+    """Obtener configuraciones de alarmas del usuario autenticado"""
+    try:
+        user_id = request.user_data['user_id']
+        session = Session()
+        
+        from alarm_service import AlarmService
+        alarm_service = AlarmService(session)
+        
+        configurations = alarm_service.get_user_alarm_configurations(user_id)
+        
+        # Formatear respuesta con información completa
+        configs_data = []
+        for config in configurations:
+            # Obtener objetivos
+            targets = []
+            for target in config.targets:
+                if target.target_type == 'panel':
+                    panel = session.query(Panel).filter(Panel.id == target.target_id).first()
+                    if panel:
+                        targets.append({
+                            'id': panel.id,
+                            'name': panel.name,
+                            'type': 'panel',
+                            'ip': panel.ip
+                        })
+                elif target.target_type == 'camera':
+                    camera = session.query(Access).filter(Access.id == target.target_id).first()
+                    if camera:
+                        targets.append({
+                            'id': camera.id,
+                            'name': camera.device,
+                            'type': 'camera',
+                            'ip': camera.ip
+                        })
+                elif target.target_type == 'parking':
+                    parking = session.query(Parking).filter(Parking.id == target.target_id).first()
+                    if parking:
+                        targets.append({
+                            'id': parking.id,
+                            'name': parking.name,
+                            'type': 'parking'
+                        })
+            
+            # Obtener umbrales
+            thresholds = []
+            for threshold in config.thresholds:
+                thresholds.append({
+                    'severity': threshold.severity,
+                    'threshold_value': threshold.threshold_value,
+                    'threshold_type': threshold.threshold_type
+                })
+            
+            configs_data.append({
+                'id': config.id,
+                'name': config.name,
+                'description': config.description,
+                'alarm_type': config.alarm_type,
+                'status': config.status,
+                'targets': targets,
+                'thresholds': thresholds,
+                'created_at': config.created_at.isoformat() if config.created_at else None
+            })
+        
+        session.close()
+        
+        return jsonify({
+            'configurations': configs_data,
+            'total': len(configs_data)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo configuraciones de alarmas: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/alarms/configurations', methods=['POST'])
+@require_auth
+def create_alarm_configuration():
+    """Crear nueva configuración de alarma"""
+    try:
+        user_id = request.user_data['user_id']
+        data = request.get_json()
+        
+        # Validar datos requeridos
+        required_fields = ['name', 'alarm_type', 'targets', 'thresholds']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Campo requerido: {field}'}), 400
+        
+        # Validar tipo de alarma
+        valid_types = ['panel', 'camera', 'parking']
+        if data['alarm_type'] not in valid_types:
+            return jsonify({'error': f'Tipo de alarma inválido. Debe ser uno de: {valid_types}'}), 400
+        
+        # Validar umbrales
+        valid_severities = ['LEVE', 'NORMAL', 'GRAVE']
+        for threshold in data['thresholds']:
+            if threshold.get('severity') not in valid_severities:
+                return jsonify({'error': f'Severidad inválida. Debe ser una de: {valid_severities}'}), 400
+        
+        session = Session()
+        
+        from alarm_service import AlarmService
+        alarm_service = AlarmService(session)
+        
+        configuration = alarm_service.create_alarm_configuration(user_id, data)
+        
+        if configuration:
+            session.close()
+            return jsonify({
+                'success': True,
+                'message': 'Configuración de alarma creada correctamente',
+                'configuration_id': configuration.id
+            }), 201
+        else:
+            session.close()
+            return jsonify({'error': 'Error creando configuración de alarma'}), 500
+        
+    except Exception as e:
+        logger.error(f"Error creando configuración de alarma: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/alarms/configurations/<int:config_id>', methods=['GET'])
+@require_auth
+def get_alarm_configuration(config_id):
+    """Obtener configuración específica de alarma"""
+    try:
+        user_id = request.user_data['user_id']
+        session = Session()
+        
+        from alarm_service import AlarmService
+        alarm_service = AlarmService(session)
+        
+        configuration = alarm_service.get_alarm_configuration(config_id, user_id)
+        
+        if not configuration:
+            session.close()
+            return jsonify({'error': 'Configuración no encontrada'}), 404
+        
+        # Formatear respuesta completa
+        targets = []
+        for target in configuration.targets:
+            if target.target_type == 'panel':
+                panel = session.query(Panel).filter(Panel.id == target.target_id).first()
+                if panel:
+                    targets.append({
+                        'id': panel.id,
+                        'name': panel.name,
+                        'type': 'panel',
+                        'ip': panel.ip
+                    })
+            elif target.target_type == 'camera':
+                camera = session.query(Access).filter(Access.id == target.target_id).first()
+                if camera:
+                    targets.append({
+                        'id': camera.id,
+                        'name': camera.device,
+                        'type': 'camera',
+                        'ip': camera.ip
+                    })
+            elif target.target_type == 'parking':
+                parking = session.query(Parking).filter(Parking.id == target.target_id).first()
+                if parking:
+                    targets.append({
+                        'id': parking.id,
+                        'name': parking.name,
+                        'type': 'parking'
+                    })
+        
+        thresholds = []
+        for threshold in configuration.thresholds:
+            thresholds.append({
+                'severity': threshold.severity,
+                'threshold_value': threshold.threshold_value,
+                'threshold_type': threshold.threshold_type
+            })
+        
+        config_data = {
+            'id': configuration.id,
+            'name': configuration.name,
+            'description': configuration.description,
+            'alarm_type': configuration.alarm_type,
+            'status': configuration.status,
+            'targets': targets,
+            'thresholds': thresholds,
+            'created_at': configuration.created_at.isoformat() if configuration.created_at else None,
+            'updated_at': configuration.updated_at.isoformat() if configuration.updated_at else None
+        }
+        
+        session.close()
+        
+        return jsonify(config_data)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo configuración de alarma: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/alarms/configurations/<int:config_id>', methods=['PUT'])
+@require_auth
+def update_alarm_configuration(config_id):
+    """Actualizar configuración de alarma"""
+    try:
+        user_id = request.user_data['user_id']
+        data = request.get_json()
+        
+        session = Session()
+        
+        from alarm_service import AlarmService
+        alarm_service = AlarmService(session)
+        
+        # Verificar que la configuración pertenece al usuario
+        configuration = alarm_service.get_alarm_configuration(config_id, user_id)
+        if not configuration:
+            session.close()
+            return jsonify({'error': 'Configuración no encontrada'}), 404
+        
+        # Actualizar campos permitidos
+        if 'name' in data:
+            configuration.name = data['name']
+        if 'description' in data:
+            configuration.description = data['description']
+        if 'status' in data:
+            if data['status'] not in ['active', 'paused']:
+                return jsonify({'error': 'Estado inválido. Debe ser "active" o "paused"'}), 400
+            configuration.status = data['status']
+        
+        # Actualizar umbrales si se proporcionan
+        if 'thresholds' in data:
+            # Eliminar umbrales existentes
+            session.query(AlarmConfigurationThreshold).filter(
+                AlarmConfigurationThreshold.alarm_configuration_id == config_id
+            ).delete()
+            
+            # Crear nuevos umbrales
+            for threshold_data in data['thresholds']:
+                threshold = AlarmConfigurationThreshold(
+                    alarm_configuration_id=config_id,
+                    severity=threshold_data['severity'],
+                    threshold_value=threshold_data['threshold_value'],
+                    threshold_type=threshold_data['threshold_type']
+                )
+                session.add(threshold)
+        
+        session.commit()
+        session.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Configuración de alarma actualizada correctamente'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error actualizando configuración de alarma: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/alarms/configurations/<int:config_id>', methods=['DELETE'])
+@require_auth
+def delete_alarm_configuration(config_id):
+    """Eliminar configuración de alarma"""
+    try:
+        user_id = request.user_data['user_id']
+        session = Session()
+        
+        from alarm_service import AlarmService
+        alarm_service = AlarmService(session)
+        
+        # Verificar que la configuración pertenece al usuario
+        configuration = alarm_service.get_alarm_configuration(config_id, user_id)
+        if not configuration:
+            session.close()
+            return jsonify({'error': 'Configuración no encontrada'}), 404
+        
+        # Verificar que no hay alarmas activas
+        active_alarms = session.query(Alarm).filter(
+            and_(
+                Alarm.alarm_configuration_id == config_id,
+                Alarm.status == 'active'
+            )
+        ).count()
+        
+        if active_alarms > 0:
+            session.close()
+            return jsonify({
+                'error': 'No se puede eliminar una configuración con alarmas activas',
+                'active_alarms': active_alarms
+            }), 400
+        
+        # Eliminar la configuración (cascada automática)
+        session.delete(configuration)
+        session.commit()
+        session.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Configuración de alarma eliminada correctamente'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error eliminando configuración de alarma: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/alarms', methods=['GET'])
+@require_auth
+def get_active_alarms():
+    """Obtener alarmas activas del usuario"""
+    try:
+        user_id = request.user_data['user_id']
+        session = Session()
+        
+        from alarm_service import AlarmService
+        alarm_service = AlarmService(session)
+        
+        alarms = alarm_service.get_active_alarms(user_id)
+        
+        alarms_data = []
+        for alarm in alarms:
+            # Obtener información de la configuración
+            config_name = alarm.configuration.name if alarm.configuration else 'Configuración eliminada'
+            
+            # Parsear targets afectados
+            affected_targets = []
+            if alarm.affected_targets:
+                try:
+                    targets_json = json.loads(alarm.affected_targets)
+                    affected_targets = targets_json
+                except:
+                    affected_targets = []
+            
+            alarms_data.append({
+                'id': alarm.id,
+                'configuration_name': config_name,
+                'severity': alarm.severity,
+                'status': alarm.status,
+                'message': alarm.message,
+                'affected_targets': affected_targets,
+                'created_at': alarm.created_at.isoformat() if alarm.created_at else None
+            })
+        
+        session.close()
+        
+        return jsonify({
+            'alarms': alarms_data,
+            'total': len(alarms_data)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo alarmas activas: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/alarms/<int:alarm_id>/resolve', methods=['POST'])
+@require_auth
+def resolve_alarm(alarm_id):
+    """Resolver una alarma activa"""
+    try:
+        user_id = request.user_data['user_id']
+        data = request.get_json()
+        
+        resolution_description = data.get('resolution_description', 'Resuelto por el usuario')
+        
+        session = Session()
+        
+        from alarm_service import AlarmService
+        alarm_service = AlarmService(session)
+        
+        success = alarm_service.resolve_alarm(alarm_id, user_id, resolution_description)
+        
+        if success:
+            # Enviar notificación de resolución por email
+            try:
+                from email_service import EmailService
+                email_service = EmailService()
+                
+                alarm = session.query(Alarm).filter(Alarm.id == alarm_id).first()
+                if alarm and alarm.configuration:
+                    user = session.query(User).filter(User.id == user_id).first()
+                    if user and user.email:
+                        email_service.send_alarm_resolution_notification(user.email, {
+                            'alarm_id': alarm.id,
+                            'severity': alarm.severity,
+                            'message': alarm.message,
+                            'configuration_name': alarm.configuration.name,
+                            'resolution_description': resolution_description,
+                            'resolved_at': datetime.utcnow().isoformat()
+                        })
+            except Exception as e:
+                logger.error(f"Error enviando notificación de resolución: {e}")
+            
+            session.close()
+            return jsonify({
+                'success': True,
+                'message': 'Alarma resuelta correctamente'
+            })
+        else:
+            session.close()
+            return jsonify({'error': 'Error resolviendo alarma'}), 500
+        
+    except Exception as e:
+        logger.error(f"Error resolviendo alarma: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/alarms/history', methods=['GET'])
+@require_auth
+def get_alarm_history():
+    """Obtener histórico de alarmas con filtros"""
+    try:
+        user_id = request.user_data['user_id']
+        
+        # Obtener filtros de query parameters
+        severity = request.args.get('severity')
+        status = request.args.get('status')
+        alarm_type = request.args.get('alarm_type')
+        date_from = request.args.get('date_from')
+        date_to = request.args.get('date_to')
+        limit = request.args.get('limit', 100, type=int)
+        
+        filters = {}
+        if severity:
+            filters['severity'] = severity
+        if status:
+            filters['status'] = status
+        if alarm_type:
+            filters['alarm_type'] = alarm_type
+        if date_from:
+            filters['date_from'] = date_from
+        if date_to:
+            filters['date_to'] = date_to
+        
+        session = Session()
+        
+        from alarm_service import AlarmService
+        alarm_service = AlarmService(session)
+        
+        alarms = alarm_service.get_alarm_history(user_id, filters)
+        
+        # Limitar resultados
+        alarms = alarms[:limit]
+        
+        alarms_data = []
+        for alarm in alarms:
+            config_name = alarm.configuration.name if alarm.configuration else 'Configuración eliminada'
+            
+            affected_targets = []
+            if alarm.affected_targets:
+                try:
+                    targets_json = json.loads(alarm.affected_targets)
+                    affected_targets = targets_json
+                except:
+                    affected_targets = []
+            
+            alarms_data.append({
+                'id': alarm.id,
+                'configuration_name': config_name,
+                'severity': alarm.severity,
+                'status': alarm.status,
+                'message': alarm.message,
+                'affected_targets': affected_targets,
+                'created_at': alarm.created_at.isoformat() if alarm.created_at else None,
+                'resolved_at': alarm.resolved_at.isoformat() if alarm.resolved_at else None,
+                'resolution_description': alarm.resolution_description
+            })
+        
+        session.close()
+        
+        return jsonify({
+            'alarms': alarms_data,
+            'total': len(alarms_data),
+            'filters_applied': filters
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo histórico de alarmas: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/alarms/equipment-status', methods=['GET'])
+@require_auth
+def get_equipment_status():
+    """Obtener estado de conectividad de equipos"""
+    try:
+        session = Session()
+        
+        # Obtener estado de paneles
+        panels_data = []
+        panels = session.query(Panel).all()
+        
+        for panel in panels:
+            # Simular ping (en producción se usaría el servicio de monitorización)
+            is_online = True  # Por defecto, en producción se verificaría con ping
+            last_ping = datetime.utcnow().isoformat()
+            response_time = 15  # ms, en producción se mediría
+            
+            panels_data.append({
+                'id': panel.id,
+                'name': panel.name,
+                'ip': panel.ip,
+                'status': 'online' if is_online else 'offline',
+                'last_ping': last_ping,
+                'response_time': response_time
+            })
+        
+        # Obtener estado de cámaras
+        cameras_data = []
+        cameras = session.query(Access).all()
+        
+        for camera in cameras:
+            # Simular ping
+            is_online = True
+            last_ping = datetime.utcnow().isoformat()
+            response_time = 20
+            
+            cameras_data.append({
+                'id': camera.id,
+                'name': camera.device,
+                'ip': camera.ip,
+                'status': 'online' if is_online else 'offline',
+                'last_ping': last_ping,
+                'response_time': response_time
+            })
+        
+        # Obtener estado de aparcamientos
+        parkings_data = []
+        parkings = session.query(Parking).all()
+        
+        for parking in parkings:
+            # Verificar si hay información disponible
+            has_cameras = session.query(Access).join(CameraParking).filter(
+                CameraParking.parking_id == parking.id
+            ).count() > 0
+            
+            has_panels = session.query(Panel).filter(
+                Panel.parking_id == parking.id
+            ).count() > 0
+            
+            parkings_data.append({
+                'id': parking.id,
+                'name': parking.name,
+                'status': 'online' if (has_cameras or has_panels) else 'offline',
+                'has_cameras': has_cameras,
+                'has_panels': has_panels,
+                'current_occupancy': parking.current_occupancy,
+                'max_capacity': parking.max_capacity
+            })
+        
+        session.close()
+        
+        return jsonify({
+            'panels': panels_data,
+            'cameras': cameras_data,
+            'parkings': parkings_data,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo estado de equipos: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/alarms/statistics', methods=['GET'])
+@require_auth
+def get_alarm_statistics():
+    """Obtener estadísticas de alarmas del usuario"""
+    try:
+        user_id = request.user_data['user_id']
+        session = Session()
+        
+        from alarm_service import AlarmService
+        alarm_service = AlarmService(session)
+        
+        statistics = alarm_service.get_alarm_statistics(user_id)
+        
+        session.close()
+        
+        return jsonify(statistics)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo estadísticas de alarmas: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 # Registrar el Blueprint con la aplicación

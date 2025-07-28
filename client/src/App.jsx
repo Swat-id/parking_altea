@@ -10,6 +10,8 @@ import CameraLogs from './pages/CameraLogs'
 import Profile from './pages/Profile'
 import UserManagement from './pages/UserManagement'
 import AdminDashboard from './pages/AdminDashboard'
+import Alarms from './pages/Alarms'
+import AlarmHistory from './pages/AlarmHistory'
 import LoginPage from './pages/Login'
 import ProtectedRoute from './components/ProtectedRoute'
 
@@ -75,6 +77,16 @@ function App() {
       <Route path="/admin/users" element={
         <Layout>
           <ProtectedRoute requiredRole="superadmin"><UserManagement /></ProtectedRoute>
+        </Layout>
+      } />
+      <Route path="/alarms" element={
+        <Layout>
+          <ProtectedRoute><Alarms /></ProtectedRoute>
+        </Layout>
+      } />
+      <Route path="/alarms/history" element={
+        <Layout>
+          <ProtectedRoute><AlarmHistory /></ProtectedRoute>
         </Layout>
       } />
       <Route path="*" element={

@@ -25,13 +25,13 @@ class EmailService:
     def _load_smtp_config(self) -> Dict[str, Any]:
         """Cargar configuración SMTP desde variables de entorno"""
         return {
-            'host': os.getenv('SMTP_HOST', 'localhost'),
+            'host': os.getenv('SMTP_HOST', 'smtp.gmail.com'),
             'port': int(os.getenv('SMTP_PORT', '587')),
-            'username': os.getenv('SMTP_USERNAME', ''),
-            'password': os.getenv('SMTP_PASSWORD', ''),
+            'username': os.getenv('SMTP_USERNAME', 'info@swat-id.com'),
+            'password': os.getenv('SMTP_PASSWORD', 'pysn fxgf hxzl hevi'),
             'use_tls': os.getenv('SMTP_USE_TLS', 'true').lower() == 'true',
             'use_ssl': os.getenv('SMTP_USE_SSL', 'false').lower() == 'true',
-            'from_email': os.getenv('SMTP_FROM_EMAIL', 'alarmas@parking-altea.com'),
+            'from_email': os.getenv('SMTP_FROM_EMAIL', 'info@swat-id.com'),
             'from_name': os.getenv('SMTP_FROM_NAME', 'Sistema de Alarmas Parking Altea')
         }
     
@@ -309,13 +309,14 @@ No responda a este email. Para soporte técnico, contacte con el administrador d
         """
     
     def _send_email(self, to_email: str, subject: str, html_content: str, text_content: str) -> bool:
-        """Enviar email usando la configuración SMTP"""
+        """Enviar email usando la configuración SMTP de Gmail"""
         try:
             # Crear mensaje
             msg = MIMEMultipart('alternative')
             msg['Subject'] = subject
             msg['From'] = f"{self.from_name} <{self.from_email}>"
             msg['To'] = to_email
+            msg['Reply-To'] = self.from_email
             
             # Adjuntar contenido
             text_part = MIMEText(text_content, 'plain', 'utf-8')
@@ -324,27 +325,32 @@ No responda a este email. Para soporte técnico, contacte con el administrador d
             msg.attach(text_part)
             msg.attach(html_part)
             
-            # Conectar al servidor SMTP
-            if self.smtp_config['use_ssl']:
-                server = smtplib.SMTP_SSL(self.smtp_config['host'], self.smtp_config['port'])
-            else:
-                server = smtplib.SMTP(self.smtp_config['host'], self.smtp_config['port'])
+            # Conectar al servidor SMTP de Gmail
+            server = smtplib.SMTP(self.smtp_config['host'], self.smtp_config['port'])
             
-            # Configurar TLS si es necesario
-            if self.smtp_config['use_tls'] and not self.smtp_config['use_ssl']:
-                server.starttls()
+            # Configurar TLS (requerido para Gmail)
+            server.starttls()
             
-            # Autenticación si se proporcionan credenciales
-            if self.smtp_config['username'] and self.smtp_config['password']:
-                server.login(self.smtp_config['username'], self.smtp_config['password'])
+            # Autenticación con clave de aplicación
+            server.login(self.smtp_config['username'], self.smtp_config['password'])
             
             # Enviar email
             server.send_message(msg)
             server.quit()
             
-            logger.info(f"Email enviado exitosamente a {to_email}")
+            logger.info(f"Email enviado exitosamente a {to_email} desde {self.from_email}")
             return True
             
+        except smtplib.SMTPAuthenticationError as e:
+            logger.error(f"Error de autenticación SMTP para {to_email}: {e}")
+            logger.error("Verificar que la clave de aplicación sea correcta y esté habilitada en Gmail")
+            return False
+        except smtplib.SMTPRecipientsRefused as e:
+            logger.error(f"Destinatario rechazado {to_email}: {e}")
+            return False
+        except smtplib.SMTPServerDisconnected as e:
+            logger.error(f"Servidor SMTP desconectado: {e}")
+            return False
         except Exception as e:
             logger.error(f"Error enviando email a {to_email}: {e}")
             return False
@@ -359,23 +365,25 @@ No responda a este email. Para soporte técnico, contacte con el administrador d
             return datetime_str
     
     def test_connection(self) -> bool:
-        """Probar la conexión SMTP"""
+        """Probar la conexión SMTP con Gmail"""
         try:
-            if self.smtp_config['use_ssl']:
-                server = smtplib.SMTP_SSL(self.smtp_config['host'], self.smtp_config['port'])
-            else:
-                server = smtplib.SMTP(self.smtp_config['host'], self.smtp_config['port'])
+            # Conectar al servidor SMTP de Gmail
+            server = smtplib.SMTP(self.smtp_config['host'], self.smtp_config['port'])
             
-            if self.smtp_config['use_tls'] and not self.smtp_config['use_ssl']:
-                server.starttls()
+            # Configurar TLS (requerido para Gmail)
+            server.starttls()
             
-            if self.smtp_config['username'] and self.smtp_config['password']:
-                server.login(self.smtp_config['username'], self.smtp_config['password'])
+            # Autenticación con clave de aplicación
+            server.login(self.smtp_config['username'], self.smtp_config['password'])
             
             server.quit()
-            logger.info("Conexión SMTP probada exitosamente")
+            logger.info(f"Conexión SMTP con Gmail probada exitosamente para {self.from_email}")
             return True
             
+        except smtplib.SMTPAuthenticationError as e:
+            logger.error(f"Error de autenticación SMTP: {e}")
+            logger.error("Verificar que la clave de aplicación sea correcta y esté habilitada en Gmail")
+            return False
         except Exception as e:
             logger.error(f"Error probando conexión SMTP: {e}")
             return False
@@ -403,9 +411,14 @@ if __name__ == "__main__":
             'created_at': datetime.utcnow().isoformat()
         }
         
-        success = email_service.send_alarm_notification('test@example.com', test_alarm_data)
+        # Usar un email real para la prueba
+        test_email = input("Ingrese email de destino para la prueba (o presione Enter para usar info@swat-id.com): ").strip()
+        if not test_email:
+            test_email = 'info@swat-id.com'
+        
+        success = email_service.send_alarm_notification(test_email, test_alarm_data)
         if success:
-            print("✅ Email de prueba enviado exitosamente")
+            print(f"✅ Email de prueba enviado exitosamente a {test_email}")
         else:
             print("❌ Error enviando email de prueba")
     else:

@@ -5,8 +5,8 @@
 - **Versión**: v3.2.0_alarms
 - **Fecha de Creación**: 28/07/2025
 - **Rama Base**: v3.1.0_login
-- **Estado**: En desarrollo
-- **Última Actualización**: Sistema completamente operativo con mejoras de Fase 1 y 2 implementadas
+- **Estado**: En desarrollo - Sistema de Alarmas implementado - Frontend completado
+- **Última Actualización**: Sistema de alarmas completamente implementado - Frontend y backend funcionales
 
 ## 🏗️ Arquitectura del Sistema
 
@@ -18,14 +18,19 @@
    - Panel Communication Service (`panel_communication_service.py`) - Comunicación con paneles LED
    - Panel Schedule Service (`panel_schedule_service.py`) - Gestión de programaciones
    - Schedule Monitor Service (`schedule_monitor_service.py`) - Monitorización de programaciones activas
+   - **Alarm Service** (`alarm_service.py`) - Gestión de alarmas ✅
+   - **Alarm Monitor Service** (`alarm_monitor_service.py`) - Monitorización de equipos ✅
+   - **Email Service** (`email_service.py`) - Notificaciones por email ✅
 
 2. **Frontend (React/Vite)**
    - Puerto de desarrollo: 5789
-   - Puerto de producción: 80 (nginx)
+   - Puerto de producción: 5789 (nginx)
    - Interfaz de administración completa
+   - **Páginas de alarmas** - Implementadas ✅
 
 3. **Base de Datos (PostgreSQL)**
    - Gestión de usuarios, parkings, cámaras, paneles y programaciones
+   - **Tablas de alarmas** - Implementadas ✅
 
 ## 🌐 Información del Servidor Remoto
 
@@ -41,6 +46,7 @@
 parking-api.service          # API Server (Puerto 6001)
 parking-camera.service       # Camera Server
 parking-schedule-monitor.service  # Schedule Monitor
+parking-alarm-monitor.service     # Alarm Monitor (NUEVO) ✅
 
 # Comandos de gestión
 systemctl start/stop/restart/status [servicio]
@@ -48,8 +54,7 @@ systemctl start/stop/restart/status [servicio]
 
 ### Puertos Utilizados
 - **6001**: API Server (Backend)
-- **5789**: Frontend Development
-- **80**: Frontend Production (nginx)
+- **5789**: Frontend Development y Production (nginx)
 - **5432**: PostgreSQL Database
 
 ## 📊 Estado Actual del Sistema
@@ -88,6 +93,53 @@ systemctl start/stop/restart/status [servicio]
    - Estadísticas de programaciones activas
    - Mejor manejo de datos
 
+#### Fase 3 - Sistema de Alarmas (COMPLETADA) ✅
+
+1. **Base de Datos y Modelos**
+   - ✅ Tablas de alarmas creadas en `models.py`
+   - ✅ Script de migración `migrate_alarm_system.py`
+   - ✅ Relaciones entre entidades configuradas
+
+2. **Servicios Backend**
+   - ✅ **AlarmService** - Gestión completa de alarmas
+   - ✅ **AlarmMonitorService** - Monitorización continua de equipos
+   - ✅ **EmailService** - Notificaciones por email con Gmail
+
+3. **API Endpoints**
+   - ✅ **Configuraciones de Alarmas**: CRUD completo
+   - ✅ **Alarmas Activas**: Listado y resolución
+   - ✅ **Histórico**: Filtros y búsqueda
+   - ✅ **Estado de Equipos**: Conectividad y métricas
+   - ✅ **Estadísticas**: Métricas de alarmas
+
+4. **Configuración de Servicios**
+   - ✅ Servicio systemd `parking-alarm-monitor.service`
+   - ✅ Script de prueba `test_gmail_config.py`
+
+#### Fase 4 - Frontend del Sistema de Alarmas (COMPLETADA) ✅
+
+1. **Servicios Frontend**
+   - ✅ **alarmService.js** - Servicio completo para API de alarmas
+   - ✅ Utilidades para tipos, severidad y estados
+
+2. **Componentes Reutilizables**
+   - ✅ **AlarmSeveritySelector** - Selector de severidad y umbrales
+   - ✅ **AlarmStatusCard** - Tarjeta de estado de alarma
+   - ✅ **AlarmConfigurationForm** - Formulario de configuración
+
+3. **Páginas Principales**
+   - ✅ **Alarms.jsx** - Página principal de gestión de alarmas
+   - ✅ **AlarmHistory.jsx** - Página de histórico con filtros
+   - ✅ Navegación integrada en Layout
+
+4. **Funcionalidades Implementadas**
+   - ✅ CRUD completo de configuraciones de alarmas
+   - ✅ Visualización de alarmas activas
+   - ✅ Resolución de alarmas con descripción
+   - ✅ Histórico con filtros avanzados
+   - ✅ Estadísticas y métricas
+   - ✅ Interfaz responsive y moderna
+
 ### 🔧 Estado de los Paneles (Validado - 28/07/2025)
 
 **Todos los paneles funcionando correctamente:**
@@ -113,7 +165,7 @@ systemctl start/stop/restart/status [servicio]
 # 1. Verificar cambios
 git status
 git add .
-git commit -m "Descripción de cambios"
+git commit -m "v3.2.0_alarms: Sistema de alarmas implementado - endpoints API completos"
 
 # 2. Subir a repositorio
 git push origin v3.2.0_alarms
@@ -136,35 +188,54 @@ git fetch --all
 git reset --hard origin/v3.2.0_alarms
 ```
 
-#### Paso 3: Instalar Dependencias Backend
+#### Paso 3: Ejecutar Migración de Base de Datos
+```bash
+source venv/bin/activate
+python src/migrate_alarm_system.py
+```
+
+#### Paso 4: Instalar Dependencias Backend
 ```bash
 source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-#### Paso 4: Instalar y Compilar Frontend
+#### Paso 5: Instalar y Compilar Frontend
 ```bash
 cd client
 npm install
 npm run build
 ```
 
-#### Paso 5: Copiar Archivos Compilados
+#### Paso 6: Copiar Archivos Compilados
 ```bash
 cp -r dist/* /opt/parking_altea/static/
 ```
 
-#### Paso 6: Reiniciar Servicios
+#### Paso 7: Configurar Servicio de Alarmas
+```bash
+# Copiar archivo de servicio
+cp deploy/parking-alarm-monitor.service /etc/systemd/system/
+
+# Recargar systemd
+systemctl daemon-reload
+
+# Habilitar servicio
+systemctl enable parking-alarm-monitor.service
+```
+
+#### Paso 8: Reiniciar Servicios
 ```bash
 systemctl start parking-api.service
 systemctl start parking-camera.service
 systemctl start parking-schedule-monitor.service
+systemctl start parking-alarm-monitor.service
 ```
 
-#### Paso 7: Verificar Estado
+#### Paso 9: Verificar Estado
 ```bash
-systemctl status parking-api.service parking-camera.service parking-schedule-monitor.service
-curl http://localhost:6001/api/panels
+systemctl status parking-api.service parking-camera.service parking-schedule-monitor.service parking-alarm-monitor.service
+curl http://localhost:6001/api/alarms/configurations
 ```
 
 ## 🔍 Verificación del Sistema
@@ -172,18 +243,20 @@ curl http://localhost:6001/api/panels
 ### Comandos de Verificación
 ```bash
 # Estado de servicios
-systemctl status parking-api.service parking-camera.service parking-schedule-monitor.service
+systemctl status parking-api.service parking-camera.service parking-schedule-monitor.service parking-alarm-monitor.service
 
 # API funcionando
 curl http://localhost:6001/api/panels
+curl http://localhost:6001/api/alarms/configurations
 
 # Frontend accesible
-curl http://157.180.91.63
+curl http://157.180.91.63:5789
 
 # Logs de servicios
 journalctl -u parking-api.service -f
 journalctl -u parking-camera.service -f
 journalctl -u parking-schedule-monitor.service -f
+journalctl -u parking-alarm-monitor.service -f
 ```
 
 ### Validación de Funcionalidades
@@ -191,50 +264,72 @@ journalctl -u parking-schedule-monitor.service -f
 2. **Programaciones Activas**: Verificación de programaciones "EN PROVES"
 3. **Comunicación con Paneles**: Mensajes correctos en todos los paneles
 4. **Frontend**: Interfaz de administración funcional
+5. **Sistema de Alarmas**: Endpoints funcionando correctamente
 
 ## 📁 Estructura de Archivos Importantes
 
 ### Backend
-- `src/api_server.py` - API principal
+- `src/api_server.py` - API principal con endpoints de alarmas ✅
 - `src/camera_server.py` - Servicio de cámaras
 - `src/panel_communication_service.py` - Comunicación con paneles
 - `src/panel_schedule_service.py` - Gestión de programaciones
 - `src/schedule_monitor_service.py` - Monitorización
-- `src/models.py` - Modelos de base de datos
+- `src/models.py` - Modelos de base de datos con alarmas ✅
+- `src/alarm_service.py` - Servicio de gestión de alarmas ✅
+- `src/alarm_monitor_service.py` - Monitorización de alarmas ✅
+- `src/email_service.py` - Servicio de email ✅
+- `src/migrate_alarm_system.py` - Migración de base de datos ✅
 
 ### Frontend
 - `client/src/pages/Panels.jsx` - Página de paneles
 - `client/src/components/ScheduleInfoModal.jsx` - Modal de programaciones
 - `client/src/services/panelService.js` - Servicios de paneles
+- `client/src/pages/Alarms.jsx` - Página principal de alarmas ✅
+- `client/src/pages/AlarmHistory.jsx` - Página de histórico de alarmas ✅
+- `client/src/components/AlarmSeveritySelector.jsx` - Selector de severidad ✅
+- `client/src/components/AlarmStatusCard.jsx` - Tarjeta de estado de alarma ✅
+- `client/src/components/AlarmConfigurationForm.jsx` - Formulario de configuración ✅
+- `client/src/services/alarmService.js` - Servicio de alarmas ✅
 
 ### Configuración
 - `deploy/parking-api.service` - Servicio API
 - `deploy/parking-camera.service` - Servicio Cámaras
 - `deploy/parking-schedule-monitor.service` - Servicio Monitor
+- `deploy/parking-alarm-monitor.service` - Servicio Alarmas ✅
+
+### Scripts y Utilidades
+- `test_gmail_config.py` - Prueba de configuración Gmail ✅
 
 ## 🎯 Próximos Pasos para v3.2.0_alarms
 
-### Funcionalidades Planificadas
-1. **Sistema de Alarmas**
-   - Detección de anomalías en cámaras
-   - Alertas de desconexión de paneles
-   - Notificaciones de errores críticos
-
-2. **Mejoras de Monitoreo**
+### Funcionalidades Pendientes
+1. **Mejoras de Monitoreo**
    - Dashboard de estado del sistema
    - Métricas de rendimiento
    - Logs centralizados
 
-3. **Optimizaciones**
+2. **Optimizaciones**
    - Mejoras de rendimiento
    - Optimización de consultas de base de datos
    - Cache de datos frecuentes
+
+3. **Testing y Validación**
+   - Pruebas de integración
+   - Pruebas de usuario
+   - Validación de funcionalidades
+
+### Estado de Implementación
+- ✅ **Fase 1**: Base de datos y modelos
+- ✅ **Fase 2**: Servicios backend
+- ✅ **Fase 3**: API endpoints
+- ✅ **Fase 4**: Frontend (completado)
+- 🔄 **Fase 5**: Integración y testing (en progreso)
 
 ## 📞 Contacto y Soporte
 
 - **Desarrollador**: Asistente AI
 - **Fecha de Documentación**: 28/07/2025
-- **Estado**: Sistema operativo y estable
+- **Estado**: Sistema operativo con sistema de alarmas completamente implementado
 
 ---
 

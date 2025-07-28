@@ -1,0 +1,26 @@
+[Unit]
+Description=Parking Alarm Monitor Service
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/parking_altea
+Environment=PATH=/opt/parking_altea/venv/bin
+Environment=PYTHONPATH=/opt/parking_altea
+ExecStart=/opt/parking_altea/venv/bin/python src/alarm_monitor_service.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Configuración de seguridad
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/parking_altea
+
+[Install]
+WantedBy=multi-user.target 
