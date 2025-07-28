@@ -51,37 +51,55 @@ const AlarmConfigurationForm = ({
       if (configuration.thresholds) {
         setThresholds(configuration.thresholds);
       }
+    } else {
+      // Reset form data for new configuration
+      setFormData({
+        name: '',
+        description: '',
+        alarm_type: alarmType || 'panel',
+        status: 'active',
+        targets: [],
+        thresholds: []
+      });
+      setSelectedTargets([]);
+      setThresholds([
+        { severity: 'LEVE', threshold_value: '' },
+        { severity: 'NORMAL', threshold_value: '' },
+        { severity: 'GRAVE', threshold_value: '' }
+      ]);
     }
     loadAvailableTargets();
-  }, [configuration, alarmType]);
+  }, [configuration, alarmType, formData.alarm_type]);
 
   const loadAvailableTargets = async () => {
     setLoadingTargets(true);
+    setErrors(prev => ({ ...prev, targets: null }));
+    
     try {
       let targets = [];
       
       switch (formData.alarm_type) {
         case 'panel':
           const panels = await panelService.getUserPanels();
-          targets = panels.map(panel => ({
+          targets = (panels || []).map(panel => ({
             id: panel.id,
-            name: panel.name,
+            name: panel.name || `Panel ${panel.id}`,
             type: 'panel'
           }));
           break;
         case 'camera':
           const cameras = await cameraService.getUserCameras();
-          targets = cameras.map(camera => ({
+          targets = (cameras || []).map(camera => ({
             id: camera.id,
-            name: camera.name,
+            name: camera.name || `Cámara ${camera.id}`,
             type: 'camera'
           }));
           break;
         case 'parking':
           const parkings = await parkingService.getUserParkings();
-          targets = parkings.map(parking => ({
+          targets = (parkings || []).map(parking => ({
             id: parking.id,
-            name: parking.name,
+            name: parking.name || `Parking ${parking.id}`,
             type: 'parking'
           }));
           break;
@@ -92,7 +110,8 @@ const AlarmConfigurationForm = ({
       setAvailableTargets(targets);
     } catch (error) {
       console.error('Error loading targets:', error);
-      setErrors({ targets: 'Error al cargar los objetivos disponibles' });
+      setErrors(prev => ({ ...prev, targets: 'Error al cargar los objetivos disponibles' }));
+      setAvailableTargets([]);
     } finally {
       setLoadingTargets(false);
     }

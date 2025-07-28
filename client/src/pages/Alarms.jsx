@@ -52,12 +52,17 @@ const Alarms = () => {
         alarmService.getAlarmStatistics()
       ]);
       
-      setConfigurations(configsData);
-      setActiveAlarms(alarmsData);
-      setStatistics(statsData);
+      // Manejar diferentes formatos de respuesta de la API
+      setConfigurations(configsData.configurations || configsData || []);
+      setActiveAlarms(alarmsData.alarms || alarmsData || []);
+      setStatistics(statsData || {});
     } catch (err) {
       console.error('Error loading alarm data:', err);
       setError('Error al cargar los datos de alarmas');
+      // Establecer valores por defecto en caso de error
+      setConfigurations([]);
+      setActiveAlarms([]);
+      setStatistics({});
     } finally {
       setLoading(false);
     }
