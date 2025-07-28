@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { parkingService } from '../services/parkingService'
+import parkingService from '../services/parkingService'
 import { statisticsService } from '../services/statisticsService'
 import { 
   BarChart3, 

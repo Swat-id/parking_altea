@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { Link } from 'react-router-dom'
-import { parkingService } from '../services/parkingService'
+import parkingService from '../services/parkingService'
 import CameraAssignmentModal from '../components/CameraAssignmentModal'
 import { useAuth } from '../context/AuthContext'
 import { 

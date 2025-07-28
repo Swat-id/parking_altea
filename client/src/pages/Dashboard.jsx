@@ -1,6 +1,6 @@
 import { useQuery } from 'react-query'
 import { Link } from 'react-router-dom'
-import { parkingService } from '../services/parkingService'
+import parkingService from '../services/parkingService'
 import { 
   Car, 
   Monitor, 

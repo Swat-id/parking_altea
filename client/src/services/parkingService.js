@@ -1,6 +1,6 @@
 import api from './api'
 
-export const parkingService = {
+const parkingService = {
   /**
    * Obtener todos los parkings
    */
@@ -165,4 +165,6 @@ export const parkingService = {
       throw error
     }
   }
-} 
+}
+
+export default parkingService 
