@@ -1,6 +1,6 @@
 import api from './api';
 
-export const cameraService = {
+const cameraService = {
   /**
    * Obtener cámaras de un parking específico
    * @param {number} parkingId - ID del parking
@@ -122,5 +122,7 @@ export const cameraService = {
       default:
         return '🟡';
     }
-  }
-}; 
+      }
+};
+
+export default cameraService 
