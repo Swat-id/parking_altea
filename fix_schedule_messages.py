@@ -64,7 +64,7 @@ def force_panel_updates():
                     # Enviar mensaje al panel
                     try:
                         panel_response = requests.post(
-                            f'http://localhost:6001/api/panels/{panel_id}/send-message',
+                            f'http://localhost:6001/api/panels/{panel_id}/message',
                             json={'message': schedule_message},
                             timeout=5
                         )
