@@ -1,117 +1,107 @@
 # Guía de Despliegue - v3.2.0_alarms
 
-## 🚀 Información del Servidor
+## 📋 Información del Despliegue
 
-### Datos de Conexión
-- **IP del Servidor**: 157.180.91.63
+- **Versión**: v3.2.0_alarms
+- **Fecha**: 28/07/2025
+- **Servidor**: 157.180.91.63
 - **Usuario**: root
-- **Directorio del Proyecto**: `/opt/parking_altea`
-- **Entorno Virtual**: `/opt/parking_altea/venv`
+- **Directorio**: `/opt/parking_altea`
 
-### Acceso SSH
+## 🚀 Pasos de Despliegue
+
+### Paso 1: Detener Servicios Actuales
+
 ```bash
+# Conectar al servidor
 ssh root@157.180.91.63
-```
 
-## 📋 Pre-requisitos
-
-### Software Requerido
-- Python 3.8+
-- Node.js 16+
-- PostgreSQL
-- nginx
-- systemd
-
-### Servicios del Sistema
-```bash
-# Verificar servicios instalados
-systemctl list-units --type=service | grep parking
-
-# Servicios principales
-parking-api.service          # API Server (Puerto 6001)
-parking-camera.service       # Camera Server
-parking-schedule-monitor.service  # Schedule Monitor
-```
-
-## 🔄 Proceso de Despliegue Completo
-
-### Paso 1: Preparación Local
-
-```bash
-# 1. Verificar que estamos en la rama correcta
-git branch
-# Debe mostrar: * v3.2.0_alarms
-
-# 2. Verificar cambios pendientes
-git status
-
-# 3. Añadir todos los cambios
-git add .
-
-# 4. Hacer commit con descripción clara
-git commit -m "v3.2.0_alarms: [Descripción de cambios]"
-
-# 5. Subir cambios al repositorio
-git push origin v3.2.0_alarms
-```
-
-### Paso 2: Conectar al Servidor Remoto
-
-```bash
-ssh root@157.180.91.63
-```
-
-### Paso 3: Parar Servicios
-
-```bash
-# Parar todos los servicios del sistema
+# Detener todos los servicios del sistema
 systemctl stop parking-api.service
 systemctl stop parking-camera.service
 systemctl stop parking-schedule-monitor.service
+systemctl stop parking-alarm-monitor.service
 
-# Verificar que están parados
-systemctl status parking-api.service parking-camera.service parking-schedule-monitor.service
+# Verificar que están detenidos
+systemctl status parking-api.service parking-camera.service parking-schedule-monitor.service parking-alarm-monitor.service
 ```
 
-### Paso 4: Actualizar Código
+### Paso 2: Actualizar Código y Cambiar a Nueva Rama
 
 ```bash
 # Navegar al directorio del proyecto
 cd /opt/parking_altea
 
-# Obtener cambios del repositorio
+# Verificar estado actual
+git status
+git branch
+
+# Obtener todas las ramas remotas
 git fetch --all
 
-# Cambiar a la nueva rama
+# Cambiar a la rama v3.2.0_alarms
 git checkout v3.2.0_alarms
 
-# O alternativamente, hacer reset hard
+# Forzar actualización con el repositorio remoto
 git reset --hard origin/v3.2.0_alarms
 
-# Verificar que estamos en la rama correcta
-git branch
+# Verificar que los cambios se han aplicado
+git log --oneline -5
 ```
 
-### Paso 5: Instalar Dependencias Backend
+### Paso 3: Aplicar Migración de Base de Datos
 
 ```bash
 # Activar entorno virtual
 source venv/bin/activate
 
-# Instalar dependencias Python
-pip install -r requirements.txt
+# Ejecutar migración del sistema de alarmas
+python src/migrate_alarm_system.py
 
-# Verificar instalación
-python -c "import flask, sqlalchemy; print('Dependencias instaladas correctamente')"
+# Verificar que las tablas se han creado correctamente
+python -c "
+from src.models import db, AlarmConfiguration, Alarm, AlarmHistory
+from src.config import Config
+from flask import Flask
+
+app = Flask(__name__)
+app.config.from_object(Config)
+db.init_app(app)
+
+with app.app_context():
+    print('Tablas de alarmas creadas correctamente')
+    print('AlarmConfiguration:', AlarmConfiguration.query.count(), 'registros')
+    print('Alarm:', Alarm.query.count(), 'registros')
+    print('AlarmHistory:', AlarmHistory.query.count(), 'registros')
+"
 ```
 
-### Paso 6: Instalar y Compilar Frontend
+### Paso 4: Instalar Dependencias Backend
+
+```bash
+# Asegurar que el entorno virtual está activado
+source venv/bin/activate
+
+# Actualizar dependencias
+pip install -r requirements.txt
+
+# Verificar instalación de dependencias críticas
+python -c "
+import flask
+import psycopg2
+import schedule
+import smtplib
+print('Dependencias principales instaladas correctamente')
+"
+```
+
+### Paso 5: Compilar y Actualizar Frontend
 
 ```bash
 # Navegar al directorio del cliente
-cd client
+cd /opt/parking_altea/client
 
-# Instalar dependencias Node.js
+# Instalar dependencias de Node.js
 npm install
 
 # Compilar para producción
@@ -119,179 +109,212 @@ npm run build
 
 # Verificar que la compilación fue exitosa
 ls -la dist/
-```
 
-### Paso 7: Copiar Archivos Compilados
-
-```bash
 # Copiar archivos compilados al directorio estático
 cp -r dist/* /opt/parking_altea/static/
 
-# Verificar que se copiaron correctamente
+# Verificar que los archivos se han copiado
 ls -la /opt/parking_altea/static/
 ```
 
-### Paso 8: Reiniciar Servicios
+### Paso 6: Configurar Nuevo Servicio de Alarmas
 
 ```bash
-# Reiniciar todos los servicios
+# Volver al directorio raíz
+cd /opt/parking_altea
+
+# Copiar archivo de servicio de alarmas
+cp deploy/parking-alarm-monitor.service /etc/systemd/system/
+
+# Recargar configuración de systemd
+systemctl daemon-reload
+
+# Habilitar el servicio para que se inicie automáticamente
+systemctl enable parking-alarm-monitor.service
+
+# Verificar que el archivo de servicio se ha copiado correctamente
+cat /etc/systemd/system/parking-alarm-monitor.service
+```
+
+### Paso 7: Levantar Todos los Servicios
+
+```bash
+# Iniciar servicios en orden
 systemctl start parking-api.service
 systemctl start parking-camera.service
 systemctl start parking-schedule-monitor.service
+systemctl start parking-alarm-monitor.service
 
-# Verificar estado de los servicios
-systemctl status parking-api.service parking-camera.service parking-schedule-monitor.service
+# Verificar estado de todos los servicios
+systemctl status parking-api.service parking-camera.service parking-schedule-monitor.service parking-alarm-monitor.service
 ```
 
-### Paso 9: Verificar Funcionamiento
+### Paso 8: Verificar Puertos y Conectividad
 
 ```bash
-# Verificar que la API responde
+# Verificar que los puertos están en uso
+netstat -tlnp | grep -E ':(6001|5789|5432)'
+
+# Verificar que nginx está sirviendo el frontend
+curl -I http://localhost:5789
+
+# Verificar que la API está respondiendo
 curl http://localhost:6001/api/panels
 
-# Verificar que el frontend es accesible
-curl http://157.180.91.63
+# Verificar endpoints de alarmas
+curl http://localhost:6001/api/alarms/configurations
+curl http://localhost:6001/api/alarms/active
+```
 
+### Paso 9: Verificar Funcionalidad del Sistema
+
+```bash
 # Verificar logs de servicios
 journalctl -u parking-api.service --no-pager -n 20
+journalctl -u parking-camera.service --no-pager -n 20
+journalctl -u parking-schedule-monitor.service --no-pager -n 20
+journalctl -u parking-alarm-monitor.service --no-pager -n 20
+
+# Verificar que el sistema de alarmas está funcionando
+curl http://localhost:6001/api/alarms/equipment-status
+
+# Verificar configuración de email
+python src/test_gmail_config.py
 ```
 
-## 🔍 Verificación Post-Despliegue
-
-### Verificación de Servicios
+### Paso 10: Verificación Final
 
 ```bash
-# Estado de todos los servicios
-systemctl status parking-api.service parking-camera.service parking-schedule-monitor.service
+# Verificar acceso desde el exterior
+curl -I http://157.180.91.63:5789
 
-# Verificar puertos en uso
-netstat -tlnp | grep :6001
-netstat -tlnp | grep :80
+# Verificar API desde el exterior
+curl http://157.180.91.63:6001/api/panels
+
+# Verificar que todos los paneles están online
+curl http://157.180.91.63:6001/api/panels | jq '.[] | {name: .name, status: .status}'
 ```
 
-### Verificación de API
+## 🔍 Comandos de Verificación Rápida
 
+### Estado de Servicios
 ```bash
-# Endpoint principal de paneles
+systemctl status parking-api.service parking-camera.service parking-schedule-monitor.service parking-alarm-monitor.service
+```
+
+### Puertos Activos
+```bash
+netstat -tlnp | grep -E ':(6001|5789|5432)'
+```
+
+### Logs en Tiempo Real
+```bash
+# API Server
+journalctl -u parking-api.service -f
+
+# Camera Server
+journalctl -u parking-camera.service -f
+
+# Schedule Monitor
+journalctl -u parking-schedule-monitor.service -f
+
+# Alarm Monitor
+journalctl -u parking-alarm-monitor.service -f
+```
+
+### Verificación de Endpoints
+```bash
+# Paneles
 curl http://localhost:6001/api/panels
 
-# Verificar respuesta JSON
-curl http://localhost:6001/api/panels | jq '.[0]'
+# Configuraciones de alarmas
+curl http://localhost:6001/api/alarms/configurations
 
-# Verificar programaciones activas
-curl http://localhost:6001/api/panels | jq '.[] | select(.active_schedule) | .name'
+# Alarmas activas
+curl http://localhost:6001/api/alarms/active
+
+# Estado de equipos
+curl http://localhost:6001/api/alarms/equipment-status
+
+# Estadísticas
+curl http://localhost:6001/api/alarms/statistics
 ```
 
-### Verificación de Frontend
+## 🚨 Solución de Problemas
 
+### Si un servicio no inicia
 ```bash
-# Verificar que nginx sirve el frontend
-curl -I http://157.180.91.63
+# Verificar logs específicos
+journalctl -u [nombre-servicio] --no-pager -n 50
+
+# Verificar archivo de configuración
+systemctl cat [nombre-servicio]
+
+# Reiniciar servicio
+systemctl restart [nombre-servicio]
+```
+
+### Si la migración falla
+```bash
+# Verificar conexión a base de datos
+python -c "
+from src.config import Config
+import psycopg2
+try:
+    conn = psycopg2.connect(Config.SQLALCHEMY_DATABASE_URI)
+    print('Conexión a BD exitosa')
+    conn.close()
+except Exception as e:
+    print('Error de conexión:', e)
+"
+```
+
+### Si el frontend no se carga
+```bash
+# Verificar nginx
+systemctl status nginx
 
 # Verificar archivos estáticos
 ls -la /opt/parking_altea/static/
+
+# Reiniciar nginx
+systemctl restart nginx
 ```
 
-### Verificación de Base de Datos
-
+### Si las alarmas no funcionan
 ```bash
-# Conectar a PostgreSQL
-sudo -u postgres psql
+# Verificar configuración de email
+python src/test_gmail_config.py
 
-# Verificar tablas
-\dt
+# Verificar logs del monitor de alarmas
+journalctl -u parking-alarm-monitor.service --no-pager -n 50
 
-# Verificar datos de paneles
-SELECT name, status, last_message FROM panels;
-
-# Salir de PostgreSQL
-\q
+# Verificar estado de equipos
+curl http://localhost:6001/api/alarms/equipment-status
 ```
 
-## 🚨 Solución de Problemas Comunes
+## ✅ Checklist de Verificación
 
-### Error: tsconfig.json corrupto
-```bash
-# Copiar archivo correcto desde local
-scp tsconfig.json root@157.180.91.63:/opt/parking_altea/
-```
+- [ ] Todos los servicios están ejecutándose
+- [ ] Puerto 6001 (API) está activo
+- [ ] Puerto 5789 (Frontend) está activo
+- [ ] Base de datos migrada correctamente
+- [ ] Frontend compilado y copiado
+- [ ] Servicio de alarmas configurado
+- [ ] API responde correctamente
+- [ ] Frontend accesible desde exterior
+- [ ] Sistema de alarmas funcionando
+- [ ] Configuración de email válida
+- [ ] Todos los paneles online
+- [ ] Logs sin errores críticos
 
-### Error: Entorno virtual no encontrado
-```bash
-# Crear nuevo entorno virtual
-cd /opt/parking_altea
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-### Error: Puerto 6001 ocupado
-```bash
-# Encontrar proceso que usa el puerto
-lsof -i :6001
-
-# Matar proceso si es necesario
-kill -9 [PID]
-```
-
-### Error: Permisos de archivos
-```bash
-# Corregir permisos
-chown -R root:root /opt/parking_altea
-chmod -R 755 /opt/parking_altea
-```
-
-### Error: Servicio no inicia
-```bash
-# Verificar logs del servicio
-journalctl -u parking-api.service -f
-
-# Verificar configuración del servicio
-systemctl cat parking-api.service
-```
-
-## 📊 Monitoreo Continuo
-
-### Comandos de Monitoreo
-
-```bash
-# Ver logs en tiempo real
-journalctl -u parking-api.service -f
-journalctl -u parking-camera.service -f
-journalctl -u parking-schedule-monitor.service -f
-
-# Ver uso de recursos
-htop
-df -h
-free -h
-
-# Ver estado de servicios
-systemctl status parking-api.service parking-camera.service parking-schedule-monitor.service
-```
-
-### Verificación Periódica
-
-```bash
-# Script de verificación rápida
-#!/bin/bash
-echo "=== Verificación del Sistema ==="
-echo "1. Estado de servicios:"
-systemctl is-active parking-api.service parking-camera.service parking-schedule-monitor.service
-echo ""
-echo "2. API funcionando:"
-curl -s http://localhost:6001/api/panels | jq 'length' 2>/dev/null || echo "API no responde"
-echo ""
-echo "3. Frontend accesible:"
-curl -s -I http://157.180.91.63 | head -1
-```
-
-## 📞 Contacto y Soporte
+## 📞 Información de Contacto
 
 - **Servidor**: 157.180.91.63
-- **Usuario**: root
+- **Frontend**: http://157.180.91.63:5789
+- **API**: http://157.180.91.63:6001
 - **Documentación**: `/opt/parking_altea/docs/v3.2.0/`
-- **Logs**: `journalctl -u [servicio]`
 
 ---
 
-**Nota**: Esta guía debe actualizarse con cada nueva versión del sistema. 
+**Nota**: Ejecutar los comandos en el orden especificado para asegurar un despliegue correcto. 

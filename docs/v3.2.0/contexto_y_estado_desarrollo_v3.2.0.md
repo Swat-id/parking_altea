@@ -160,6 +160,12 @@ systemctl start/stop/restart/status [servicio]
 
 ## 🚀 Proceso de Despliegue
 
+### Documentación de Despliegue
+- **Guía Completa**: `docs/v3.2.0/guia_despliegue_v3.2.0.md` ✅
+- **Pasos Detallados**: 10 pasos con verificación completa
+- **Solución de Problemas**: Incluida en la guía
+- **Checklist**: Verificación paso a paso
+
 ### Preparación Local
 ```bash
 # 1. Verificar cambios
@@ -173,70 +179,19 @@ git push origin v3.2.0_alarms
 
 ### Despliegue en Servidor Remoto
 
-#### Paso 1: Parar Servicios
-```bash
-ssh root@157.180.91.63
-systemctl stop parking-api.service
-systemctl stop parking-camera.service
-systemctl stop parking-schedule-monitor.service
-```
+**📋 Ver guía completa en: `docs/v3.2.0/guia_despliegue_v3.2.0.md`**
 
-#### Paso 2: Actualizar Código
-```bash
-cd /opt/parking_altea
-git fetch --all
-git reset --hard origin/v3.2.0_alarms
-```
-
-#### Paso 3: Ejecutar Migración de Base de Datos
-```bash
-source venv/bin/activate
-python src/migrate_alarm_system.py
-```
-
-#### Paso 4: Instalar Dependencias Backend
-```bash
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-#### Paso 5: Instalar y Compilar Frontend
-```bash
-cd client
-npm install
-npm run build
-```
-
-#### Paso 6: Copiar Archivos Compilados
-```bash
-cp -r dist/* /opt/parking_altea/static/
-```
-
-#### Paso 7: Configurar Servicio de Alarmas
-```bash
-# Copiar archivo de servicio
-cp deploy/parking-alarm-monitor.service /etc/systemd/system/
-
-# Recargar systemd
-systemctl daemon-reload
-
-# Habilitar servicio
-systemctl enable parking-alarm-monitor.service
-```
-
-#### Paso 8: Reiniciar Servicios
-```bash
-systemctl start parking-api.service
-systemctl start parking-camera.service
-systemctl start parking-schedule-monitor.service
-systemctl start parking-alarm-monitor.service
-```
-
-#### Paso 9: Verificar Estado
-```bash
-systemctl status parking-api.service parking-camera.service parking-schedule-monitor.service parking-alarm-monitor.service
-curl http://localhost:6001/api/alarms/configurations
-```
+#### Resumen de Pasos:
+1. **Detener Servicios**: Todos los servicios del sistema
+2. **Actualizar Código**: Cambiar a rama v3.2.0_alarms
+3. **Migración BD**: Ejecutar migrate_alarm_system.py
+4. **Dependencias**: Instalar requirements.txt
+5. **Frontend**: Compilar y copiar archivos
+6. **Servicio Alarmas**: Configurar parking-alarm-monitor.service
+7. **Levantar Servicios**: Todos los servicios en orden
+8. **Verificar Puertos**: 6001 (API), 5789 (Frontend)
+9. **Funcionalidad**: Verificar sistema de alarmas
+10. **Verificación Final**: Acceso desde exterior
 
 ## 🔍 Verificación del Sistema
 
