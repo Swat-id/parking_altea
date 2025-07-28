@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  ClockHistory, 
+  History, 
   Filter, 
   Search, 
   Eye, 
@@ -205,7 +205,7 @@ const AlarmHistory = () => {
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center mb-2">
-            <ClockHistory className="h-8 w-8 text-blue-600 mr-3" />
+            <History className="h-8 w-8 text-blue-600 mr-3" />
             <h1 className="text-3xl font-bold text-gray-900">Histórico de Alarmas</h1>
           </div>
           <p className="text-gray-600">
@@ -366,7 +366,7 @@ const AlarmHistory = () => {
           <div className="p-6">
             {alarms.length === 0 ? (
               <div className="text-center py-12">
-                <ClockHistory className="mx-auto h-12 w-12 text-gray-400" />
+                <History className="mx-auto h-12 w-12 text-gray-400" />
                 <p className="mt-4 text-gray-600">No se encontraron alarmas con los filtros aplicados</p>
               </div>
             ) : (
