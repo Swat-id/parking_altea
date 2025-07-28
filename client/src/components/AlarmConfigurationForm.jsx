@@ -30,6 +30,7 @@ const AlarmConfigurationForm = ({
     { severity: 'NORMAL', threshold_value: '', threshold_type: 'disconnection_time' },
     { severity: 'GRAVE', threshold_value: '', threshold_type: 'disconnection_time' }
   ]);
+  const [thresholdType, setThresholdType] = useState('disconnection_time');
   const [errors, setErrors] = useState({});
   const [loadingTargets, setLoadingTargets] = useState(false);
 
@@ -68,8 +69,12 @@ const AlarmConfigurationForm = ({
         { severity: 'GRAVE', threshold_value: '', threshold_type: 'disconnection_time' }
       ]);
     }
+  }, [configuration, alarmType]);
+
+  // Efecto separado para cargar objetivos cuando cambia el tipo de alarma
+  useEffect(() => {
     loadAvailableTargets();
-  }, [configuration, alarmType, formData.alarm_type]);
+  }, [formData.alarm_type]);
 
   const loadAvailableTargets = async () => {
     setLoadingTargets(true);
@@ -129,6 +134,15 @@ const AlarmConfigurationForm = ({
         ...prev,
         targets: []
       }));
+      
+      // Resetear umbrales según el tipo de alarma
+      const defaultThresholdType = value === 'parking' ? 'occupancy_high' : 'disconnection_time';
+      setThresholdType(defaultThresholdType);
+      setThresholds([
+        { severity: 'LEVE', threshold_value: '', threshold_type: defaultThresholdType },
+        { severity: 'NORMAL', threshold_value: '', threshold_type: defaultThresholdType },
+        { severity: 'GRAVE', threshold_value: '', threshold_type: defaultThresholdType }
+      ]);
     }
     
     // Limpiar error del campo
@@ -184,30 +198,10 @@ const AlarmConfigurationForm = ({
       return;
     }
     
-    // Determinar el tipo de umbral según el tipo de alarma
-    const getThresholdType = (alarmType) => {
-      switch (alarmType) {
-        case 'panel':
-        case 'camera':
-          return 'disconnection_time';
-        case 'parking':
-          return 'occupancy_high';
-        default:
-          return 'disconnection_time';
-      }
-    };
-    
-    const thresholdType = getThresholdType(formData.alarm_type);
-    
     const submitData = {
       ...formData,
       targets: selectedTargets, // Array de IDs directamente
-      thresholds: thresholds
-        .filter(t => t.threshold_value)
-        .map(t => ({
-          ...t,
-          threshold_type: thresholdType
-        }))
+      thresholds: thresholds.filter(t => t.threshold_value)
     };
     
     onSubmit(submitData);
@@ -335,6 +329,32 @@ const AlarmConfigurationForm = ({
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Umbrales de Alarma
         </label>
+        
+        {/* Selector de tipo de umbral para parkings */}
+        {formData.alarm_type === 'parking' && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tipo de Umbral
+            </label>
+            <select
+              value={thresholdType}
+              onChange={(e) => {
+                const newType = e.target.value;
+                setThresholdType(newType);
+                setThresholds(thresholds.map(t => ({
+                  ...t,
+                  threshold_type: newType
+                })));
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="occupancy_high">Ocupación Alta (%)</option>
+              <option value="occupancy_low">Ocupación Baja (%)</option>
+              <option value="disconnection_time">Tiempo de Desconexión (minutos)</option>
+            </select>
+          </div>
+        )}
+        
         <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
           <p className="text-sm text-blue-800">
             <strong>Información sobre los umbrales:</strong>
@@ -342,7 +362,11 @@ const AlarmConfigurationForm = ({
           <ul className="text-sm text-blue-700 mt-1 space-y-1">
             <li>• <strong>Paneles:</strong> Tiempo de desconexión en <strong>minutos</strong></li>
             <li>• <strong>Cámaras:</strong> Tiempo de desconexión en <strong>minutos</strong></li>
-            <li>• <strong>Aparcamientos:</strong> Porcentaje de ocupación (0-100)</li>
+            <li>• <strong>Aparcamientos:</strong> 
+              {thresholdType === 'occupancy_high' && ' Porcentaje de ocupación alta (0-100%)'}
+              {thresholdType === 'occupancy_low' && ' Porcentaje de ocupación baja (0-100%)'}
+              {thresholdType === 'disconnection_time' && ' Tiempo de desconexión en minutos'}
+            </li>
           </ul>
         </div>
         <div className="space-y-3">
@@ -361,13 +385,17 @@ const AlarmConfigurationForm = ({
                 <input
                   type="number"
                   min="0"
+                  max={thresholdType.includes('occupancy') ? 100 : undefined}
                   value={threshold.threshold_value}
-                  onChange={(e) => handleThresholdChange(index, { threshold_value: e.target.value })}
+                  onChange={(e) => handleThresholdChange(index, { 
+                    threshold_value: e.target.value,
+                    threshold_type: thresholdType
+                  })}
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder={formData.alarm_type === 'parking' ? '0-100' : '0'}
+                  placeholder={thresholdType.includes('occupancy') ? '0-100' : '0'}
                 />
                 <span className="text-sm text-gray-500 whitespace-nowrap">
-                  {formData.alarm_type === 'parking' ? '%' : 'min'}
+                  {thresholdType.includes('occupancy') ? '%' : 'min'}
                 </span>
               </div>
             </div>
