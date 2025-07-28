@@ -20,6 +20,10 @@ class User(Base):
     user_panels = relationship('UserPanel', back_populates='user')
     user_accesses = relationship('UserAccess', back_populates='user')
     
+    # Relaciones con sistema de alarmas
+    alarm_configurations = relationship('AlarmConfiguration', back_populates='user')
+    alarms = relationship('Alarm', back_populates='user')
+    
     def __repr__(self):
         return f"<User(id={self.id}, name='{self.name}', email='{self.email}', role='{self.role}')>"
     
@@ -402,3 +406,114 @@ class PanelType(Base):
     # Relaciones
     manufacturer = relationship('Manufacturer', back_populates='panel_types')
     panels = relationship('Panel', back_populates='panel_type')
+    
+    def __repr__(self):
+        return f"<PanelType(id={self.id}, name='{self.name}', protocol_type='{self.protocol_type}')>"
+
+# ============================================================================
+# MODELOS DEL SISTEMA DE ALARMAS v3.2.0_alarms
+# ============================================================================
+
+class AlarmConfiguration(Base):
+    """Configuración de alarmas por usuario"""
+    __tablename__ = 'alarm_configurations'
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    alarm_type = Column(String(50), nullable=False)  # 'panel', 'camera', 'parking'
+    status = Column(String(20), default='active', nullable=False)  # 'active', 'paused'
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relaciones
+    user = relationship('User', back_populates='alarm_configurations')
+    targets = relationship('AlarmConfigurationTarget', back_populates='configuration', cascade='all, delete-orphan')
+    thresholds = relationship('AlarmConfigurationThreshold', back_populates='configuration', cascade='all, delete-orphan')
+    alarms = relationship('Alarm', back_populates='configuration')
+    
+    # Constraints
+    __table_args__ = (
+        UniqueConstraint('user_id', 'name', name='unique_user_alarm_name'),
+    )
+    
+    def __repr__(self):
+        return f"<AlarmConfiguration(id={self.id}, name='{self.name}', type='{self.alarm_type}')>"
+
+class AlarmConfigurationTarget(Base):
+    """Objetivos de una configuración de alarma (paneles, cámaras, aparcamientos)"""
+    __tablename__ = 'alarm_configuration_targets'
+    
+    id = Column(Integer, primary_key=True)
+    alarm_configuration_id = Column(Integer, ForeignKey('alarm_configurations.id', ondelete='CASCADE'), nullable=False)
+    target_type = Column(String(50), nullable=False)  # 'panel', 'camera', 'parking'
+    target_id = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relaciones
+    configuration = relationship('AlarmConfiguration', back_populates='targets')
+    
+    def __repr__(self):
+        return f"<AlarmConfigurationTarget(id={self.id}, type='{self.target_type}', target_id={self.target_id})>"
+
+class AlarmConfigurationThreshold(Base):
+    """Umbrales de una configuración de alarma por gravedad"""
+    __tablename__ = 'alarm_configuration_thresholds'
+    
+    id = Column(Integer, primary_key=True)
+    alarm_configuration_id = Column(Integer, ForeignKey('alarm_configurations.id', ondelete='CASCADE'), nullable=False)
+    severity = Column(String(20), nullable=False)  # 'LEVE', 'NORMAL', 'GRAVE'
+    threshold_value = Column(Integer, nullable=False)  # minutos para desconexión o % para ocupación
+    threshold_type = Column(String(50), nullable=False)  # 'disconnection_time', 'occupancy_high', 'occupancy_low'
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relaciones
+    configuration = relationship('AlarmConfiguration', back_populates='thresholds')
+    
+    # Constraints
+    __table_args__ = (
+        UniqueConstraint('alarm_configuration_id', 'severity', name='unique_config_severity'),
+    )
+    
+    def __repr__(self):
+        return f"<AlarmConfigurationThreshold(id={self.id}, severity='{self.severity}', value={self.threshold_value})>"
+
+class Alarm(Base):
+    """Alarmas generadas por el sistema"""
+    __tablename__ = 'alarms'
+    
+    id = Column(Integer, primary_key=True)
+    alarm_configuration_id = Column(Integer, ForeignKey('alarm_configurations.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    severity = Column(String(20), nullable=False)  # 'LEVE', 'NORMAL', 'GRAVE'
+    status = Column(String(20), default='active', nullable=False)  # 'active', 'resolved'
+    message = Column(Text, nullable=False)
+    affected_targets = Column(JSON)  # Lista de equipos afectados en formato JSON
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    resolved_at = Column(DateTime(timezone=True))
+    resolution_description = Column(Text)
+    
+    # Relaciones
+    configuration = relationship('AlarmConfiguration', back_populates='alarms')
+    user = relationship('User', back_populates='alarms')
+    history = relationship('AlarmHistory', back_populates='alarm', cascade='all, delete-orphan')
+    
+    def __repr__(self):
+        return f"<Alarm(id={self.id}, severity='{self.severity}', status='{self.status}')>"
+
+class AlarmHistory(Base):
+    """Histórico de acciones sobre alarmas"""
+    __tablename__ = 'alarm_history'
+    
+    id = Column(Integer, primary_key=True)
+    alarm_id = Column(Integer, ForeignKey('alarms.id', ondelete='CASCADE'), nullable=False)
+    action = Column(String(50), nullable=False)  # 'created', 'resolved', 'escalated'
+    description = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relaciones
+    alarm = relationship('Alarm', back_populates='history')
+    
+    def __repr__(self):
+        return f"<AlarmHistory(id={self.id}, action='{self.action}', alarm_id={self.alarm_id})>"
