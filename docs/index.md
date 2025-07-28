@@ -27,6 +27,7 @@ Documentación general del proyecto con descripción, arquitectura, componentes 
 ### v3.2.0_alarms
 - [Contexto y Estado del Desarrollo](v3.2.0/contexto_y_estado_desarrollo_v3.2.0.md) - Estado completo del sistema v3.2.0
 - [Guía de Despliegue](v3.2.0/guia_despliegue_v3.2.0.md) - Guía completa de despliegue en servidor remoto
+- [Análisis del Sistema de Alarmas](v3.2.0/analisis_sistema_alarmas_v3.2.0.md) - Análisis completo del sistema de alarmas
 
 ### v3.1.0
 - [Análisis Profundo Sistema Cámaras y Programaciones](analisis_profundo_sistema_camaras_programaciones.md) - Análisis y correcciones implementadas
