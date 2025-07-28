@@ -1,19 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Container, 
-  Row, 
-  Col, 
-  Card, 
-  Form, 
-  Button, 
-  Table, 
-  Badge, 
-  Modal,
-  Alert,
-  Spinner,
-  Pagination
-} from 'react-bootstrap';
-import { 
   ClockHistory, 
   Filter, 
   Search, 
@@ -21,8 +7,11 @@ import {
   Calendar,
   ExclamationTriangle,
   ExclamationCircle,
-  ExclamationDiamond
-} from 'react-bootstrap-icons';
+  ExclamationDiamond,
+  X,
+  ChevronLeft,
+  ChevronRight
+} from 'lucide-react';
 import AlarmStatusCard from '../components/AlarmStatusCard';
 import alarmService from '../services/alarmService';
 
@@ -100,11 +89,11 @@ const AlarmHistory = () => {
 
   const getSeverityIcon = (severity) => {
     const icons = {
-      'LEVE': <ExclamationTriangle className="text-warning" />,
-      'NORMAL': <ExclamationCircle className="text-info" />,
-      'GRAVE': <ExclamationDiamond className="text-danger" />
+      'LEVE': <ExclamationTriangle className="text-yellow-500" size={20} />,
+      'NORMAL': <ExclamationCircle className="text-blue-500" size={20} />,
+      'GRAVE': <ExclamationDiamond className="text-red-500" size={20} />
     };
-    return icons[severity] || <ExclamationTriangle />;
+    return icons[severity] || <ExclamationTriangle className="text-yellow-500" size={20} />;
   };
 
   const formatDate = (dateString) => {
@@ -118,12 +107,12 @@ const AlarmHistory = () => {
   };
 
   const getStatusBadge = (status) => {
-    const variants = {
-      'active': 'danger',
-      'resolved': 'success',
-      'paused': 'warning'
+    const colors = {
+      'active': 'bg-red-100 text-red-800',
+      'resolved': 'bg-green-100 text-green-800',
+      'paused': 'bg-yellow-100 text-yellow-800'
     };
-    return <Badge bg={variants[status] || 'secondary'}>{alarmService.getStatusLabel(status)}</Badge>;
+    return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
   const renderPagination = () => {
@@ -138,298 +127,331 @@ const AlarmHistory = () => {
       startPage = Math.max(1, endPage - maxVisiblePages + 1);
     }
 
-    // Previous button
-    pages.push(
-      <Pagination.Prev
-        key="prev"
-        disabled={currentPage === 1}
-        onClick={() => setCurrentPage(currentPage - 1)}
-      />
+    return (
+      <div className="flex justify-center items-center space-x-2 mt-6">
+        <button
+          onClick={() => setCurrentPage(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <ChevronLeft size={16} />
+        </button>
+
+        {startPage > 1 && (
+          <>
+            <button
+              onClick={() => setCurrentPage(1)}
+              className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              1
+            </button>
+            {startPage > 2 && <span className="px-2 text-gray-500">...</span>}
+          </>
+        )}
+
+        {Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i).map(page => (
+          <button
+            key={page}
+            onClick={() => setCurrentPage(page)}
+            className={`px-3 py-2 text-sm font-medium rounded-md ${
+              currentPage === page
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            {page}
+          </button>
+        ))}
+
+        {endPage < totalPages && (
+          <>
+            {endPage < totalPages - 1 && <span className="px-2 text-gray-500">...</span>}
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              {totalPages}
+            </button>
+          </>
+        )}
+
+        <button
+          onClick={() => setCurrentPage(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
     );
-
-    // First page
-    if (startPage > 1) {
-      pages.push(
-        <Pagination.Item
-          key={1}
-          active={currentPage === 1}
-          onClick={() => setCurrentPage(1)}
-        >
-          1
-        </Pagination.Item>
-      );
-      if (startPage > 2) {
-        pages.push(<Pagination.Ellipsis key="ellipsis1" />);
-      }
-    }
-
-    // Visible pages
-    for (let i = startPage; i <= endPage; i++) {
-      pages.push(
-        <Pagination.Item
-          key={i}
-          active={currentPage === i}
-          onClick={() => setCurrentPage(i)}
-        >
-          {i}
-        </Pagination.Item>
-      );
-    }
-
-    // Last page
-    if (endPage < totalPages) {
-      if (endPage < totalPages - 1) {
-        pages.push(<Pagination.Ellipsis key="ellipsis2" />);
-      }
-      pages.push(
-        <Pagination.Item
-          key={totalPages}
-          active={currentPage === totalPages}
-          onClick={() => setCurrentPage(totalPages)}
-        >
-          {totalPages}
-        </Pagination.Item>
-      );
-    }
-
-    // Next button
-    pages.push(
-      <Pagination.Next
-        key="next"
-        disabled={currentPage === totalPages}
-        onClick={() => setCurrentPage(currentPage + 1)}
-      />
-    );
-
-    return <Pagination className="justify-content-center">{pages}</Pagination>;
   };
 
   if (loading && alarms.length === 0) {
     return (
-      <Container className="mt-4">
-        <div className="text-center">
-          <Spinner animation="border" role="status">
-            <span className="visually-hidden">Cargando...</span>
-          </Spinner>
-          <p className="mt-2">Cargando histórico de alarmas...</p>
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Cargando histórico de alarmas...</p>
+          </div>
         </div>
-      </Container>
+      </div>
     );
   }
 
   return (
-    <Container className="mt-4">
-      <Row className="mb-4">
-        <Col>
-          <h2>
-            <ClockHistory className="me-2" />
-            Histórico de Alarmas
-          </h2>
-          <p className="text-muted">
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center mb-2">
+            <ClockHistory className="h-8 w-8 text-blue-600 mr-3" />
+            <h1 className="text-3xl font-bold text-gray-900">Histórico de Alarmas</h1>
+          </div>
+          <p className="text-gray-600">
             Historial completo de alarmas generadas y resueltas
           </p>
-        </Col>
-      </Row>
+        </div>
 
-      {error && (
-        <Alert variant="danger" dismissible onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <ExclamationTriangle className="h-5 w-5 text-red-400" />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+              <div className="ml-auto pl-3">
+                <button
+                  onClick={() => setError(null)}
+                  className="inline-flex text-red-400 hover:text-red-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
-      {/* Filtros */}
-      <Card className="mb-4">
-        <Card.Header>
-          <h5 className="mb-0">
-            <Filter className="me-2" />
-            Filtros de Búsqueda
-          </h5>
-        </Card.Header>
-        <Card.Body>
-          <Row>
-            <Col md={3}>
-              <Form.Group className="mb-3">
-                <Form.Label>Severidad</Form.Label>
-                <Form.Select
+        {/* Filtros */}
+        <div className="bg-white rounded-lg shadow mb-6">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900 flex items-center">
+              <Filter className="h-5 w-5 mr-2" />
+              Filtros de Búsqueda
+            </h3>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Severidad
+                </label>
+                <select
                   value={filters.severity}
                   onChange={(e) => handleFilterChange('severity', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Todas las severidades</option>
                   <option value="LEVE">Leve</option>
                   <option value="NORMAL">Normal</option>
                   <option value="GRAVE">Grave</option>
-                </Form.Select>
-              </Form.Group>
-            </Col>
-            <Col md={3}>
-              <Form.Group className="mb-3">
-                <Form.Label>Estado</Form.Label>
-                <Form.Select
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Estado
+                </label>
+                <select
                   value={filters.status}
                   onChange={(e) => handleFilterChange('status', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Todos los estados</option>
                   <option value="active">Activa</option>
                   <option value="resolved">Resuelta</option>
                   <option value="paused">Pausada</option>
-                </Form.Select>
-              </Form.Group>
-            </Col>
-            <Col md={3}>
-              <Form.Group className="mb-3">
-                <Form.Label>Tipo de Alarma</Form.Label>
-                <Form.Select
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tipo de Alarma
+                </label>
+                <select
                   value={filters.alarm_type}
                   onChange={(e) => handleFilterChange('alarm_type', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Todos los tipos</option>
                   <option value="panel">Panel</option>
                   <option value="camera">Cámara</option>
                   <option value="parking">Aparcamiento</option>
-                </Form.Select>
-              </Form.Group>
-            </Col>
-            <Col md={3}>
-              <Form.Group className="mb-3">
-                <Form.Label>Límite de resultados</Form.Label>
-                <Form.Select
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Límite de resultados
+                </label>
+                <select
                   value={filters.limit}
                   onChange={(e) => handleFilterChange('limit', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value={25}>25 resultados</option>
                   <option value={50}>50 resultados</option>
                   <option value={100}>100 resultados</option>
-                </Form.Select>
-              </Form.Group>
-            </Col>
-          </Row>
-          
-          <Row>
-            <Col md={4}>
-              <Form.Group className="mb-3">
-                <Form.Label>Fecha de Inicio</Form.Label>
-                <Form.Control
+                </select>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Fecha de Inicio
+                </label>
+                <input
                   type="date"
                   value={filters.start_date}
                   onChange={(e) => handleFilterChange('start_date', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-              </Form.Group>
-            </Col>
-            <Col md={4}>
-              <Form.Group className="mb-3">
-                <Form.Label>Fecha de Fin</Form.Label>
-                <Form.Control
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Fecha de Fin
+                </label>
+                <input
                   type="date"
                   value={filters.end_date}
                   onChange={(e) => handleFilterChange('end_date', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-              </Form.Group>
-            </Col>
-            <Col md={4} className="d-flex align-items-end">
-              <div className="d-flex gap-2 w-100">
-                <Button 
-                  variant="outline-secondary" 
+              </div>
+              
+              <div className="flex items-end space-x-2">
+                <button
                   onClick={handleClearFilters}
-                  className="flex-fill"
+                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   Limpiar Filtros
-                </Button>
-                <Button 
-                  variant="primary" 
+                </button>
+                <button
                   onClick={loadAlarmHistory}
-                  className="flex-fill"
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-center"
                 >
-                  <Search className="me-2" />
+                  <Search className="h-4 w-4 mr-2" />
                   Buscar
-                </Button>
+                </button>
               </div>
-            </Col>
-          </Row>
-        </Card.Body>
-      </Card>
-
-      {/* Resultados */}
-      <Card>
-        <Card.Header className="d-flex justify-content-between align-items-center">
-          <h5 className="mb-0">Resultados ({totalAlarms} alarmas)</h5>
-          {loading && <Spinner animation="border" size="sm" />}
-        </Card.Header>
-        <Card.Body>
-          {alarms.length === 0 ? (
-            <div className="text-center py-4">
-              <ClockHistory className="text-muted" size={48} />
-              <p className="mt-2 text-muted">No se encontraron alarmas con los filtros aplicados</p>
             </div>
-          ) : (
-            <div>
-              {alarms.map(alarm => (
-                <AlarmStatusCard
-                  key={alarm.id}
-                  alarm={alarm}
-                  onViewDetails={handleViewDetails}
-                />
-              ))}
-              
-              {renderPagination()}
-            </div>
-          )}
-        </Card.Body>
-      </Card>
+          </div>
+        </div>
 
-      {/* Modal de Detalles */}
-      <Modal 
-        show={showDetailsModal} 
-        onHide={() => setShowDetailsModal(false)}
-        size="lg"
-      >
-        <Modal.Header closeButton>
-          <Modal.Title>Detalles de la Alarma</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {selectedAlarm && (
-            <div>
-              <h5>{selectedAlarm.configuration_name}</h5>
-              <p className="text-muted">{selectedAlarm.message}</p>
+        {/* Resultados */}
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <h3 className="text-lg font-medium text-gray-900">
+              Resultados ({totalAlarms} alarmas)
+            </h3>
+            {loading && (
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            )}
+          </div>
+          
+          <div className="p-6">
+            {alarms.length === 0 ? (
+              <div className="text-center py-12">
+                <ClockHistory className="mx-auto h-12 w-12 text-gray-400" />
+                <p className="mt-4 text-gray-600">No se encontraron alarmas con los filtros aplicados</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {alarms.map(alarm => (
+                  <AlarmStatusCard
+                    key={alarm.id}
+                    alarm={alarm}
+                    onViewDetails={handleViewDetails}
+                  />
+                ))}
+                
+                {renderPagination()}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Modal de Detalles */}
+        {showDetailsModal && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Detalles de la Alarma</h3>
+                <button
+                  onClick={() => setShowDetailsModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
               
-              <Row>
-                <Col md={6}>
-                  <h6>Información General</h6>
-                  <p><strong>ID:</strong> {selectedAlarm.id}</p>
-                  <p><strong>Tipo:</strong> {alarmService.getAlarmTypeLabel(selectedAlarm.alarm_type)}</p>
-                  <p><strong>Severidad:</strong> {alarmService.getSeverityLabel(selectedAlarm.severity)}</p>
-                  <p><strong>Estado:</strong> {alarmService.getStatusLabel(selectedAlarm.status)}</p>
-                </Col>
-                <Col md={6}>
-                  <h6>Fechas</h6>
-                  <p><strong>Creada:</strong> {formatDate(selectedAlarm.created_at)}</p>
-                  {selectedAlarm.resolved_at && (
-                    <p><strong>Resuelta:</strong> {formatDate(selectedAlarm.resolved_at)}</p>
+              {selectedAlarm && (
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900">{selectedAlarm.configuration_name}</h4>
+                    <p className="text-gray-600 mt-1">{selectedAlarm.message}</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h5 className="font-medium text-gray-900 mb-3">Información General</h5>
+                      <div className="space-y-2 text-sm">
+                        <p><span className="font-medium">ID:</span> {selectedAlarm.id}</p>
+                        <p><span className="font-medium">Tipo:</span> {alarmService.getAlarmTypeLabel(selectedAlarm.alarm_type)}</p>
+                        <p><span className="font-medium">Severidad:</span> {alarmService.getSeverityLabel(selectedAlarm.severity)}</p>
+                        <p><span className="font-medium">Estado:</span> {alarmService.getStatusLabel(selectedAlarm.status)}</p>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h5 className="font-medium text-gray-900 mb-3">Fechas</h5>
+                      <div className="space-y-2 text-sm">
+                        <p><span className="font-medium">Creada:</span> {formatDate(selectedAlarm.created_at)}</p>
+                        {selectedAlarm.resolved_at && (
+                          <p><span className="font-medium">Resuelta:</span> {formatDate(selectedAlarm.resolved_at)}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {selectedAlarm.affected_targets && selectedAlarm.affected_targets.length > 0 && (
+                    <div>
+                      <h5 className="font-medium text-gray-900 mb-3">Objetivos Afectados</h5>
+                      <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
+                        {selectedAlarm.affected_targets.map((target, index) => (
+                          <li key={index}>{target.name || `ID: ${target.target_id}`}</li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
-                </Col>
-              </Row>
-              
-              {selectedAlarm.affected_targets && selectedAlarm.affected_targets.length > 0 && (
-                <div className="mt-3">
-                  <h6>Objetivos Afectados</h6>
-                  <ul>
-                    {selectedAlarm.affected_targets.map((target, index) => (
-                      <li key={index}>{target.name || `ID: ${target.target_id}`}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              
-              {selectedAlarm.resolution_description && (
-                <div className="mt-3">
-                  <h6>Descripción de la Resolución</h6>
-                  <p className="text-muted">{selectedAlarm.resolution_description}</p>
+                  
+                  {selectedAlarm.resolution_description && (
+                    <div>
+                      <h5 className="font-medium text-gray-900 mb-3">Descripción de la Resolución</h5>
+                      <p className="text-sm text-gray-600">{selectedAlarm.resolution_description}</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
-        </Modal.Body>
-      </Modal>
-    </Container>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 

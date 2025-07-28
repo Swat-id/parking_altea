@@ -47,7 +47,7 @@ const Parkings = () => {
 
   const { data: parkings = [], isLoading, error } = useQuery(
     'allParkings',
-    parkingService.getAllParkings,
+    parkingService.getParkings,
     {
       retry: 2,
       refetchOnWindowFocus: false,

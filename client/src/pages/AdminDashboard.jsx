@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { authService } from '../services/authService'
+import parkingService from '../services/parkingService'
 import { useAuth } from '../context/AuthContext'
 import { Link } from 'react-router-dom'
 
@@ -23,11 +24,11 @@ const AdminDashboard = () => {
       setLoading(true)
       const [usersResponse, parkingsResponse] = await Promise.all([
         authService.getAllUsers(),
-        fetch('/api/parkings').then(res => res.json())
+        parkingService.getParkings()
       ])
 
       const users = usersResponse.users || []
-      const parkings = parkingsResponse.parkings || []
+      const parkings = parkingsResponse || []
 
       // Calcular estadísticas
       const totalUsers = users.length
