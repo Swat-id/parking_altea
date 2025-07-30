@@ -70,6 +70,7 @@ class AlarmMonitorService:
     def _check_all_alarm_conditions(self):
         """Verificar todas las condiciones de alarmas activas"""
         try:
+            logger.info("🔍 Iniciando verificación de condiciones de alarmas...")
             with Session(self.engine) as session:
                 self.alarm_service = AlarmService(session)
                 self.email_service = EmailService()
@@ -79,11 +80,16 @@ class AlarmMonitorService:
                     AlarmConfiguration.status == 'active'
                 ).all()
                 
+                logger.info(f"📋 Encontradas {len(configurations)} configuraciones activas")
+                
                 for config in configurations:
                     try:
+                        logger.info(f"🔍 Verificando configuración {config.id} ({config.name}) - Tipo: {config.alarm_type}")
                         self._check_configuration_conditions(config, session)
                     except Exception as e:
                         logger.error(f"Error verificando configuración {config.id}: {e}")
+                
+                logger.info("✅ Verificación de condiciones completada")
                         
         except Exception as e:
             logger.error(f"Error en verificación de condiciones: {e}")
@@ -100,6 +106,8 @@ class AlarmMonitorService:
     def _check_panel_alarms(self, config: AlarmConfiguration, session: Session):
         """Verificar alarmas de paneles"""
         try:
+            logger.info(f"🔍 Verificando alarmas de paneles para configuración {config.id}")
+            
             # Obtener objetivos de la configuración
             targets = session.query(AlarmConfigurationTarget).filter(
                 AlarmConfigurationTarget.alarm_configuration_id == config.id
@@ -110,7 +118,10 @@ class AlarmMonitorService:
                 AlarmConfigurationThreshold.alarm_configuration_id == config.id
             ).order_by(AlarmConfigurationThreshold.threshold_value).all()
             
+            logger.info(f"📋 Encontrados {len(targets)} objetivos y {len(thresholds)} umbrales")
+            
             if not targets or not thresholds:
+                logger.warning("⚠️ No hay objetivos o umbrales configurados")
                 return
             
             affected_panels = []
@@ -118,19 +129,25 @@ class AlarmMonitorService:
             for target in targets:
                 panel = session.query(Panel).filter(Panel.id == target.target_id).first()
                 if not panel:
+                    logger.warning(f"⚠️ Panel {target.target_id} no encontrado")
                     continue
+                
+                logger.info(f"🔍 Verificando panel {panel.name} ({panel.ip})")
                 
                 # Verificar conectividad del panel
                 is_online = self._check_panel_connectivity(panel)
+                logger.info(f"📡 Panel {panel.name}: {'ONLINE' if is_online else 'OFFLINE'}")
                 
                 if not is_online:
                     # Calcular tiempo de desconexión
                     disconnect_time = self._calculate_disconnect_time(panel)
+                    logger.warning(f"⚠️ Panel {panel.name} desconectado por {disconnect_time} minutos")
                     
                     # Determinar severidad basada en umbrales
                     severity = self._determine_severity(disconnect_time, thresholds)
                     
                     if severity:
+                        logger.warning(f"🚨 Panel {panel.name} cumple criterio de severidad: {severity}")
                         affected_panels.append({
                             'id': panel.id,
                             'name': panel.name,
@@ -141,7 +158,10 @@ class AlarmMonitorService:
             
             # Generar alarmas si hay paneles afectados
             if affected_panels:
+                logger.warning(f"🚨 Generando {len(affected_panels)} alarmas de paneles")
                 self._generate_panel_alarms(config, affected_panels, session)
+            else:
+                logger.info("✅ No hay paneles afectados")
                 
         except Exception as e:
             logger.error(f"Error verificando alarmas de paneles para configuración {config.id}: {e}")
