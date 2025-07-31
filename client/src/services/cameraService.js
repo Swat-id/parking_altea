@@ -7,7 +7,7 @@ const cameraService = {
   async getParkingCameras(parkingId) {
     try {
       const response = await api.get(`/parking/${parkingId}/cameras`);
-      return response.data.cameras || [];
+      return response.data;
     } catch (error) {
       console.error('Error obteniendo cámaras del parking:', error);
       throw error;
