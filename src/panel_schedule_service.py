@@ -332,7 +332,7 @@ class PanelScheduleService:
                         panel_ip=panel.ip,
                         text=schedule.message,
                         color=schedule.color,
-                        font_size=schedule.font_size,
+                        font_size=2,  # Código 2 = 16 píxeles (valor correcto para el protocolo)
                         effect=self._get_effect_code(schedule.effect)
                     )
                     if result.get('success'):
@@ -400,7 +400,7 @@ class PanelScheduleService:
                         panel_ip=panel.ip,
                         text=message,
                         color=color,
-                        font_size=16,  # font_size por defecto
+                        font_size=2,  # Código 2 = 16 píxeles
                         effect=2  # Efecto estático (valor correcto)
                     )
                     if result.get('success'):
