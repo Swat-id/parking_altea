@@ -32,6 +32,7 @@ Documentación general del proyecto con descripción, arquitectura, componentes 
 ### v3.1.0
 - [Análisis Profundo Sistema Cámaras y Programaciones](analisis_profundo_sistema_camaras_programaciones.md) - Análisis y correcciones implementadas
 - [Correcciones Programaciones vs Ocupación](correcciones_programaciones_ocupacion_v3.md) - Correcciones en la integración entre programaciones y actualización de ocupación
+- [Verificación Frontend Programaciones](verificacion_frontend_programaciones.md) - Verificación del comportamiento del frontend con programaciones
 
 ### [Estado del Proyecto](./project_status.md)
 Documento completo del estado actual del proyecto con resultados de pruebas y funcionalidades implementadas.
