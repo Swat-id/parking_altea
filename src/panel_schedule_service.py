@@ -379,18 +379,22 @@ class PanelScheduleService:
             if not parking:
                 return {'success': False, 'error': 'Parking no encontrado'}
             
-            # Determinar mensaje según estado del parking
-            occupancy_percent = (parking.current_occupancy / parking.max_capacity) * 100
+            # CORRECCIÓN: Usar la misma lógica que camera_server.py
+            occ = parking.current_occupancy
+            free = parking.max_capacity - occ
             
-            if occupancy_percent < parking.threshold_dense:
-                message = "LLIURE"
-                color = 2  # Verde
-            elif occupancy_percent < parking.threshold_full:
+            if free < 0 or occ > parking.max_capacity:
+                message = "COMPLET"
+                color = 1  # Rojo
+            elif free <= parking.threshold_full:
+                message = "COMPLET"
+                color = 1  # Rojo
+            elif free <= parking.threshold_dense:
                 message = "DENS"
                 color = 3  # Amarillo
             else:
-                message = "COMPLET"
-                color = 1  # Rojo
+                message = "LLIURE"
+                color = 2  # Verde
             
             # Enviar mensaje de estado a todos los paneles
             success_count = 0
