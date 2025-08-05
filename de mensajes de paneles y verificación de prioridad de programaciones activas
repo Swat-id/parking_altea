@@ -1,0 +1,9 @@
+docs/correcciones_mensajes_paneles_v3.2.1.md
+docs/resumen_verificacion_prioridad_programaciones.md
+docs/verificacion_prioridad_programaciones_activas.md
+src/camera_server.py
+src/panel_schedule_service.py
+test/diagnose_panel_messages.py
+test/validate_database_complete.py
+test/verify_panel_message_fixes.py
+test/verify_schedule_priority.py

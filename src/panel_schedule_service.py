@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 class PanelScheduleService:
     def __init__(self, session: Session, panel_service_url: str = None):
         self.session = session
+        # Usar URL por defecto si no se proporciona
+        if panel_service_url is None:
+            panel_service_url = "http://localhost:8888/api/v1/panels/send"
         self.panel_communication_service = PanelCommunicationService(panel_service_url)
     
     def create_schedule(self, schedule_data: dict) -> dict:
