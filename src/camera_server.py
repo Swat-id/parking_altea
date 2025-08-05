@@ -473,7 +473,7 @@ def handle_camera():
                     logger.info(f"Fixed message flag is active for {parking.name} - no status update")
                 else:
                     # CORRECCIÓN: Solo actualizar el estado, NO generar el mensaje aquí
-                                        if free < 0:
+                    if free < 0:
                         # Estado especial para descuadres negativos
                         parking.status = 'COMPLETO'
                         logger.warning(f"Status set to COMPLETO (descuadre negativo) for {parking.name} - Free spaces: {free}")
