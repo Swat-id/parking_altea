@@ -472,21 +472,21 @@ def handle_camera():
                     parking_status = parking.status  # Mantener estado actual
                     logger.info(f"Fixed message flag is active for {parking.name} - no status update")
                 else:
-                                    # CORRECCIÓN: Solo actualizar el estado, NO generar el mensaje aquí
-                if free < 0:
-                    # Estado especial para descuadres negativos
-                    parking.status = 'COMPLETO'
-                    logger.warning(f"Status set to COMPLETO (descuadre negativo) for {parking.name} - Free spaces: {free}")
-                elif occ > parking.max_capacity:
-                    # Estado para exceso de ocupación
-                    parking.status = 'COMPLETO'
-                    logger.warning(f"Status set to COMPLETO (exceso) for {parking.name} - Occupancy: {occ}, Capacity: {parking.max_capacity}")
-                elif free <= parking.threshold_full:
-                    parking.status = 'COMPLETO'
-                elif free <= parking.threshold_dense:
-                    parking.status = 'DENSO'
-                else:
-                    parking.status = 'LIBRE'
+                    # CORRECCIÓN: Solo actualizar el estado, NO generar el mensaje aquí
+                                        if free < 0:
+                        # Estado especial para descuadres negativos
+                        parking.status = 'COMPLETO'
+                        logger.warning(f"Status set to COMPLETO (descuadre negativo) for {parking.name} - Free spaces: {free}")
+                    elif occ > parking.max_capacity:
+                        # Estado para exceso de ocupación
+                        parking.status = 'COMPLETO'
+                        logger.warning(f"Status set to COMPLETO (exceso) for {parking.name} - Occupancy: {occ}, Capacity: {parking.max_capacity}")
+                    elif free <= parking.threshold_full:
+                        parking.status = 'COMPLETO'
+                    elif free <= parking.threshold_dense:
+                        parking.status = 'DENSO'
+                    else:
+                        parking.status = 'LIBRE'
                     
                     parking_status = parking.status
                     logger.info(f"Status updated for {parking.name} - Previous: {previous_status}, New: {parking.status}, Free spaces: {free}")
