@@ -207,8 +207,17 @@ class AlarmService:
             return []
     
     def check_duplicate_alarm(self, configuration_id: int, severity: str, target_id: str = None, target_type: str = None) -> bool:
-        """Verificar si ya existe una alarma activa para el mismo equipo específico"""
+        """Verificar si ya existe una alarma activa para el mismo equipo específico del MISMO USUARIO"""
         try:
+            # Obtener la configuración para saber el user_id
+            configuration = self.session.query(AlarmConfiguration).filter(
+                AlarmConfiguration.id == configuration_id
+            ).first()
+            
+            if not configuration:
+                logger.error(f"Configuración {configuration_id} no encontrada")
+                return False
+            
             # Si no se especifica target, usar lógica antigua (por configuración+severidad)
             if not target_id or not target_type:
                 existing_alarm = self.session.query(Alarm).filter(
@@ -221,9 +230,12 @@ class AlarmService:
                 return existing_alarm is not None
             
             # Nueva lógica: buscar alarma activa para el equipo específico 
-            # (independientemente de la configuración para evitar duplicados entre configs)
-            existing_alarms = self.session.query(Alarm).filter(
-                Alarm.status == 'active'
+            # SOLO DENTRO DEL MISMO USUARIO (configuraciones independientes por usuario)
+            existing_alarms = self.session.query(Alarm).join(AlarmConfiguration).filter(
+                and_(
+                    Alarm.status == 'active',
+                    AlarmConfiguration.user_id == configuration.user_id
+                )
             ).all()
             
             # Verificar si alguna alarma activa afecta al mismo equipo
