@@ -27,6 +27,7 @@ import {
   PlayCircle
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import api from '../services/api'
 
 const API_BASE_URL = 'http://157.180.91.63:5789'
 
@@ -175,7 +176,7 @@ const Schedules = () => {
   )
 
   const executeScheduleMutation = useMutation(
-    (id) => fetch(`${API_BASE_URL}/api/schedules/${id}/execute`, { method: 'POST' }).then(res => res.json()),
+    (id) => api.post(`/schedules/${id}/execute`).then(res => res.data),
     {
       onSuccess: (data) => {
         if (data.success) {
@@ -191,7 +192,7 @@ const Schedules = () => {
   )
 
   const executeAllSchedulesMutation = useMutation(
-    () => fetch(`${API_BASE_URL}/api/schedules/execute-all`, { method: 'POST' }).then(res => res.json()),
+    () => api.post('/schedules/execute-all').then(res => res.data),
     {
       onSuccess: (data) => {
         if (data.success) {
