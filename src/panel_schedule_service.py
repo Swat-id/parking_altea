@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import Session
 from models import PanelSchedule, PanelScheduleLog, Parking, Panel
+import threading
+import concurrent.futures
 from panel_communication_service import PanelCommunicationService
 
 logger = logging.getLogger(__name__)
@@ -241,8 +243,83 @@ class PanelScheduleService:
             logger.error(f"Error actualizando programación: {e}")
             return {'success': False, 'error': str(e)}
     
+    def _execute_schedule_thread_safe(self, schedule: PanelSchedule) -> dict:
+        """Ejecutar una programación de forma thread-safe"""
+        try:
+            # Crear nueva sesión para este hilo
+            from sqlalchemy import create_engine
+            from sqlalchemy.orm import sessionmaker
+            from config import DB_URL
+            
+            engine = create_engine(DB_URL)
+            SessionLocal = sessionmaker(bind=engine)
+            local_session = SessionLocal()
+            
+            try:
+                # Obtener paneles del parking (solo los ONLINE para eficiencia)
+                panels = local_session.query(Panel).filter(
+                    and_(
+                        Panel.parking_id == schedule.parking_id,
+                        Panel.status == 'ONLINE'  # Solo paneles online para evitar timeouts
+                    )
+                ).all()
+                
+                if not panels:
+                    return {'success': False, 'error': 'No hay paneles online para este parking'}
+                
+                # Crear servicio de comunicación con timeout optimizado
+                panel_service = PanelCommunicationService(timeout=3, retry_attempts=1)
+                
+                success_count = 0
+                for panel in panels:
+                    try:
+                        result = panel_service.send_custom_text(
+                            panel_ip=panel.ip,
+                            text=schedule.message,
+                            color=schedule.color,
+                            font_size=2,
+                            effect=self._get_effect_code(schedule.effect)
+                        )
+                        if result.get('success'):
+                            success_count += 1
+                            # Actualizar panel en sesión local
+                            panel.last_message = schedule.message
+                            panel.last_update = datetime.now()
+                    except Exception as e:
+                        logger.warning(f"Error enviando a panel {panel.id}: {e}")
+                
+                # Registrar log
+                log = PanelScheduleLog(
+                    schedule_id=schedule.id,
+                    parking_id=schedule.parking_id,
+                    execution_type='started',
+                    message_sent=schedule.message,
+                    panels_affected=success_count
+                )
+                local_session.add(log)
+                local_session.commit()
+                
+                return {
+                    'success': True,
+                    'panels_affected': success_count,
+                    'schedule_id': schedule.id,
+                    'schedule_name': schedule.name
+                }
+                
+            finally:
+                local_session.close()
+                
+        except Exception as e:
+            logger.error(f"Error ejecutando programación {schedule.id}: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'schedule_id': schedule.id,
+                'schedule_name': schedule.name
+            }
+
     def execute_all_active_schedules(self) -> dict:
-        """Ejecutar todas las programaciones activas"""
+        """Ejecutar todas las programaciones activas en paralelo"""
         try:
             # Obtener todas las programaciones activas
             active_schedules = self.session.query(PanelSchedule).filter(
@@ -252,43 +329,67 @@ class PanelScheduleService:
             if not active_schedules:
                 return {'success': True, 'message': 'No hay programaciones activas para ejecutar', 'schedules_executed': 0}
             
+            logger.info(f"🚀 Iniciando ejecución paralela de {len(active_schedules)} programaciones")
+            
+            # Ejecutar en paralelo con máximo 5 hilos concurrentes
             executed_count = 0
             failed_count = 0
             total_panels_affected = 0
             execution_details = []
             
-            for schedule in active_schedules:
-                try:
-                    result = self.execute_schedule(schedule)
-                    if result['success']:
-                        executed_count += 1
-                        panels_affected = result.get('panels_affected', 0)
-                        total_panels_affected += panels_affected
-                        execution_details.append({
-                            'schedule_id': schedule.id,
-                            'schedule_name': schedule.name,
-                            'status': 'success',
-                            'panels_affected': panels_affected
-                        })
-                        logger.info(f"✅ Programación '{schedule.name}' ejecutada exitosamente ({panels_affected} paneles)")
-                    else:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+                # Enviar todas las tareas
+                future_to_schedule = {
+                    executor.submit(self._execute_schedule_thread_safe, schedule): schedule 
+                    for schedule in active_schedules
+                }
+                
+                # Recoger resultados con timeout de 15 segundos por programación
+                for future in concurrent.futures.as_completed(future_to_schedule, timeout=120):
+                    try:
+                        result = future.result(timeout=15)  # 15s max por programación
+                        
+                        if result['success']:
+                            executed_count += 1
+                            panels_affected = result.get('panels_affected', 0)
+                            total_panels_affected += panels_affected
+                            execution_details.append({
+                                'schedule_id': result['schedule_id'],
+                                'schedule_name': result['schedule_name'],
+                                'status': 'success',
+                                'panels_affected': panels_affected
+                            })
+                            logger.info(f"✅ Programación '{result['schedule_name']}' ejecutada ({panels_affected} paneles)")
+                        else:
+                            failed_count += 1
+                            execution_details.append({
+                                'schedule_id': result['schedule_id'],
+                                'schedule_name': result['schedule_name'],
+                                'status': 'failed',
+                                'error': result.get('error', 'Error desconocido')
+                            })
+                            logger.warning(f"⚠️ Error programación '{result['schedule_name']}': {result.get('error')}")
+                            
+                    except concurrent.futures.TimeoutError:
+                        schedule = future_to_schedule[future]
                         failed_count += 1
                         execution_details.append({
                             'schedule_id': schedule.id,
                             'schedule_name': schedule.name,
                             'status': 'failed',
-                            'error': result.get('error', 'Error desconocido')
+                            'error': 'Timeout de 15 segundos excedido'
                         })
-                        logger.error(f"❌ Error ejecutando programación '{schedule.name}': {result.get('error')}")
-                except Exception as e:
-                    failed_count += 1
-                    execution_details.append({
-                        'schedule_id': schedule.id,
-                        'schedule_name': schedule.name,
-                        'status': 'failed',
-                        'error': str(e)
-                    })
-                    logger.error(f"❌ Excepción ejecutando programación '{schedule.name}': {e}")
+                        logger.error(f"⏰ Timeout programación '{schedule.name}'")
+                    except Exception as e:
+                        schedule = future_to_schedule[future]
+                        failed_count += 1
+                        execution_details.append({
+                            'schedule_id': schedule.id,
+                            'schedule_name': schedule.name,
+                            'status': 'failed',
+                            'error': str(e)
+                        })
+                        logger.error(f"❌ Excepción ejecutando programación '{schedule.name}': {e}")
             
             logger.info(f"🔄 Ejecución masiva completada: {executed_count} exitosas, {failed_count} fallidas, {total_panels_affected} paneles afectados")
             
