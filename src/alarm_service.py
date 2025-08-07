@@ -206,18 +206,37 @@ class AlarmService:
             logger.error(f"Error obteniendo histórico de alarmas: {e}")
             return []
     
-    def check_duplicate_alarm(self, configuration_id: int, severity: str) -> bool:
-        """Verificar si ya existe una alarma activa del mismo tipo y gravedad"""
+    def check_duplicate_alarm(self, configuration_id: int, severity: str, target_id: str = None, target_type: str = None) -> bool:
+        """Verificar si ya existe una alarma activa para el mismo equipo específico"""
         try:
-            existing_alarm = self.session.query(Alarm).filter(
+            # Si no se especifica target, usar lógica antigua (por configuración+severidad)
+            if not target_id or not target_type:
+                existing_alarm = self.session.query(Alarm).filter(
+                    and_(
+                        Alarm.alarm_configuration_id == configuration_id,
+                        Alarm.severity == severity,
+                        Alarm.status == 'active'
+                    )
+                ).first()
+                return existing_alarm is not None
+            
+            # Nueva lógica: buscar alarma activa para el equipo específico
+            existing_alarms = self.session.query(Alarm).filter(
                 and_(
                     Alarm.alarm_configuration_id == configuration_id,
-                    Alarm.severity == severity,
                     Alarm.status == 'active'
                 )
-            ).first()
+            ).all()
             
-            return existing_alarm is not None
+            # Verificar si alguna alarma activa afecta al mismo equipo
+            for alarm in existing_alarms:
+                if alarm.affected_targets:
+                    for target in alarm.affected_targets:
+                        if (target.get('id') == int(target_id) if str(target_id).isdigit() else target.get('id') == target_id) and target.get('type') == target_type:
+                            logger.info(f"Alarma duplicada encontrada para {target_type} {target_id} (alarma {alarm.id})")
+                            return True
+            
+            return False
         except Exception as e:
             logger.error(f"Error verificando alarma duplicada: {e}")
             return False
@@ -225,10 +244,20 @@ class AlarmService:
     def create_alarm(self, configuration_id: int, severity: str, message: str, affected_targets: List[Dict]) -> Optional[Alarm]:
         """Crear una nueva alarma"""
         try:
-            # Verificar si ya existe una alarma activa del mismo tipo y gravedad
-            if self.check_duplicate_alarm(configuration_id, severity):
-                logger.info(f"Alarma duplicada detectada para configuración {configuration_id}, severidad {severity}")
-                return None
+            # Verificar si ya existe una alarma activa para el equipo específico
+            if affected_targets and len(affected_targets) > 0:
+                target = affected_targets[0]  # Usar el primer target para verificar duplicados
+                target_id = str(target.get('id'))
+                target_type = target.get('type')
+                
+                if self.check_duplicate_alarm(configuration_id, severity, target_id, target_type):
+                    logger.info(f"Alarma duplicada detectada para {target_type} {target_id}")
+                    return None
+            else:
+                # Fallback a lógica antigua si no hay targets específicos
+                if self.check_duplicate_alarm(configuration_id, severity):
+                    logger.info(f"Alarma duplicada detectada para configuración {configuration_id}, severidad {severity}")
+                    return None
             
             # Obtener la configuración para obtener el user_id
             configuration = self.session.query(AlarmConfiguration).filter(
