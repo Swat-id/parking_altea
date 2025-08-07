@@ -141,7 +141,8 @@ class AlarmMonitorService:
                 if not is_online:
                     # Calcular tiempo de desconexión
                     disconnect_time = self._calculate_disconnect_time(panel)
-                    logger.warning(f"⚠️ Panel {panel.name} desconectado por {disconnect_time} minutos")
+                    time_formatted = self._format_disconnect_time(disconnect_time)
+                    logger.warning(f"⚠️ Panel {panel.name} desconectado por {time_formatted} ({disconnect_time} minutos)")
                     
                     # Determinar severidad basada en umbrales
                     severity = self._determine_severity(disconnect_time, thresholds)
@@ -339,13 +340,36 @@ class AlarmMonitorService:
             logger.error(f"Error realizando ping a {ip}: {e}")
             return False
     
+    def _format_disconnect_time(self, minutes: int) -> str:
+        """Formatear tiempo de desconexión en formato legible"""
+        if minutes >= 1440:  # más de 1 día
+            days = int(minutes // 1440)
+            hours = int((minutes % 1440) // 60)
+            mins = int(minutes % 60)
+            return f"{days}d {hours}h {mins}m"
+        elif minutes >= 60:  # más de 1 hora
+            hours = int(minutes // 60)
+            mins = int(minutes % 60)
+            return f"{hours}h {mins}m"
+        else:
+            return f"{int(minutes)}m"
+    
     def _calculate_disconnect_time(self, equipment) -> int:
         """Calcular tiempo de desconexión en minutos"""
         try:
-            if not equipment.last_ping_check:
+            # Para paneles, usar last_protocol_check; para cámaras, usar last_update
+            last_check = None
+            if hasattr(equipment, 'last_protocol_check'):
+                last_check = equipment.last_protocol_check
+            elif hasattr(equipment, 'last_update'):
+                last_check = equipment.last_update
+            elif hasattr(equipment, 'updated_at'):
+                last_check = equipment.updated_at
+            
+            if not last_check:
                 return 999  # Valor alto si nunca se ha verificado
             
-            disconnect_duration = datetime.now(timezone.utc) - equipment.last_ping_check
+            disconnect_duration = datetime.now(timezone.utc) - last_check
             return int(disconnect_duration.total_seconds() / 60)
         except Exception as e:
             logger.error(f"Error calculando tiempo de desconexión: {e}")
@@ -354,9 +378,22 @@ class AlarmMonitorService:
     def _determine_severity(self, disconnect_time: int, thresholds: List[AlarmConfigurationThreshold]) -> Optional[str]:
         """Determinar severidad basada en tiempo de desconexión y umbrales"""
         try:
-            for threshold in thresholds:
+            # Ordenar umbrales de mayor a menor para encontrar la severidad correcta
+            sorted_thresholds = sorted(thresholds, key=lambda x: x.threshold_value, reverse=True)
+            
+            logger.debug(f"Evaluando tiempo {disconnect_time} minutos contra umbrales:")
+            for threshold in sorted_thresholds:
+                logger.debug(f"  - {threshold.threshold_value} minutos → {threshold.severity}")
                 if disconnect_time >= threshold.threshold_value:
+                    logger.info(f"✅ Tiempo {disconnect_time}m ≥ {threshold.threshold_value}m → Severidad: {threshold.severity}")
                     return threshold.severity
+            
+            # Si no cumple ningún umbral, devolver la severidad más baja
+            if thresholds:
+                lowest_threshold = min(thresholds, key=lambda x: x.threshold_value)
+                logger.info(f"⚠️ Tiempo {disconnect_time}m < todos los umbrales → Severidad mínima: {lowest_threshold.severity}")
+                return lowest_threshold.severity
+            
             return None
         except Exception as e:
             logger.error(f"Error determinando severidad: {e}")
@@ -445,7 +482,8 @@ class AlarmMonitorService:
         """Generar alarmas para paneles afectados"""
         try:
             for panel_info in affected_panels:
-                message = f"Panel {panel_info['name']} ({panel_info['ip']}) desconectado por {panel_info['disconnect_time']} minutos"
+                time_formatted = self._format_disconnect_time(panel_info['disconnect_time'])
+                message = f"Panel {panel_info['name']} ({panel_info['ip']}) desconectado por {time_formatted}"
                 
                 alarm = self.alarm_service.create_alarm(
                     configuration_id=config.id,
