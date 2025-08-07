@@ -25,12 +25,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class ScheduleMonitorService:
-    def __init__(self, check_interval: int = 60):
+    def __init__(self, check_interval: int = 600):
         """
         Inicializar el servicio de monitorización
         
         Args:
-            check_interval: Intervalo en segundos para verificar programaciones (default: 60)
+            check_interval: Intervalo en segundos para verificar programaciones (default: 600)
         """
         self.check_interval = check_interval
         self.engine = create_engine(DB_URL)
@@ -117,7 +117,12 @@ class ScheduleMonitorService:
                         execution_key = f"{schedule_id}_{current_time.strftime('%Y%m%d_%H%M')}"
                         
                         if execution_key not in self.executed_schedules:
-                            logger.info(f"Ejecutando programación: {schedule_data['name']} (ID: {schedule_id})")
+                            # Verificar si ha habido ejecuciones manuales recientes (últimos 5 minutos)
+                            if self._has_recent_manual_execution(session, schedule_id):
+                                logger.info(f"Saltando programación {schedule_data['name']} - ejecución manual reciente detectada")
+                                continue
+                                
+                            logger.info(f"Ejecutando programación automática: {schedule_data['name']} (ID: {schedule_id})")
                             
                             # Obtener el objeto schedule completo
                             schedule = session.query(PanelSchedule).filter(PanelSchedule.id == schedule_id).first()
@@ -275,6 +280,30 @@ class ScheduleMonitorService:
             if 'session' in locals():
                 session.close()
     
+    def _has_recent_manual_execution(self, session, schedule_id: int) -> bool:
+        """Verificar si ha habido una ejecución manual reciente de la programación"""
+        try:
+            # Buscar logs de ejecución de los últimos 5 minutos
+            five_minutes_ago = datetime.now() - timedelta(minutes=5)
+            
+            recent_log = session.query(PanelScheduleLog).filter(
+                and_(
+                    PanelScheduleLog.schedule_id == schedule_id,
+                    PanelScheduleLog.created_at >= five_minutes_ago,
+                    PanelScheduleLog.execution_type == 'started'
+                )
+            ).order_by(PanelScheduleLog.created_at.desc()).first()
+            
+            if recent_log:
+                logger.debug(f"Ejecución manual reciente encontrada para programación {schedule_id}: {recent_log.created_at}")
+                return True
+                
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error verificando ejecuciones recientes para programación {schedule_id}: {e}")
+            return False  # En caso de error, permitir ejecución
+
     def _schedule_just_ended(self, schedule_data, current_time, current_time_str, current_weekday_field):
         """Verificar si una programación acaba de terminar (hace menos de 1 minuto)"""
         try:
