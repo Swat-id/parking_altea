@@ -2434,7 +2434,7 @@ def execute_schedule(schedule_id):
         return jsonify({'error': 'Internal server error'}), 500
 
 @api_bp.route('/schedules/execute-all', methods=['POST'])
-@require_superadmin
+@require_auth
 def execute_all_schedules():
     """Ejecutar todas las programaciones activas"""
     try:
