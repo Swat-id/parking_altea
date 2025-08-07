@@ -215,11 +215,94 @@ class PanelScheduleService:
             self.session.commit()
             
             logger.info(f"Programación actualizada: {schedule_id}")
-            return {'success': True}
+            
+            # AUTO-EJECUTAR: Si la programación está activa, ejecutarla inmediatamente
+            if schedule.is_active:
+                execution_result = self.execute_schedule(schedule)
+                if execution_result['success']:
+                    logger.info(f"Programación {schedule_id} ejecutada automáticamente después de actualizar")
+                    return {
+                        'success': True, 
+                        'auto_executed': True,
+                        'panels_affected': execution_result.get('panels_affected', 0)
+                    }
+                else:
+                    logger.warning(f"Error auto-ejecutando programación {schedule_id}: {execution_result.get('error')}")
+                    return {
+                        'success': True, 
+                        'auto_executed': False,
+                        'execution_error': execution_result.get('error')
+                    }
+            
+            return {'success': True, 'auto_executed': False}
             
         except Exception as e:
             self.session.rollback()
             logger.error(f"Error actualizando programación: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def execute_all_active_schedules(self) -> dict:
+        """Ejecutar todas las programaciones activas"""
+        try:
+            # Obtener todas las programaciones activas
+            active_schedules = self.session.query(PanelSchedule).filter(
+                PanelSchedule.is_active == True
+            ).all()
+            
+            if not active_schedules:
+                return {'success': True, 'message': 'No hay programaciones activas para ejecutar', 'schedules_executed': 0}
+            
+            executed_count = 0
+            failed_count = 0
+            total_panels_affected = 0
+            execution_details = []
+            
+            for schedule in active_schedules:
+                try:
+                    result = self.execute_schedule(schedule)
+                    if result['success']:
+                        executed_count += 1
+                        panels_affected = result.get('panels_affected', 0)
+                        total_panels_affected += panels_affected
+                        execution_details.append({
+                            'schedule_id': schedule.id,
+                            'schedule_name': schedule.name,
+                            'status': 'success',
+                            'panels_affected': panels_affected
+                        })
+                        logger.info(f"✅ Programación '{schedule.name}' ejecutada exitosamente ({panels_affected} paneles)")
+                    else:
+                        failed_count += 1
+                        execution_details.append({
+                            'schedule_id': schedule.id,
+                            'schedule_name': schedule.name,
+                            'status': 'failed',
+                            'error': result.get('error', 'Error desconocido')
+                        })
+                        logger.error(f"❌ Error ejecutando programación '{schedule.name}': {result.get('error')}")
+                except Exception as e:
+                    failed_count += 1
+                    execution_details.append({
+                        'schedule_id': schedule.id,
+                        'schedule_name': schedule.name,
+                        'status': 'failed',
+                        'error': str(e)
+                    })
+                    logger.error(f"❌ Excepción ejecutando programación '{schedule.name}': {e}")
+            
+            logger.info(f"🔄 Ejecución masiva completada: {executed_count} exitosas, {failed_count} fallidas, {total_panels_affected} paneles afectados")
+            
+            return {
+                'success': True,
+                'schedules_executed': executed_count,
+                'schedules_failed': failed_count,
+                'total_schedules': len(active_schedules),
+                'total_panels_affected': total_panels_affected,
+                'execution_details': execution_details
+            }
+            
+        except Exception as e:
+            logger.error(f"Error ejecutando todas las programaciones: {e}")
             return {'success': False, 'error': str(e)}
     
     def delete_schedule(self, schedule_id: int) -> dict:

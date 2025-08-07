@@ -2433,6 +2433,25 @@ def execute_schedule(schedule_id):
         logger.error(f"Error ejecutando programación: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@api_bp.route('/schedules/execute-all', methods=['POST'])
+@require_superadmin
+def execute_all_schedules():
+    """Ejecutar todas las programaciones activas"""
+    try:
+        session = Session()
+        schedule_service = PanelScheduleService(session, "http://localhost:6001/api/v1/panels/send")
+        result = schedule_service.execute_all_active_schedules()
+        session.close()
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify({'error': result['error']}), 400
+            
+    except Exception as e:
+        logger.error(f"Error ejecutando todas las programaciones: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 @api_bp.route('/schedules/logs', methods=['GET'])
 def get_schedule_logs():
     """Obtener logs de programaciones"""

@@ -23,7 +23,8 @@ import {
   Search,
   RefreshCw,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  PlayCircle
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -115,7 +116,15 @@ const Schedules = () => {
     {
       onSuccess: (data) => {
         if (data.success) {
-          toast.success('Programación actualizada exitosamente')
+          let message = 'Programación actualizada exitosamente'
+          
+          if (data.auto_executed) {
+            message += ` y ejecutada automáticamente (${data.panels_affected} paneles afectados)`
+          } else if (data.execution_error) {
+            message += ', pero falló la ejecución automática'
+          }
+          
+          toast.success(message)
           setShowForm(false)
           setEditingSchedule(null)
           resetForm()
@@ -177,6 +186,30 @@ const Schedules = () => {
       },
       onError: () => {
         toast.error('Error al ejecutar la programación')
+      }
+    }
+  )
+
+  const executeAllSchedulesMutation = useMutation(
+    () => fetch(`${API_BASE_URL}/api/schedules/execute-all`, { method: 'POST' }).then(res => res.json()),
+    {
+      onSuccess: (data) => {
+        if (data.success) {
+          const message = data.schedules_executed > 0 
+            ? `${data.schedules_executed} programaciones ejecutadas exitosamente (${data.total_panels_affected} paneles afectados)`
+            : data.message || 'No hay programaciones activas para ejecutar'
+          
+          if (data.schedules_failed > 0) {
+            toast.success(`${message}. ${data.schedules_failed} programaciones fallaron.`)
+          } else {
+            toast.success(message)
+          }
+        } else {
+          toast.error(data.error || 'Error al ejecutar las programaciones')
+        }
+      },
+      onError: () => {
+        toast.error('Error al ejecutar las programaciones')
       }
     }
   )
@@ -258,6 +291,12 @@ const Schedules = () => {
     executeScheduleMutation.mutate(id)
   }
 
+  const handleExecuteAll = () => {
+    if (window.confirm('¿Estás seguro de que quieres ejecutar todas las programaciones activas?')) {
+      executeAllSchedulesMutation.mutate()
+    }
+  }
+
   const getColorName = (colorCode) => {
     const colors = {
       1: 'Rojo',
@@ -318,17 +357,27 @@ const Schedules = () => {
           <h1 className="text-3xl font-bold text-gray-900">Programaciones de Paneles</h1>
           <p className="text-gray-600 mt-2">Gestiona las programaciones automáticas de los paneles electrónicos</p>
         </div>
-        <button
-          onClick={() => {
-            setShowForm(true)
-            setEditingSchedule(null)
-            resetForm()
-          }}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-        >
-          <Plus className="h-5 w-5" />
-          Nueva Programación
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={handleExecuteAll}
+            disabled={executeAllSchedulesMutation.isLoading}
+            className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+          >
+            <PlayCircle className="h-5 w-5" />
+            {executeAllSchedulesMutation.isLoading ? 'Ejecutando...' : 'Ejecutar Todas las Programaciones'}
+          </button>
+          <button
+            onClick={() => {
+              setShowForm(true)
+              setEditingSchedule(null)
+              resetForm()
+            }}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+          >
+            <Plus className="h-5 w-5" />
+            Nueva Programación
+          </button>
+        </div>
       </div>
 
       {/* Filtros */}
