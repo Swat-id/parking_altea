@@ -220,21 +220,32 @@ class AlarmService:
                 ).first()
                 return existing_alarm is not None
             
-            # Nueva lógica: buscar alarma activa para el equipo específico
+            # Nueva lógica: buscar alarma activa para el equipo específico 
+            # (independientemente de la configuración para evitar duplicados entre configs)
             existing_alarms = self.session.query(Alarm).filter(
-                and_(
-                    Alarm.alarm_configuration_id == configuration_id,
-                    Alarm.status == 'active'
-                )
+                Alarm.status == 'active'
             ).all()
             
             # Verificar si alguna alarma activa afecta al mismo equipo
             for alarm in existing_alarms:
                 if alarm.affected_targets:
-                    for target in alarm.affected_targets:
-                        if (target.get('id') == int(target_id) if str(target_id).isdigit() else target.get('id') == target_id) and target.get('type') == target_type:
-                            logger.info(f"Alarma duplicada encontrada para {target_type} {target_id} (alarma {alarm.id})")
-                            return True
+                    try:
+                        # Convertir JSON string a lista de diccionarios
+                        targets = json.loads(alarm.affected_targets) if isinstance(alarm.affected_targets, str) else alarm.affected_targets
+                        
+                        for target in targets:
+                            target_id_match = False
+                            if str(target_id).isdigit() and isinstance(target.get('id'), int):
+                                target_id_match = target.get('id') == int(target_id)
+                            else:
+                                target_id_match = str(target.get('id')) == str(target_id)
+                            
+                            if target_id_match and target.get('type') == target_type:
+                                logger.info(f"Alarma duplicada encontrada para {target_type} {target_id} (alarma {alarm.id})")
+                                return True
+                    except (json.JSONDecodeError, TypeError) as e:
+                        logger.error(f"Error parsing affected_targets para alarma {alarm.id}: {e}")
+                        continue
             
             return False
         except Exception as e:
