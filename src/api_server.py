@@ -2420,7 +2420,7 @@ def execute_schedule(schedule_id):
             session.close()
             return jsonify({'error': 'Programación no encontrada'}), 404
         
-        schedule_service = PanelScheduleService(session, "http://localhost:6001/api/v1/panels/send")
+        schedule_service = PanelScheduleService(session, "http://localhost:8888/api/v1/panels/send")
         result = schedule_service.execute_schedule(schedule)
         session.close()
         
@@ -2439,7 +2439,7 @@ def execute_all_schedules():
     """Ejecutar todas las programaciones activas"""
     try:
         session = Session()
-        schedule_service = PanelScheduleService(session, "http://localhost:6001/api/v1/panels/send")
+        schedule_service = PanelScheduleService(session, "http://localhost:8888/api/v1/panels/send")
         result = schedule_service.execute_all_active_schedules()
         session.close()
         
