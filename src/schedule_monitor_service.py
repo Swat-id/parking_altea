@@ -364,7 +364,7 @@ def main():
     signal.signal(signal.SIGTERM, signal_handler)
     
     # Crear e iniciar el servicio
-    monitor = ScheduleMonitorService(check_interval=60)  # Verificar cada minuto
+    monitor = ScheduleMonitorService()  # Usar intervalo por defecto (600 segundos)
     
     try:
         logger.info("Iniciando servicio de monitorización de programaciones...")
