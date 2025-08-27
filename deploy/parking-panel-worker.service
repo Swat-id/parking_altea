@@ -1,0 +1,43 @@
+[Unit]
+Description=Parking Panel Update Worker Service v3.4.0
+Documentation=https://github.com/Swat-id/parking_altea/tree/v3.4.0
+After=network.target parking-api.service postgresql.service
+Wants=parking-api.service
+PartOf=parking-system.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/parking_altea
+Environment=PYTHONPATH=/opt/parking_altea/src
+ExecStart=/opt/parking_altea/venv/bin/python src/panel_worker_service.py --interval 120
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+StartLimitInterval=300
+StartLimitBurst=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=parking-panel-worker
+
+# Security
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/opt/parking_altea/logs
+ProtectHome=yes
+
+# Resource limits
+MemoryMax=512M
+CPUQuota=50%
+
+# Timeouts
+TimeoutStartSec=30
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target
+Alias=panel-worker.service
