@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, Future
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, func
 from sqlalchemy.orm import sessionmaker, Session
 from models import Access, Parking, CameraParking, OccupancyHistory
 from config import DB_URL
@@ -317,9 +317,9 @@ class CameraMessageProcessor:
             return []
         
         try:
-            # Buscar por name y line
+            # Buscar por name y line (usando lógica del código anterior funcional)
             cameras = session.query(Access).filter(
-                Access.name == device,
+                func.lower(Access.name) == func.lower(device),
                 Access.line == line
             ).all()
             
@@ -329,12 +329,25 @@ class CameraMessageProcessor:
             
             # Buscar solo por name si no se encuentra por line
             cameras = session.query(Access).filter(
-                Access.name == device
+                func.lower(Access.name) == func.lower(device)
             ).all()
             
             if cameras:
                 logger.warning(f"Cámaras encontradas solo por device name (line {line} no coincide): {len(cameras)}")
                 return cameras[:1]  # Tomar solo la primera si hay ambigüedad
+            
+            # Fallback: buscar por IP + línea como en código anterior funcional
+            if 'ip' in message_data:
+                ip = message_data['ip']
+                cameras = session.query(Access).filter_by(ip=ip, line=line).all()
+                if cameras:
+                    logger.info(f"Encontradas {len(cameras)} cámaras por IP+line (fallback): {ip}, line: {line}")
+                    return cameras
+            
+            # Log adicional para debugging como en código anterior funcional
+            all_devices = session.query(Access.name).distinct().all()
+            device_names = [d[0] for d in all_devices if d[0]]
+            logger.warning(f"Dispositivos disponibles en BD: {device_names}")
             
             logger.error(f"No se encontraron cámaras para device={device}, line={line}")
             return []
