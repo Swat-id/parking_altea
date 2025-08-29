@@ -50,7 +50,7 @@ class CameraAtomicOperations:
                     # Usar FOR UPDATE para bloquear la fila y evitar condiciones de carrera
                     result = session.execute(
                         text("""
-                            SELECT id, name, current_occupancy, max_capacity, status, updated_at,
+                            SELECT id, name, current_occupancy, max_capacity, status,
                                    threshold_dense, threshold_full, fixed_message_flag
                             FROM parkings 
                             WHERE id = :parking_id 
@@ -105,8 +105,7 @@ class CameraAtomicOperations:
                         text("""
                             UPDATE parkings 
                             SET current_occupancy = :new_occupancy, 
-                                status = :new_status,
-                                updated_at = NOW()
+                                status = :new_status
                             WHERE id = :parking_id
                         """),
                         {
