@@ -184,8 +184,8 @@ class PanelUpdateMethods:
                 AND is_active = true
                 AND (start_date IS NULL OR start_date <= :current_date)
                 AND (end_date IS NULL OR end_date >= :current_date)
-                AND (start_time IS NULL OR start_time <= :current_time)
-                AND (end_time IS NULL OR end_time >= :current_time)
+                AND (start_time IS NULL OR start_time::time <= :current_time)
+                AND (end_time IS NULL OR end_time::time >= :current_time)
                 AND {current_day_column} = true
                 ORDER BY priority DESC, id ASC
                 LIMIT 1
