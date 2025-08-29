@@ -317,9 +317,9 @@ class CameraMessageProcessor:
             return []
         
         try:
-            # Buscar por device_name y line
+            # Buscar por name y line
             cameras = session.query(Access).filter(
-                Access.device_name == device,
+                Access.name == device,
                 Access.line == line
             ).all()
             
@@ -327,9 +327,9 @@ class CameraMessageProcessor:
                 logger.debug(f"Encontradas {len(cameras)} cámaras para device={device}, line={line}")
                 return cameras
             
-            # Buscar solo por device_name si no se encuentra por line
+            # Buscar solo por name si no se encuentra por line
             cameras = session.query(Access).filter(
-                Access.device_name == device
+                Access.name == device
             ).all()
             
             if cameras:
