@@ -245,7 +245,7 @@ class PanelUpdateMethods:
     @staticmethod
     def _send_to_panels_parallel(panel_service, panels: List[Panel], message: str, 
                                color: int, effect: int, max_workers: int = 10, 
-                               timeout_per_panel: int = 5) -> List[PanelUpdateResult]:
+                               timeout_per_panel: int = 25) -> List[PanelUpdateResult]:
         """
         Enviar mensaje a paneles en paralelo con timeouts individuales
         
@@ -306,7 +306,7 @@ class PanelUpdateMethods:
             futures = {executor.submit(send_to_single_panel, panel): panel for panel in panels}
             
             # Recoger resultados con timeout total
-            total_timeout = timeout_per_panel + 2  # Timeout total un poco mayor
+            total_timeout = timeout_per_panel + 5  # Timeout total un poco mayor
             
             for future in as_completed(futures, timeout=total_timeout):
                 try:
