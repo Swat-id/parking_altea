@@ -5,7 +5,7 @@ Incluye detección inteligente de reinicios y validación reforzada de deltas
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -60,7 +60,7 @@ class CameraDetectionMethods:
         
         # 3. Verificación de tiempo (si ha pasado mucho tiempo sin mensajes)
         if camera.last_message_received:
-            time_gap_hours = (datetime.now() - camera.last_message_received).total_seconds() / 3600
+            time_gap_hours = (datetime.now(timezone.utc) - camera.last_message_received).total_seconds() / 3600
             if time_gap_hours > 12:  # Más de 12 horas sin mensajes
                 criteria['time_gap'] = True
                 logger.info(f"Criterio 3: Gap temporal - {time_gap_hours:.1f} horas sin mensajes")
@@ -184,7 +184,7 @@ class CameraDetectionMethods:
         
         # 2. Validación de frecuencia de mensajes (velocidad de cambio)
         if camera.last_message_received:
-            time_diff_minutes = (datetime.now() - camera.last_message_received).total_seconds() / 60
+            time_diff_minutes = (datetime.now(timezone.utc) - camera.last_message_received).total_seconds() / 60
             
             if time_diff_minutes > 0:
                 # Calcular tasa de cambio por minuto
@@ -205,7 +205,7 @@ class CameraDetectionMethods:
         # 4. Validación de consistencia temporal
         # Si pasa mucho tiempo entre mensajes, permitir deltas más grandes
         if camera.last_message_received:
-            time_diff_hours = (datetime.now() - camera.last_message_received).total_seconds() / 3600
+            time_diff_hours = (datetime.now(timezone.utc) - camera.last_message_received).total_seconds() / 3600
             if time_diff_hours > 2:  # Más de 2 horas
                 # Ser más permisivo con deltas grandes si ha pasado mucho tiempo
                 logger.info(f"Gap temporal de {time_diff_hours:.1f}h - siendo más permisivo con deltas")
