@@ -271,8 +271,7 @@ class PanelUpdateMethods:
                     text=message,
                     color=color,
                     font_size=2,  # Tamaño estándar
-                    effect=effect,
-                    timeout=timeout_per_panel  # Timeout por panel
+                    effect=effect
                 )
                 
                 response_time = (time.time() - start_time) * 1000
