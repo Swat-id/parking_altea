@@ -66,7 +66,7 @@ class PanelCommunicationService:
     
     def __init__(self, 
                  api_url: str = "http://localhost:8888/api/v1/panels/send",
-                 timeout: int = 25, retry_attempts: int = 2, retry_delay: int = 2):
+                 timeout: int = 45, retry_attempts: int = 2, retry_delay: int = 3):
         self.api_url = api_url
         self.timeout = timeout
         self.retry_attempts = retry_attempts

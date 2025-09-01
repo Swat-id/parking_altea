@@ -255,7 +255,7 @@ class PanelUpdateMethods:
     @staticmethod
     def _send_to_panels_parallel(panel_service, panels: List[Panel], message: str, 
                                color: int, effect: int, max_workers: int = 10, 
-                               timeout_per_panel: int = 25) -> List[PanelUpdateResult]:
+                               timeout_per_panel: int = 45) -> List[PanelUpdateResult]:
         """
         Enviar mensaje a paneles en paralelo con timeouts individuales
         

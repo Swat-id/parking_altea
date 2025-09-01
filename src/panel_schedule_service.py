@@ -268,7 +268,7 @@ class PanelScheduleService:
                     return {'success': False, 'error': 'No hay paneles online para este parking'}
                 
                 # Crear servicio de comunicación con timeout extendido para paneles lentos
-                panel_service = PanelCommunicationService(timeout=25, retry_attempts=1)
+                panel_service = PanelCommunicationService(timeout=45, retry_attempts=1)
                 
                 success_count = 0
                 for panel in panels:
