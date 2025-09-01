@@ -90,22 +90,12 @@ class ScheduleMonitorService:
                 session.close()
                 return
             
-            current_time = datetime.now().astimezone()
+            # Usar zona horaria Europa/Madrid consistente
+            from timezone_utils import get_madrid_now, get_weekday_field
+            
+            current_time = get_madrid_now()
             current_time_str = current_time.strftime('%H:%M')
-            current_weekday = current_time.weekday()
-            
-            # Mapear weekday a campos de la base de datos
-            weekday_fields = {
-                0: 'monday',
-                1: 'tuesday', 
-                2: 'wednesday',
-                3: 'thursday',
-                4: 'friday',
-                5: 'saturday',
-                6: 'sunday'
-            }
-            
-            current_weekday_field = weekday_fields.get(current_weekday, 'monday')
+            current_weekday_field = get_weekday_field(current_time)
             
             for schedule_data in result['schedules']:
                 try:
@@ -162,20 +152,23 @@ class ScheduleMonitorService:
                     start_date = datetime.fromisoformat(start_date_str.replace('Z', '+00:00'))
                 else:
                     start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
-                    start_date = start_date.replace(tzinfo=datetime.now().astimezone().tzinfo)
+                    from timezone_utils import MADRID_TZ
+                    start_date = MADRID_TZ.localize(start_date)
                 
                 if 'T' in end_date_str:
                     end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
                 else:
                     end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
-                    end_date = end_date.replace(tzinfo=datetime.now().astimezone().tzinfo)
+                    end_date = MADRID_TZ.localize(end_date)
             except ValueError as e:
                 logger.error(f"Error parseando fechas de programación {schedule_data.get('id', 'unknown')}: {e}")
                 return False
             
-            # Asegurar que current_time tenga zona horaria
-            if current_time.tzinfo is None:
-                current_time = current_time.replace(tzinfo=start_date.tzinfo)
+            # current_time ya viene con zona horaria Europa/Madrid de get_madrid_now()
+            # Convertir fechas a Madrid para comparación consistente
+            from timezone_utils import to_madrid_time
+            start_date = to_madrid_time(start_date)
+            end_date = to_madrid_time(end_date)
             
             # Verificar que esté dentro del rango de fechas
             if not (start_date <= current_time <= end_date):

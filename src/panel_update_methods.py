@@ -165,16 +165,12 @@ class PanelUpdateMethods:
             Diccionario con datos de la programación activa o None
         """
         try:
-            now = datetime.now()
-            current_time = now.time()
-            current_weekday = now.weekday()
+            # Usar zona horaria Europa/Madrid consistente
+            from timezone_utils import get_madrid_now, get_weekday_field
             
-            # Mapear día de la semana (Python: 0=Monday, 6=Sunday)
-            weekday_columns = {
-                0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday',
-                4: 'friday', 5: 'saturday', 6: 'sunday'
-            }
-            current_day_column = weekday_columns[current_weekday]
+            now = get_madrid_now()
+            current_time = now.time()
+            current_day_column = get_weekday_field(now)
             
             # Construir consulta SQL dinámica para el día actual
             query = text(f"""

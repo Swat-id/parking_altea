@@ -47,10 +47,37 @@
   - **Validaciones**: Nombre único, campos requeridos, manejo de errores
 - **Commit**: `768c938` - fix: Implementar edición completa de parkings
 
-#### **EC-002: [A definir]**
-- **Estado**: ⏳ Pendiente análisis
+#### **EC-002: Error de zona horaria en programaciones y worker**
+- **Estado**: ✅ RESUELTO
 - **Prioridad**: 🔴 CRÍTICA
-- **Descripción**: *A documentar según errores encontrados*
+- **Impacto**: Programaciones y worker no funcionan correctamente por diferencia horaria
+- **Descripción**: Sistema no ajustado a zona horaria Europa/Madrid (UTC+1/+2)
+- **Análisis Detallado**:
+  - **Problema**: Servidor usa UTC, usuarios en Europa/Madrid
+  - **Impacto**: Programaciones se ejecutan con 1-2 horas de diferencia
+  - **Worker**: Comprobaciones de horarios incorrectas
+  - **Frontend**: Posible visualización incorrecta de horarios
+- **Reproducción**: 
+  - Condición: Crear programación para hora específica
+  - Resultado: Se ejecuta 1-2 horas antes/después de lo esperado
+- **Impacto en Usuarios**: ❌ Alto - Funcionalidad de programaciones inoperativa
+- **Archivos Sospechosos**:
+  - Servicios de programaciones (schedules)
+  - Panel worker y schedule monitor
+  - Funciones de fecha/hora en backend
+- **Estimación**: 1-2 días
+- **✅ SOLUCIÓN IMPLEMENTADA**:
+  - **Módulo centralizado**: `timezone_utils.py` con funciones para Europa/Madrid
+  - **Corrección worker**: `panel_update_methods.py` usa `get_madrid_now()`
+  - **Corrección monitor**: `schedule_monitor_service.py` usa zona Madrid consistente
+  - **Corrección servicios**: `panel_schedule_service.py` usa timezone utils
+  - **Dependencia**: Agregado `pytz==2023.3` a requirements.txt
+- **Archivos Corregidos**:
+  - `src/timezone_utils.py` (NUEVO)
+  - `src/panel_update_methods.py`
+  - `src/schedule_monitor_service.py`
+  - `src/panel_schedule_service.py`
+  - `requirements.txt`
 
 ---
 
@@ -128,21 +155,21 @@
 | Tipo | Cantidad | Críticos | Alta | Media | Baja |
 |------|----------|----------|------|-------|------|
 | **Frontend** | 1 | 0 | 1 | 0 | 0 |
-| **Backend** | 1 | 0 | 1 | 0 | 0 |
+| **Backend** | 2 | 1 | 1 | 0 | 0 |
 | **Base de Datos** | 0 | 0 | 0 | 0 | 0 |
 | **Integración** | 0 | 0 | 0 | 0 | 0 |
-| **Configuración** | 0 | 0 | 0 | 0 | 0 |
-| **TOTAL** | **1** | **0** | **1** | **0** | **0** |
+| **Configuración** | 1 | 1 | 0 | 0 | 0 |
+| **TOTAL** | **2** | **1** | **1** | **0** | **0** |
 
 ### **📈 Estimación de Tiempos**
 
 | Prioridad | Errores | Tiempo Estimado | Orden |
 |-----------|---------|-----------------|-------|
-| 🔴 **Críticos** | 0 | 0 días | - |
-| 🟡 **Alta** | 1 | 1-2 días | 1º |
+| 🔴 **Críticos** | 1 | 1-2 días | 1º |
+| 🟡 **Alta** | 1 | 0 días (resuelto) | - |
 | 🟢 **Media** | 0 | 0 días | - |
 | 🔵 **Baja** | 0 | 0 días | - |
-| **TOTAL** | **1** | **1-2 días** | |
+| **TOTAL** | **2** | **1-2 días** | |
 
 ---
 
@@ -303,14 +330,15 @@ python tests/performance/load_test.py
 
 ### **📋 Dashboard de Estado**
 ```
-🔴 Críticos:     0/0 (N/A)  - ✅ No hay errores críticos
-🟡 Alta:         1/1 (100%) - ✅ RESUELTO
+🔴 Críticos:     1/1 (100%) - ✅ EC-002 RESUELTO
+🟡 Alta:         1/1 (100%) - ✅ EC-001 RESUELTO
 🟢 Media:        0/0 (N/A)  - ✅ No hay errores media
 🔵 Baja:         0/0 (N/A)  - ✅ No hay errores baja
 
-Total:           1/1 (100%) - ✅ COMPLETADO
-Tiempo real:     1 día (estimado: 1-2 días)
-Estado:          🎉 CORRECCIÓN EXITOSA
+Total:           2/2 (100%) - ✅ COMPLETADO
+Tiempo usado:    1 día (ambos errores)
+Tiempo estimado: 2-4 días (completado en 1)
+Estado:          🎉 TODOS LOS ERRORES RESUELTOS
 ```
 
 ---

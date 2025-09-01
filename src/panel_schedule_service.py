@@ -42,7 +42,8 @@ class PanelScheduleService:
                         start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
                     else:
                         start_date = datetime.strptime(start_date, '%Y-%m-%d')
-                        start_date = start_date.replace(tzinfo=datetime.now().astimezone().tzinfo)
+                        from timezone_utils import MADRID_TZ
+                        start_date = MADRID_TZ.localize(start_date)
                 
                 if isinstance(end_date, str):
                     # Manejar diferentes formatos de fecha
@@ -50,7 +51,7 @@ class PanelScheduleService:
                         end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
                     else:
                         end_date = datetime.strptime(end_date, '%Y-%m-%d')
-                        end_date = end_date.replace(tzinfo=datetime.now().astimezone().tzinfo)
+                        end_date = MADRID_TZ.localize(end_date)
             except ValueError as e:
                 return {'success': False, 'error': f'Formato de fecha inválido: {str(e)}'}
             
@@ -96,22 +97,16 @@ class PanelScheduleService:
             # VERIFICAR SI LA PROGRAMACIÓN DEBE EJECUTARSE INMEDIATAMENTE
             # Si la programación está activa y es operativa en el momento actual, ejecutarla
             if schedule.is_active:
-                current_time = datetime.now().replace(tzinfo=start_date.tzinfo)
+                # Usar zona horaria Europa/Madrid consistente
+                from timezone_utils import get_madrid_now, get_weekday_field, to_madrid_time
+                
+                current_time = get_madrid_now()
                 current_time_str = current_time.strftime('%H:%M')
-                current_weekday = current_time.weekday()
+                current_weekday_field = get_weekday_field(current_time)
                 
-                # Mapear weekday a campos de la base de datos
-                weekday_fields = {
-                    0: 'monday',
-                    1: 'tuesday', 
-                    2: 'wednesday',
-                    3: 'thursday',
-                    4: 'friday',
-                    5: 'saturday',
-                    6: 'sunday'
-                }
-                
-                current_weekday_field = weekday_fields.get(current_weekday, 'monday')
+                # Convertir fechas de la programación a Madrid para comparación
+                start_date = to_madrid_time(start_date)
+                end_date = to_madrid_time(end_date)
                 
                 # Verificar si debe ejecutarse ahora
                 should_execute_now = (
@@ -455,9 +450,12 @@ class PanelScheduleService:
     def get_active_schedules_for_parking(self, parking_id: int) -> list:
         """Obtener programaciones activas para un parking en el momento actual"""
         try:
-            now = datetime.now().astimezone()
+            # Usar zona horaria Europa/Madrid consistente
+            from timezone_utils import get_madrid_now, get_weekday_madrid
+            
+            now = get_madrid_now()
             current_time = now.strftime('%H:%M')
-            current_weekday = now.weekday()  # 0=lunes, 6=domingo
+            current_weekday = get_weekday_madrid(now)  # 0=lunes, 6=domingo
             
             # Mapear weekday a campos de la base de datos
             weekday_fields = {
@@ -491,10 +489,18 @@ class PanelScheduleService:
                     start_date = schedule.start_date
                     end_date = schedule.end_date
                     
+                    # Convertir fechas a Madrid para comparación consistente
+                    from timezone_utils import to_madrid_time
                     if start_date.tzinfo is None:
-                        start_date = start_date.replace(tzinfo=now.tzinfo)
+                        from timezone_utils import MADRID_TZ
+                        start_date = MADRID_TZ.localize(start_date)
+                    else:
+                        start_date = to_madrid_time(start_date)
+                    
                     if end_date.tzinfo is None:
-                        end_date = end_date.replace(tzinfo=now.tzinfo)
+                        end_date = MADRID_TZ.localize(end_date)
+                    else:
+                        end_date = to_madrid_time(end_date)
                     
                     if start_date <= now <= end_date:
                         active_schedules.append(schedule)
