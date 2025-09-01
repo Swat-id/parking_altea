@@ -1236,6 +1236,119 @@ def get_all_panels():
         logger.error(f"Error obteniendo paneles: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@api_bp.route('/panels', methods=['POST'])
+@require_auth
+def create_panel():
+    """Crear un nuevo panel"""
+    try:
+        user_role = request.user_data.get('role', 'user')
+        
+        # Solo superadmin puede crear paneles
+        if user_role != 'superadmin':
+            return jsonify({'error': 'Acceso denegado: solo superadmin puede crear paneles'}), 403
+        
+        req = request.get_json(force=True)
+        name = req.get('name')
+        ip = req.get('ip')
+        parking_id = req.get('parking_id')
+        panel_type_id = req.get('panel_type_id')
+        port = req.get('port', 5200)  # Puerto por defecto
+        
+        # Validar campos requeridos
+        if not all([name, ip, parking_id, panel_type_id]):
+            return jsonify({'error': 'Faltan campos requeridos: name, ip, parking_id, panel_type_id'}), 400
+        
+        # Validar formato de IP
+        import re
+        ip_pattern = r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+        if not re.match(ip_pattern, ip):
+            return jsonify({'error': 'Formato de IP inválido'}), 400
+        
+        # Validar puerto
+        if not isinstance(port, int) or port < 1 or port > 65535:
+            return jsonify({'error': 'Puerto debe ser un número entre 1 y 65535'}), 400
+        
+        session = Session()
+        
+        # Verificar que el parking existe
+        parking = session.query(Parking).filter(Parking.id == parking_id).first()
+        if not parking:
+            session.close()
+            return jsonify({'error': 'Parking no encontrado'}), 404
+        
+        # Verificar que el panel_type existe
+        panel_type = session.query(PanelType).filter(PanelType.id == panel_type_id).first()
+        if not panel_type:
+            session.close()
+            return jsonify({'error': 'Tipo de panel no encontrado'}), 404
+        
+        # Verificar que no existe otro panel con la misma IP
+        existing_panel = session.query(Panel).filter(Panel.ip == ip).first()
+        if existing_panel:
+            session.close()
+            return jsonify({'error': f'Ya existe un panel con la IP {ip}'}), 400
+        
+        # Verificar que no existe otro panel con el mismo nombre en este parking
+        existing_name = session.query(Panel).filter(
+            Panel.name == name, 
+            Panel.parking_id == parking_id
+        ).first()
+        if existing_name:
+            session.close()
+            return jsonify({'error': f'Ya existe un panel con el nombre "{name}" en este parking'}), 400
+        
+        # Crear el nuevo panel
+        new_panel = Panel(
+            name=name,
+            ip=ip,
+            parking_id=parking_id,
+            panel_type_id=panel_type_id,
+            port=port,
+            status='OFFLINE',  # Estado inicial
+            protocol_version=panel_type.protocol_type,
+            service_endpoint=panel_type.service_endpoint,
+            is_active=True
+        )
+        
+        session.add(new_panel)
+        session.commit()
+        
+        # Obtener el panel creado con sus relaciones
+        created_panel = session.query(Panel).filter(Panel.id == new_panel.id).first()
+        
+        panel_data = {
+            'id': created_panel.id,
+            'name': created_panel.name,
+            'ip_address': created_panel.ip,
+            'parking_id': created_panel.parking_id,
+            'parking_name': created_panel.parking.name,
+            'panel_type_id': created_panel.panel_type_id,
+            'panel_type': {
+                'id': created_panel.panel_type.id,
+                'name': created_panel.panel_type.name,
+                'manufacturer': created_panel.panel_type.manufacturer.name,
+                'protocol': created_panel.panel_type.protocol_type
+            },
+            'port': created_panel.port,
+            'status': created_panel.status,
+            'protocol_version': created_panel.protocol_version,
+            'is_active': created_panel.is_active
+        }
+        
+        session.close()
+        
+        logger.info(f"Panel creado: {name} (ID: {new_panel.id}) en parking {parking.name}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Panel "{name}" creado correctamente',
+            'panel': panel_data
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"Error creando panel: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 @api_bp.route('/panel/<int:panel_id>/message', methods=['POST'])
 @require_panel_access('panel_id')
 def send_message_to_panel(panel_id):
