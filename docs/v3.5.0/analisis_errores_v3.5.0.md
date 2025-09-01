@@ -22,20 +22,24 @@
 ### **🔴 ERRORES CRÍTICOS**
 *Errores que afectan la operación del sistema o causan fallos*
 
-#### **EC-001: [Ejemplo] Error de conexión con paneles**
-- **Estado**: 🔍 Identificado
-- **Prioridad**: 🔴 CRÍTICA
-- **Impacto**: Sistema no puede actualizar paneles
-- **Descripción**: Error en conexión TCP con paneles LED
-- **Logs**: 
-  ```
-  [ERROR] Panel connection failed: timeout after 30s
-  ```
+#### **EC-001: Error de edición de información general de parking**
+- **Estado**: ✅ Identificado y Analizado
+- **Prioridad**: 🟡 ALTA
+- **Impacto**: Imposibilidad de editar nombre y ubicación de parkings
+- **Descripción**: Falta endpoint PUT para editar información general del parking (nombre, ubicación)
+- **Análisis Detallado**:
+  - **Frontend**: El formulario de edición solo incluye campos técnicos (plazas, umbrales)
+  - **Backend**: Solo existe endpoint POST `/parking/{id}/config` para configuración técnica
+  - **Falta**: Endpoint PUT `/parkings/{id}` para edición completa
 - **Reproducción**: 
-  - Condición: Panel sin conexión de red
-  - Resultado: Timeout y error en logs
-- **Impacto en Usuarios**: ❌ Alto - Paneles no se actualizan
-- **Estimación**: 2-3 días
+  - Condición: Intentar editar nombre o ubicación de un parking
+  - Resultado: Los campos no aparecen en el formulario de edición
+- **Impacto en Usuarios**: ⚠️ Medio-Alto - No pueden cambiar nombres descriptivos
+- **Archivos Afectados**:
+  - `client/src/pages/Parkings.jsx` (líneas 32-37, 159-167)
+  - `client/src/services/parkingService.js` (falta método editParking)
+  - `src/api_server.py` (falta endpoint PUT parkings)
+- **Estimación**: 1-2 días
 
 #### **EC-002: [A definir]**
 - **Estado**: ⏳ Pendiente análisis
@@ -117,22 +121,22 @@
 
 | Tipo | Cantidad | Críticos | Alta | Media | Baja |
 |------|----------|----------|------|-------|------|
-| **Frontend** | TBD | 0 | 0 | 0 | 0 |
-| **Backend** | TBD | 1 | 1 | 1 | 1 |
-| **Base de Datos** | TBD | 0 | 0 | 0 | 0 |
-| **Integración** | TBD | 0 | 0 | 0 | 0 |
-| **Configuración** | TBD | 0 | 0 | 0 | 0 |
-| **TOTAL** | **TBD** | **1** | **1** | **1** | **1** |
+| **Frontend** | 1 | 0 | 1 | 0 | 0 |
+| **Backend** | 1 | 0 | 1 | 0 | 0 |
+| **Base de Datos** | 0 | 0 | 0 | 0 | 0 |
+| **Integración** | 0 | 0 | 0 | 0 | 0 |
+| **Configuración** | 0 | 0 | 0 | 0 | 0 |
+| **TOTAL** | **1** | **0** | **1** | **0** | **0** |
 
 ### **📈 Estimación de Tiempos**
 
 | Prioridad | Errores | Tiempo Estimado | Orden |
 |-----------|---------|-----------------|-------|
-| 🔴 **Críticos** | 1 | 2-3 días | 1º |
-| 🟡 **Alta** | 1 | 1-2 días | 2º |
-| 🟢 **Media** | 1 | 0.5 días | 3º |
-| 🔵 **Baja** | 1 | 1 día | 4º |
-| **TOTAL** | **4** | **4.5-6.5 días** | |
+| 🔴 **Críticos** | 0 | 0 días | - |
+| 🟡 **Alta** | 1 | 1-2 días | 1º |
+| 🟢 **Media** | 0 | 0 días | - |
+| 🔵 **Baja** | 0 | 0 días | - |
+| **TOTAL** | **1** | **1-2 días** | |
 
 ---
 
@@ -243,16 +247,23 @@ python tests/performance/load_test.py
 
 ---
 
-### **🟡 Errores Alta Prioridad - Fase 2 (Días 4-5)**
+### **🟡 Errores Alta Prioridad - Fase 1 (Días 1-2)**
 
-#### **EH-001: Latencia en respuesta de cámaras**
+#### **EC-001: Error de edición de información general de parking**
 - **Solución Propuesta**:
-  - Optimización de ThreadPoolExecutor
-  - Implementación de cache para requests frecuentes
-  - Profiling de bottlenecks específicos
+  - **Backend**: Crear endpoint PUT `/parkings/{id}` para edición completa
+  - **Frontend**: Agregar campos nombre y ubicación al formulario de edición
+  - **Frontend**: Crear método `editParking` en `parkingService.js`
+  - **Validaciones**: Mantener validaciones existentes + validar nombre único
 - **Testing**:
-  - Performance tests con diferentes cargas
-  - Monitoreo de latencia en tiempo real
+  - Unit tests para nuevo endpoint PUT
+  - Integration tests para edición completa de parking
+  - Frontend tests para formulario extendido
+- **Plan de Implementación**:
+  1. Crear endpoint PUT en `src/api_server.py`
+  2. Actualizar `parkingService.js` con método `editParking`
+  3. Modificar formulario en `Parkings.jsx` para incluir nombre/ubicación
+  4. Testing y validación completa
 
 ---
 
@@ -286,13 +297,14 @@ python tests/performance/load_test.py
 
 ### **📋 Dashboard de Estado**
 ```
-🔴 Críticos:     1/1 (100%) - ⏳ En progreso
-🟡 Alta:         0/1 (0%)   - ⏳ Pendiente  
-🟢 Media:        0/1 (0%)   - ⏳ Pendiente
-🔵 Baja:         0/1 (0%)   - ⏳ Pendiente
+🔴 Críticos:     0/0 (N/A)  - ✅ No hay errores críticos
+🟡 Alta:         1/1 (100%) - 🔧 En corrección
+🟢 Media:        0/0 (N/A)  - ✅ No hay errores media
+🔵 Baja:         0/0 (N/A)  - ✅ No hay errores baja
 
-Total:           1/4 (25%)
-Tiempo usado:    0/6.5 días
+Total:           1/1 (100%)
+Tiempo estimado: 1-2 días
+Estado:          🚧 IMPLEMENTANDO CORRECCIÓN
 ```
 
 ---

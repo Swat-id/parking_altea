@@ -535,6 +535,74 @@ def create_parking():
         logger.error(f"Error creando parking: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@api_bp.route('/parkings/<int:parking_id>', methods=['PUT'])
+@require_superadmin
+def edit_parking(parking_id):
+    """Editar información general de un parking (solo superadmin)"""
+    try:
+        req = request.get_json(force=True)
+        name = req.get('name')
+        location = req.get('location')
+        
+        # Validar campos requeridos
+        if not name:
+            return jsonify({'error': 'El nombre del parking es requerido'}), 400
+        
+        session = Session()
+        
+        # Verificar que el parking existe
+        parking = session.query(Parking).filter(Parking.id == parking_id).first()
+        if not parking:
+            session.close()
+            return jsonify({'error': 'Parking no encontrado'}), 404
+        
+        # Verificar que el nombre no exista en otro parking
+        existing_parking = session.query(Parking).filter(
+            Parking.name == name,
+            Parking.id != parking_id
+        ).first()
+        if existing_parking:
+            session.close()
+            return jsonify({'error': 'Ya existe otro parking con ese nombre'}), 400
+        
+        # Guardar valores anteriores para el log
+        old_name = parking.name
+        old_location = parking.location
+        
+        # Actualizar campos
+        parking.name = name
+        if location is not None:
+            parking.location = location
+        
+        session.commit()
+        
+        # Preparar respuesta con datos actualizados
+        updated_parking = {
+            'id': parking.id,
+            'name': parking.name,
+            'location': parking.location,
+            'total_plazas': parking.max_capacity,
+            'plazas_ocupadas': parking.current_occupancy,
+            'plazas_libres': parking.max_capacity - parking.current_occupancy,
+            'status': parking.status,
+            'threshold_dense': parking.threshold_dense,
+            'threshold_full': parking.threshold_full,
+            'message_type': parking.message_type
+        }
+        
+        session.close()
+        
+        logger.info(f"Parking editado: ID {parking_id}, Nombre: '{old_name}' -> '{name}', Ubicación: '{old_location}' -> '{location}'")
+        
+        return jsonify({
+            'message': 'Parking actualizado correctamente',
+            'parking': updated_parking
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error editando parking: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 @api_bp.route('/parkings/status', methods=['GET'])
 @require_auth
 def get_parkings_status():

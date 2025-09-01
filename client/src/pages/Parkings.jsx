@@ -30,6 +30,8 @@ const Parkings = () => {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showCameraModal, setShowCameraModal] = useState(false)
   const [editForm, setEditForm] = useState({
+    name: '',
+    location: '',
     total_plazas: 0,
     threshold_dense: 0,
     threshold_full: 0,
@@ -64,10 +66,23 @@ const Parkings = () => {
       onSuccess: () => {
         queryClient.invalidateQueries('allParkings')
         toast.success('Configuración actualizada correctamente')
-        setEditingParking(null)
       },
       onError: (error) => {
         toast.error(error?.response?.data?.message || 'Error al actualizar la configuración')
+      }
+    }
+  )
+
+  // Mutación para editar información general del parking
+  const editParkingMutation = useMutation(
+    ({ parkingId, parkingData }) => parkingService.editParking(parkingId, parkingData),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('allParkings')
+        toast.success('Parking actualizado correctamente')
+      },
+      onError: (error) => {
+        toast.error(error?.response?.data?.error || 'Error al actualizar el parking')
       }
     }
   )
@@ -159,6 +174,8 @@ const Parkings = () => {
   const startEditing = (parking) => {
     setEditingParking(parking.id)
     setEditForm({
+      name: parking.name || '',
+      location: parking.location || '',
       total_plazas: parking.total_plazas || 0,
       threshold_dense: parking.threshold_dense || 0,
       threshold_full: parking.threshold_full || 0,
@@ -185,6 +202,8 @@ const Parkings = () => {
   const cancelEditing = () => {
     setEditingParking(null)
     setEditForm({
+      name: '',
+      location: '',
       total_plazas: 0,
       threshold_dense: 0,
       threshold_full: 0,
@@ -194,6 +213,11 @@ const Parkings = () => {
 
   const saveConfig = (parkingId) => {
     // Validaciones
+    if (!editForm.name.trim()) {
+      toast.error('El nombre del parking es requerido')
+      return
+    }
+
     if (editForm.total_plazas <= 0) {
       toast.error('El total de plazas debe ser mayor que 0')
       return
@@ -214,15 +238,68 @@ const Parkings = () => {
       return
     }
 
-    updateConfigMutation.mutate({
-      parkingId,
-      config: {
-        total_plazas: editForm.total_plazas,
-        threshold_dense: editForm.threshold_dense,
-        threshold_full: editForm.threshold_full,
-        message_type: editForm.message_type
-      }
-    })
+    // Encontrar el parking actual para comparar
+    const currentParking = parkings.find(p => p.id === parkingId)
+    
+    // Verificar si hay cambios en información general
+    const generalInfoChanged = currentParking && (
+      editForm.name !== currentParking.name ||
+      editForm.location !== (currentParking.location || '')
+    )
+
+    // Verificar si hay cambios en configuración técnica
+    const configChanged = currentParking && (
+      editForm.total_plazas !== currentParking.total_plazas ||
+      editForm.threshold_dense !== currentParking.threshold_dense ||
+      editForm.threshold_full !== currentParking.threshold_full ||
+      editForm.message_type !== (currentParking.message_type || 'ESTADO')
+    )
+
+    // Promesas para ejecutar las mutaciones
+    const mutations = []
+
+    // Actualizar información general si cambió
+    if (generalInfoChanged) {
+      mutations.push(
+        editParkingMutation.mutateAsync({
+          parkingId,
+          parkingData: {
+            name: editForm.name,
+            location: editForm.location
+          }
+        })
+      )
+    }
+
+    // Actualizar configuración técnica si cambió
+    if (configChanged) {
+      mutations.push(
+        updateConfigMutation.mutateAsync({
+          parkingId,
+          config: {
+            total_plazas: editForm.total_plazas,
+            threshold_dense: editForm.threshold_dense,
+            threshold_full: editForm.threshold_full,
+            message_type: editForm.message_type
+          }
+        })
+      )
+    }
+
+    // Ejecutar mutaciones y cerrar edición cuando terminen
+    if (mutations.length > 0) {
+      Promise.all(mutations)
+        .then(() => {
+          setEditingParking(null)
+        })
+        .catch((error) => {
+          // Los errores ya se manejan en las mutaciones individuales
+          console.error('Error en las actualizaciones:', error)
+        })
+    } else {
+      setEditingParking(null)
+      toast.info('No hay cambios para guardar')
+    }
   }
 
   const handleCreateParking = (e) => {
@@ -473,6 +550,26 @@ const Parkings = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     {editingParking === parking.id ? (
                       <div className="space-y-2">
+                        <div>
+                          <label className="block text-xs text-gray-500">Nombre</label>
+                          <input
+                            type="text"
+                            value={editForm.name}
+                            onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                            className="w-32 px-2 py-1 text-sm border border-gray-300 rounded"
+                            placeholder="Nombre del parking"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500">Ubicación</label>
+                          <input
+                            type="text"
+                            value={editForm.location}
+                            onChange={(e) => setEditForm({...editForm, location: e.target.value})}
+                            className="w-32 px-2 py-1 text-sm border border-gray-300 rounded"
+                            placeholder="Ubicación"
+                          />
+                        </div>
                         <div>
                           <label className="block text-xs text-gray-500">Total plazas</label>
                           <input

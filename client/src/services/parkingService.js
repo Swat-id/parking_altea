@@ -160,6 +160,19 @@ const parkingService = {
   },
 
   /**
+   * Editar información general de un parking
+   */
+  async editParking(parkingId, parkingData) {
+    try {
+      const response = await api.put(`/parkings/${parkingId}`, parkingData)
+      return response.data
+    } catch (error) {
+      console.error('Error editando parking:', error)
+      throw error
+    }
+  },
+
+  /**
    * Eliminar un parking
    */
   async deleteParking(parkingId) {
