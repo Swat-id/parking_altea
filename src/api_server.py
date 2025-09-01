@@ -1349,6 +1349,173 @@ def create_panel():
         logger.error(f"Error creando panel: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@api_bp.route('/panels/<int:panel_id>', methods=['PUT'])
+@require_auth
+def update_panel(panel_id):
+    """Actualizar datos completos de un panel"""
+    try:
+        user_role = request.user_data.get('role', 'user')
+        
+        # Solo superadmin puede editar paneles
+        if user_role != 'superadmin':
+            return jsonify({'error': 'Acceso denegado: solo superadmin puede editar paneles'}), 403
+        
+        req = request.get_json(force=True)
+        name = req.get('name')
+        ip = req.get('ip')
+        parking_id = req.get('parking_id')
+        panel_type_id = req.get('panel_type_id')
+        port = req.get('port', 5200)
+        is_active = req.get('is_active', True)
+        
+        # Validar campos requeridos
+        if not all([name, ip, parking_id, panel_type_id]):
+            return jsonify({'error': 'Faltan campos requeridos: name, ip, parking_id, panel_type_id'}), 400
+        
+        # Validar formato de IP
+        import re
+        ip_pattern = r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+        if not re.match(ip_pattern, ip):
+            return jsonify({'error': 'Formato de IP inválido'}), 400
+        
+        # Validar puerto
+        if not isinstance(port, int) or port < 1 or port > 65535:
+            return jsonify({'error': 'Puerto debe ser un número entre 1 y 65535'}), 400
+        
+        session = Session()
+        
+        # Verificar que el panel existe
+        panel = session.query(Panel).filter(Panel.id == panel_id).first()
+        if not panel:
+            session.close()
+            return jsonify({'error': 'Panel no encontrado'}), 404
+        
+        # Verificar que el parking existe
+        parking = session.query(Parking).filter(Parking.id == parking_id).first()
+        if not parking:
+            session.close()
+            return jsonify({'error': 'Parking no encontrado'}), 404
+        
+        # Verificar que el panel_type existe
+        panel_type = session.query(PanelType).filter(PanelType.id == panel_type_id).first()
+        if not panel_type:
+            session.close()
+            return jsonify({'error': 'Tipo de panel no encontrado'}), 404
+        
+        # Verificar que no existe otro panel con la misma IP (excluyendo el actual)
+        existing_panel = session.query(Panel).filter(
+            Panel.ip == ip, 
+            Panel.id != panel_id
+        ).first()
+        if existing_panel:
+            session.close()
+            return jsonify({'error': f'Ya existe otro panel con la IP {ip}'}), 400
+        
+        # Verificar que no existe otro panel con el mismo nombre en este parking (excluyendo el actual)
+        existing_name = session.query(Panel).filter(
+            Panel.name == name, 
+            Panel.parking_id == parking_id,
+            Panel.id != panel_id
+        ).first()
+        if existing_name:
+            session.close()
+            return jsonify({'error': f'Ya existe otro panel con el nombre "{name}" en este parking'}), 400
+        
+        # Actualizar los datos del panel
+        old_name = panel.name
+        old_ip = panel.ip
+        
+        panel.name = name
+        panel.ip = ip
+        panel.parking_id = parking_id
+        panel.panel_type_id = panel_type_id
+        panel.port = port
+        panel.is_active = is_active
+        panel.protocol_version = panel_type.protocol_type
+        panel.service_endpoint = panel_type.service_endpoint
+        
+        session.commit()
+        
+        # Obtener el panel actualizado con sus relaciones
+        updated_panel = session.query(Panel).filter(Panel.id == panel_id).first()
+        
+        panel_data = {
+            'id': updated_panel.id,
+            'name': updated_panel.name,
+            'ip_address': updated_panel.ip,
+            'parking_id': updated_panel.parking_id,
+            'parking_name': updated_panel.parking.name,
+            'panel_type_id': updated_panel.panel_type_id,
+            'panel_type': {
+                'id': updated_panel.panel_type.id,
+                'name': updated_panel.panel_type.name,
+                'manufacturer': updated_panel.panel_type.manufacturer.name,
+                'protocol': updated_panel.panel_type.protocol_type
+            },
+            'port': updated_panel.port,
+            'status': updated_panel.status,
+            'protocol_version': updated_panel.protocol_version,
+            'is_active': updated_panel.is_active,
+            'last_update': updated_panel.last_update.isoformat() if updated_panel.last_update else None
+        }
+        
+        session.close()
+        
+        logger.info(f"Panel actualizado: {old_name} -> {name}, IP: {old_ip} -> {ip} (ID: {panel_id})")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Panel "{name}" actualizado correctamente',
+            'panel': panel_data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error actualizando panel {panel_id}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/panels/<int:panel_id>', methods=['DELETE'])
+@require_auth
+def delete_panel(panel_id):
+    """Eliminar un panel"""
+    try:
+        user_role = request.user_data.get('role', 'user')
+        
+        # Solo superadmin puede eliminar paneles
+        if user_role != 'superadmin':
+            return jsonify({'error': 'Acceso denegado: solo superadmin puede eliminar paneles'}), 403
+        
+        session = Session()
+        
+        # Verificar que el panel existe
+        panel = session.query(Panel).filter(Panel.id == panel_id).first()
+        if not panel:
+            session.close()
+            return jsonify({'error': 'Panel no encontrado'}), 404
+        
+        panel_name = panel.name
+        panel_ip = panel.ip
+        parking_name = panel.parking.name if panel.parking else "Unknown"
+        
+        # Eliminar asignaciones de usuarios a este panel
+        session.query(UserPanel).filter(UserPanel.panel_id == panel_id).delete()
+        
+        # Eliminar el panel
+        session.delete(panel)
+        session.commit()
+        session.close()
+        
+        logger.info(f"Panel eliminado: {panel_name} (IP: {panel_ip}, ID: {panel_id}) del parking {parking_name}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Panel "{panel_name}" eliminado correctamente',
+            'panel_id': panel_id
+        })
+        
+    except Exception as e:
+        logger.error(f"Error eliminando panel {panel_id}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 @api_bp.route('/panel/<int:panel_id>/message', methods=['POST'])
 @require_panel_access('panel_id')
 def send_message_to_panel(panel_id):

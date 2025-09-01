@@ -30,7 +30,8 @@ import {
   Calendar,
   CalendarDays,
   Timer,
-  ExternalLink
+  ExternalLink,
+  Trash2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -57,6 +58,16 @@ const Panels = () => {
     panel_type_id: '',
     port: 5200
   })
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editForm, setEditForm] = useState({
+    name: '',
+    ip: '',
+    parking_id: '',
+    panel_type_id: '',
+    port: 5200,
+    is_active: true
+  })
+  const [editingPanel, setEditingPanel] = useState(null)
 
   // Obtener paneles
   const { data: panels = [], isLoading, refetch } = useQuery(
@@ -162,6 +173,34 @@ const Panels = () => {
       },
       onError: (error) => {
         toast.error(error?.response?.data?.message || 'Error creando panel')
+      }
+    }
+  )
+
+  const updatePanelMutation = useMutation(
+    ({ panelId, panelData }) => panelService.updatePanel(panelId, panelData),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('panels')
+        setShowEditModal(false)
+        setEditingPanel(null)
+        toast.success('Panel actualizado correctamente')
+      },
+      onError: (error) => {
+        toast.error(error?.response?.data?.error || 'Error actualizando panel')
+      }
+    }
+  )
+
+  const deletePanelMutation = useMutation(
+    (panelId) => panelService.deletePanel(panelId),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('panels')
+        toast.success('Panel eliminado correctamente')
+      },
+      onError: (error) => {
+        toast.error(error?.response?.data?.error || 'Error eliminando panel')
       }
     }
   )
@@ -326,6 +365,34 @@ const Panels = () => {
     setShowScheduleModal(false)
     setSelectedSchedule(null)
     setSelectedPanel(null)
+  }
+
+  const handleEditPanel = (panel) => {
+    setEditingPanel(panel)
+    setEditForm({
+      name: panel.name,
+      ip: panel.ip_address,
+      parking_id: panel.parking_id,
+      panel_type_id: panel.panel_type_id,
+      port: panel.port || 5200,
+      is_active: panel.is_active !== false
+    })
+    setShowEditModal(true)
+  }
+
+  const handleUpdatePanel = (e) => {
+    e.preventDefault()
+    if (!editForm.name || !editForm.ip || !editForm.parking_id || !editForm.panel_type_id) {
+      toast.error('Todos los campos son obligatorios')
+      return
+    }
+    updatePanelMutation.mutate({ panelId: editingPanel.id, panelData: editForm })
+  }
+
+  const handleDeletePanel = (panel) => {
+    if (window.confirm(`¿Estás seguro de que quieres eliminar el panel "${panel.name}"?\n\nEsta acción no se puede deshacer.`)) {
+      deletePanelMutation.mutate(panel.id)
+    }
   }
 
   if (isLoading) {
@@ -631,6 +698,24 @@ const Panels = () => {
                       >
                         <Send className="h-4 w-4" />
                       </button>
+                      {isSuperadmin && (
+                        <>
+                          <button
+                            onClick={() => handleEditPanel(panel)}
+                            className="text-orange-600 hover:text-orange-900"
+                            title="Editar panel"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeletePanel(panel)}
+                            className="text-red-600 hover:text-red-900"
+                            title="Eliminar panel"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -922,6 +1007,119 @@ const Panels = () => {
                     className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                   >
                     {createPanelMutation.isLoading ? 'Creando...' : 'Crear Panel'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de edición de panel */}
+      {showEditModal && editingPanel && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Editar Panel</h3>
+              <form onSubmit={handleUpdatePanel}>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nombre
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    IP
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.ip}
+                    onChange={(e) => setEditForm({...editForm, ip: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="192.168.1.100"
+                    required
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Puerto
+                  </label>
+                  <input
+                    type="number"
+                    value={editForm.port}
+                    onChange={(e) => setEditForm({...editForm, port: parseInt(e.target.value) || 5200})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="5200"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Parking
+                  </label>
+                  <select
+                    value={editForm.parking_id}
+                    onChange={(e) => setEditForm({...editForm, parking_id: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Seleccionar parking...</option>
+                    {parkings.map(parking => (
+                      <option key={parking.id} value={parking.id}>
+                        {parking.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tipo de Panel
+                  </label>
+                  <select
+                    value={editForm.panel_type_id}
+                    onChange={(e) => setEditForm({...editForm, panel_type_id: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Seleccionar tipo...</option>
+                    {panelTypes.map(type => (
+                      <option key={type.id} value={type.id}>
+                        {type.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="mb-6">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={editForm.is_active}
+                      onChange={(e) => setEditForm({...editForm, is_active: e.target.checked})}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-700">Panel activo</span>
+                  </label>
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditModal(false)}
+                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={updatePanelMutation.isLoading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {updatePanelMutation.isLoading ? 'Actualizando...' : 'Actualizar Panel'}
                   </button>
                 </div>
               </form>
