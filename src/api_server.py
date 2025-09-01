@@ -222,7 +222,8 @@ def get_user_parkings():
                 'plazas_libres': p.max_capacity - p.current_occupancy,
                 'estado': p.status,
                 'threshold_dense': p.threshold_dense,
-                'threshold_full': p.threshold_full
+                'threshold_full': p.threshold_full,
+                'message_type': p.message_type
             }
             for p in parks
         ]
@@ -391,7 +392,8 @@ def list_parkings():
                 'plazas_libres': p.max_capacity - p.current_occupancy,
                 'estado': p.status,
                 'threshold_dense': p.threshold_dense,
-                'threshold_full': p.threshold_full
+                'threshold_full': p.threshold_full,
+                'message_type': p.message_type
             }
             for p in parks
         ]
