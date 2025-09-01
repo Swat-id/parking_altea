@@ -1,5 +1,4 @@
 import React from 'react';
-import { Form, Row, Col } from 'react-bootstrap';
 
 const AlarmSeveritySelector = ({ 
   severity, 
@@ -40,45 +39,47 @@ const AlarmSeveritySelector = ({
   };
 
   return (
-    <Row>
-      <Col md={6}>
-        <Form.Group className="mb-3">
-          <Form.Label>Nivel de Severidad</Form.Label>
-          <Form.Select
-            value={severity || ''}
-            onChange={handleSeverityChange}
-            disabled={disabled}
-          >
-            <option value="">Seleccionar severidad...</option>
-            <option value="LEVE">LEVE</option>
-            <option value="NORMAL">NORMAL</option>
-            <option value="GRAVE">GRAVE</option>
-          </Form.Select>
-          {severity && (
-            <Form.Text className="text-muted">
-              {getSeverityDescription(severity)}
-            </Form.Text>
-          )}
-        </Form.Group>
-      </Col>
-      <Col md={6}>
-        <Form.Group className="mb-3">
-          <Form.Label>{getThresholdLabel(severity)}</Form.Label>
-          <Form.Control
-            type="number"
-            min="1"
-            max="1440"
-            value={thresholdValue || ''}
-            onChange={handleThresholdChange}
-            placeholder="Ej: 5"
-            disabled={disabled || !severity}
-          />
-          <Form.Text className="text-muted">
-            Tiempo en minutos antes de generar la alarma
-          </Form.Text>
-        </Form.Group>
-      </Col>
-    </Row>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Nivel de Severidad
+        </label>
+        <select
+          value={severity || ''}
+          onChange={handleSeverityChange}
+          disabled={disabled}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+        >
+          <option value="">Seleccionar severidad...</option>
+          <option value="LEVE">LEVE</option>
+          <option value="NORMAL">NORMAL</option>
+          <option value="GRAVE">GRAVE</option>
+        </select>
+        {severity && (
+          <p className="mt-1 text-sm text-gray-500">
+            {getSeverityDescription(severity)}
+          </p>
+        )}
+      </div>
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          {getThresholdLabel(severity)}
+        </label>
+        <input
+          type="number"
+          min="1"
+          max="1440"
+          value={thresholdValue || ''}
+          onChange={handleThresholdChange}
+          placeholder="Ej: 5"
+          disabled={disabled || !severity}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+        />
+        <p className="mt-1 text-sm text-gray-500">
+          Tiempo en minutos antes de generar la alarma
+        </p>
+      </div>
+    </div>
   );
 };
 
