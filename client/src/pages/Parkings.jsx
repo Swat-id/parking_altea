@@ -32,14 +32,16 @@ const Parkings = () => {
   const [editForm, setEditForm] = useState({
     total_plazas: 0,
     threshold_dense: 0,
-    threshold_full: 0
+    threshold_full: 0,
+    message_type: 'ESTADO'
   })
   const [createForm, setCreateForm] = useState({
     name: '',
     location: '',
     total_plazas: 0,
     threshold_dense: 0,
-    threshold_full: 0
+    threshold_full: 0,
+    message_type: 'ESTADO'
   })
   const [assignedCameras, setAssignedCameras] = useState([])
 
@@ -83,7 +85,8 @@ const Parkings = () => {
           location: '',
           total_plazas: 0,
           threshold_dense: 0,
-          threshold_full: 0
+          threshold_full: 0,
+          message_type: 'ESTADO'
         })
         setAssignedCameras([])
       },
@@ -158,7 +161,8 @@ const Parkings = () => {
     setEditForm({
       total_plazas: parking.total_plazas || 0,
       threshold_dense: parking.threshold_dense || 0,
-      threshold_full: parking.threshold_full || 0
+      threshold_full: parking.threshold_full || 0,
+      message_type: parking.message_type || 'ESTADO'
     })
     
     // Cargar cámaras existentes del parking
@@ -183,7 +187,8 @@ const Parkings = () => {
     setEditForm({
       total_plazas: 0,
       threshold_dense: 0,
-      threshold_full: 0
+      threshold_full: 0,
+      message_type: 'ESTADO'
     })
   }
 
@@ -214,7 +219,8 @@ const Parkings = () => {
       config: {
         total_plazas: editForm.total_plazas,
         threshold_dense: editForm.threshold_dense,
-        threshold_full: editForm.threshold_full
+        threshold_full: editForm.threshold_full,
+        message_type: editForm.message_type
       }
     })
   }
@@ -494,6 +500,17 @@ const Parkings = () => {
                             className="w-20 px-2 py-1 text-sm border border-gray-300 rounded"
                           />
                         </div>
+                        <div>
+                          <label className="block text-xs text-gray-500">Tipo mensaje</label>
+                          <select
+                            value={editForm.message_type}
+                            onChange={(e) => setEditForm({...editForm, message_type: e.target.value})}
+                            className="w-32 px-2 py-1 text-sm border border-gray-300 rounded"
+                          >
+                            <option value="ESTADO">Estado</option>
+                            <option value="PLAZAS_LIBRES">Plazas Libres</option>
+                          </select>
+                        </div>
                         <div className="flex space-x-1">
                           <button
                             onClick={() => saveConfig(parking.id)}
@@ -513,6 +530,15 @@ const Parkings = () => {
                       <div className="text-sm text-gray-500">
                         <div>Denso: {parking.threshold_dense}</div>
                         <div>Completo: {parking.threshold_full}</div>
+                        <div className="mt-1">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            parking.message_type === 'PLAZAS_LIBRES' 
+                              ? 'bg-purple-100 text-purple-800' 
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {parking.message_type === 'PLAZAS_LIBRES' ? 'Números' : 'Estado'}
+                          </span>
+                        </div>
                       </div>
                     )}
                   </td>
@@ -621,7 +647,7 @@ const Parkings = () => {
                     required
                   />
                 </div>
-                <div className="mb-6">
+                <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Umbral Completo
                   </label>
@@ -633,6 +659,22 @@ const Parkings = () => {
                     placeholder="5"
                     required
                   />
+                </div>
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tipo de Mensaje a Paneles
+                  </label>
+                  <select
+                    value={createForm.message_type}
+                    onChange={(e) => setCreateForm({...createForm, message_type: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="ESTADO">Estado (LLIURE, DENS, COMPLET)</option>
+                    <option value="PLAZAS_LIBRES">Plazas Libres (números)</option>
+                  </select>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Define qué información se enviará a los paneles de este parking
+                  </p>
                 </div>
                 
                 {/* Sección de Cámaras */}
