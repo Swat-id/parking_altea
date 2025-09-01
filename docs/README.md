@@ -55,6 +55,13 @@
 - **[Estado v2.6](v2.6_status.md)** - Estado de la versión 2.6
 - **[Estado v2.7](v2.7_status.md)** - Estado de la versión 2.7
 
+### **Versiones de Desarrollo Activas**
+- **[Documentación v3.1.0](v3.1.0/)** - Versión 3.1.0 con mejoras de sistema
+- **[Documentación v3.2.0](v3.2.0/)** - Versión 3.2.0 con sistema de alarmas
+- **[Documentación v3.3.0](v3.3.0/)** - Versión 3.3.0 con optimizaciones
+- **[Documentación v3.4.0](v3.4.0/)** - Versión 3.4.0 con arquitectura separada (PRODUCCIÓN)
+- **[Documentación v3.5.0](v3.5.0/)** - Versión 3.5.0 corrección de errores (EN DESARROLLO)
+
 ## 🔧 **Correcciones y Mejoras**
 
 ### **Correcciones Recientes**
@@ -89,16 +96,17 @@
 
 ## 🚨 **Estado Actual**
 
-### **Versión:** v2.7.1
-### **Estado:** ✅ **PRODUCCIÓN - OPERATIVO**
-### **Última Actualización:** Julio 2025
-### **Última Corrección:** Errores de zona horaria y comunicación con paneles
+### **Versión en Producción:** v3.4.0
+### **Estado:** ✅ **PRODUCCIÓN - OPERATIVO** (Arquitectura Separada)
+### **Versión en Desarrollo:** v3.5.0 (Corrección de Errores)
+### **Última Actualización:** Enero 2025
+### **Última Mejora:** Arquitectura separada de mensajes y paneles implementada
 
-### **Servicios Activos:**
-- ✅ **API Server** (puerto 6001) - Operativo
-- ✅ **Camera Server** (puerto 6400) - Operativo
-- ✅ **Schedule Monitor** - Operativo
-- ✅ **Frontend** (nginx puerto 80) - Operativo
+### **Servicios Activos v3.4.0:**
+- ✅ **API Server** (puerto 8080) - Operativo con arquitectura separada
+- ✅ **Camera Server** (puerto 5000) - Operativo con procesamiento concurrente
+- ✅ **Panel Worker** - Operativo con workers independientes
+- ✅ **Frontend** (nginx puerto 5789) - Operativo
 - ✅ **Base de Datos** (PostgreSQL) - Operativo
 
 ## 📞 **Contacto y Soporte**
@@ -110,4 +118,4 @@
 
 ---
 
-*Documentación Parking Altea v2.7.1 - Julio 2025* 
+*Documentación Parking Altea - Actualizada para v3.4.0 (Producción) y v3.5.0 (Desarrollo) - Enero 2025* 
