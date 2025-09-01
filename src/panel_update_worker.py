@@ -279,12 +279,13 @@ class PanelUpdateWorker:
                 SELECT DISTINCT 
                     p.id, p.name, p.current_occupancy, p.max_capacity, p.status,
                     p.threshold_dense, p.threshold_full, p.fixed_message_flag,
+                    p.message_type,
                     COUNT(pan.id) as panel_count
                 FROM parkings p
                 INNER JOIN panels pan ON pan.parking_id = p.id
                 WHERE pan.status != 'OFFLINE'
                 GROUP BY p.id, p.name, p.current_occupancy, p.max_capacity, p.status,
-                         p.threshold_dense, p.threshold_full, p.fixed_message_flag
+                         p.threshold_dense, p.threshold_full, p.fixed_message_flag, p.message_type
                 HAVING COUNT(pan.id) > 0
                 ORDER BY p.id
             """)).fetchall()
@@ -300,7 +301,8 @@ class PanelUpdateWorker:
                     'threshold_dense': row[5],
                     'threshold_full': row[6],
                     'fixed_message_flag': row[7],
-                    'panel_count': row[8]
+                    'message_type': row[8],  # NUEVO: Campo message_type
+                    'panel_count': row[9]   # Ajustado índice
                 }
                 parkings_data.append(parking_data)
             

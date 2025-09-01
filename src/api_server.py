@@ -413,6 +413,7 @@ def create_parking():
         total_plazas = req.get('total_plazas')
         threshold_dense = req.get('threshold_dense')
         threshold_full = req.get('threshold_full')
+        message_type = req.get('message_type', 'ESTADO')  # NUEVO: Campo opcional
         cameras = req.get('cameras', [])  # Lista de cámaras a asignar
         
         if not all([name, total_plazas, threshold_dense, threshold_full]):
@@ -426,6 +427,11 @@ def create_parking():
         
         if threshold_full < 0:
             return jsonify({'error': 'threshold_full debe ser mayor o igual que 0'}), 400
+        
+        # Validar message_type
+        valid_message_types = ['ESTADO', 'PLAZAS_LIBRES']
+        if message_type not in valid_message_types:
+            return jsonify({'error': f'message_type debe ser uno de: {valid_message_types}'}), 400
         
         session = Session()
         
@@ -443,7 +449,8 @@ def create_parking():
             threshold_dense=threshold_dense,
             threshold_full=threshold_full,
             current_occupancy=0,
-            status='LIBRE'
+            status='LIBRE',
+            message_type=message_type  # NUEVO: Incluir message_type
         )
         
         session.add(new_parking)
@@ -778,6 +785,7 @@ def update_parking_config(pid):
         max_capacity = req.get('total_plazas')
         threshold_dense = req.get('threshold_dense')
         threshold_full = req.get('threshold_full')
+        message_type = req.get('message_type')  # NUEVO: Campo opcional para edición
         
         if max_capacity is not None and (not isinstance(max_capacity, int) or max_capacity <= 0):
             return jsonify({'error': 'total_plazas must be a positive integer'}), 400
@@ -787,6 +795,12 @@ def update_parking_config(pid):
         
         if threshold_full is not None and (not isinstance(threshold_full, int) or threshold_full < 0):
             return jsonify({'error': 'threshold_full must be a non-negative integer'}), 400
+        
+        # Validar message_type si se proporciona
+        if message_type is not None:
+            valid_message_types = ['ESTADO', 'PLAZAS_LIBRES']
+            if message_type not in valid_message_types:
+                return jsonify({'error': f'message_type debe ser uno de: {valid_message_types}'}), 400
         
         session = Session()
         p = session.query(Parking).get(pid)
@@ -804,6 +818,8 @@ def update_parking_config(pid):
             p.threshold_dense = threshold_dense
         if threshold_full is not None:
             p.threshold_full = threshold_full
+        if message_type is not None:
+            p.message_type = message_type  # NUEVO: Actualizar message_type
         
         # Recalcular estado con nuevos umbrales
         free = p.max_capacity - p.current_occupancy
@@ -819,6 +835,7 @@ def update_parking_config(pid):
         final_threshold_dense = p.threshold_dense
         final_threshold_full = p.threshold_full
         final_status = p.status
+        final_message_type = p.message_type  # NUEVO: Guardar message_type
         
         session.commit()
         session.close()
@@ -846,7 +863,8 @@ def update_parking_config(pid):
             'max_capacity': final_max_capacity,
             'threshold_dense': final_threshold_dense,
             'threshold_full': final_threshold_full,
-            'current_status': final_status
+            'current_status': final_status,
+            'message_type': final_message_type  # NUEVO: Incluir en respuesta
         })
         
     except Exception as e:

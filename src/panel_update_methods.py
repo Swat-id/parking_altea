@@ -219,7 +219,7 @@ class PanelUpdateMethods:
     @staticmethod
     def _calculate_occupancy_message(parking_data: Dict[str, Any]) -> tuple[str, int]:
         """
-        Calcular mensaje y color según ocupación del parking
+        Calcular mensaje y color según configuración del parking
         
         Args:
             parking_data: Datos del parking
@@ -230,17 +230,27 @@ class PanelUpdateMethods:
         occupancy = parking_data['current_occupancy']
         max_capacity = parking_data['max_capacity']
         status = parking_data['status']
+        message_type = parking_data.get('message_type', 'ESTADO')  # NUEVO: Configuración por parking
         
         # Calcular plazas libres
         free_spaces = max_capacity - occupancy
         
-        # Determinar mensaje y color según estado
-        if status == 'COMPLETO' or free_spaces <= 0:
-            return "COMPLET", 1  # ROJO
-        elif status == 'DENSO':
-            return str(occupancy), 3  # AMARILLO
-        else:  # LIBRE
-            return str(occupancy), 2  # VERDE
+        if message_type == 'PLAZAS_LIBRES':
+            # Opción: Solo número de plazas libres
+            if status == 'COMPLETO' or free_spaces <= 0:
+                return "0", 1  # ROJO
+            elif status == 'DENSO':
+                return str(free_spaces), 3  # AMARILLO
+            else:  # LIBRE
+                return str(free_spaces), 2  # VERDE
+        else:
+            # Opción: Estado en valenciano (por defecto)
+            if status == 'COMPLETO' or free_spaces <= 0:
+                return "COMPLET", 1  # ROJO
+            elif status == 'DENSO':
+                return "DENS", 3  # AMARILLO
+            else:  # LIBRE
+                return "LLIURE", 2  # VERDE
     
     @staticmethod
     def _send_to_panels_parallel(panel_service, panels: List[Panel], message: str, 

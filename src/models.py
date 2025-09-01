@@ -48,6 +48,7 @@ class Parking(Base):
     current_occupancy = Column(Integer, default=0, nullable=False)
     status = Column(String, default='LIBRE', nullable=False)
     fixed_message_flag = Column(Boolean, default=False, nullable=False)
+    message_type = Column(String(20), default='ESTADO', nullable=False)  # 'ESTADO', 'PLAZAS_LIBRES'
     # Relación muchos a muchos con cámaras a través de tabla intermedia
     camera_parkings = relationship('CameraParking', back_populates='parking')
     panels = relationship('Panel', back_populates='parking')
