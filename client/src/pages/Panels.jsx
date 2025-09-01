@@ -440,15 +440,14 @@ const Panels = () => {
               Ver Resultados
             </button>
           )}
-          {isSuperadmin && (
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Crear Panel
-            </button>
-          )}
+          {/* TEMPORAL: Botón Crear Panel visible para todos */}
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Crear Panel (TEMPORAL)
+          </button>
         </div>
       </div>
 
@@ -698,24 +697,23 @@ const Panels = () => {
                       >
                         <Send className="h-4 w-4" />
                       </button>
-                      {isSuperadmin && (
-                        <>
-                          <button
-                            onClick={() => handleEditPanel(panel)}
-                            className="text-orange-600 hover:text-orange-900"
-                            title="Editar panel"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeletePanel(panel)}
-                            className="text-red-600 hover:text-red-900"
-                            title="Eliminar panel"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </>
-                      )}
+                      {/* TEMPORAL: Botones visibles para todos los usuarios */}
+                      <>
+                        <button
+                          onClick={() => handleEditPanel(panel)}
+                          className="text-orange-600 hover:text-orange-900"
+                          title="Editar panel"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeletePanel(panel)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Eliminar panel"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </>
                     </div>
                   </td>
                 </tr>
