@@ -508,7 +508,7 @@ def update_parking_panels(parking_id: int, current_occupancy: int, max_capacity:
                     
                     if result.get('success'):
                         updated_panels += 1
-                        # Actualizar el último mensaje del panel
+                        # Actualizar el último mensaje del panel solo si fue exitoso
                         panel.last_message = message
                         panel.last_update = datetime.now()
                         panel.status = 'ONLINE'
@@ -516,6 +516,9 @@ def update_parking_panels(parking_id: int, current_occupancy: int, max_capacity:
                     else:
                         error_msg = result.get('message', 'Error desconocido')
                         errors.append(f"Panel {panel.ip}: {error_msg}")
+                        # Solo actualizar estado y timestamp, preservar último mensaje válido
+                        panel.last_update = datetime.now()
+                        panel.status = 'OFFLINE'
                         logger.error(f"Error actualizando panel {panel.ip}: {error_msg}")
                         
                 except Exception as e:

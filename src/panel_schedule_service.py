@@ -282,11 +282,19 @@ class PanelScheduleService:
                         )
                         if result.get('success'):
                             success_count += 1
-                            # Actualizar panel en sesión local
+                            # Actualizar panel en sesión local solo si fue exitoso
                             panel.last_message = schedule.message
                             panel.last_update = datetime.now()
+                            panel.status = 'ONLINE'
+                        else:
+                            # Solo actualizar estado y timestamp, preservar último mensaje válido
+                            panel.last_update = datetime.now()
+                            panel.status = 'OFFLINE'
                     except Exception as e:
                         logger.warning(f"Error enviando a panel {panel.id}: {e}")
+                        # Solo actualizar timestamp en caso de excepción
+                        panel.last_update = datetime.now()
+                        panel.status = 'OFFLINE'
                 
                 # Registrar log
                 log = PanelScheduleLog(

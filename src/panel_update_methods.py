@@ -75,14 +75,14 @@ class PanelUpdateMethods:
                 
                 logger.debug(f"Enviando estado de ocupación a {parking_name}: '{message}' ({parking_data['status']})")
             
-            # 2. Obtener paneles del parking
+            # 2. Obtener paneles del parking (todos los activos, independientemente del estado)
             panels = session.query(Panel).filter(
                 Panel.parking_id == parking_id,
-                Panel.status != 'OFFLINE'  # Solo paneles activos
+                Panel.is_active == True  # Solo paneles activos en configuración
             ).all()
             
             if not panels:
-                logger.warning(f"No hay paneles activos para el parking {parking_name}")
+                logger.warning(f"No hay paneles activos en configuración para el parking {parking_name}")
                 return ParkingUpdateResult(
                     parking_id=parking_id,
                     parking_name=parking_name,
@@ -372,23 +372,30 @@ class PanelUpdateMethods:
                     # Determinar nuevo estado del panel
                     if result.success:
                         new_status = 'ONLINE'
-                        last_message = message_sent
+                        # Actualizar panel con nuevo mensaje y estado
+                        session.execute(text("""
+                            UPDATE panels 
+                            SET last_message = :message,
+                                last_update = NOW(),
+                                status = :status
+                            WHERE id = :panel_id
+                        """), {
+                            'message': message_sent[:255],  # Limitar longitud del mensaje
+                            'status': new_status,
+                            'panel_id': result.panel_id
+                        })
                     else:
-                        new_status = 'ERROR'
-                        last_message = f"Error: {result.error}"
-                    
-                    # Actualizar panel en base de datos
-                    session.execute(text("""
-                        UPDATE panels 
-                        SET last_message = :message,
-                            last_update = NOW(),
-                            status = :status
-                        WHERE id = :panel_id
-                    """), {
-                        'message': last_message[:255],  # Limitar longitud del mensaje
-                        'status': new_status,
-                        'panel_id': result.panel_id
-                    })
+                        new_status = 'OFFLINE'
+                        # Solo actualizar estado y timestamp, preservar último mensaje válido
+                        session.execute(text("""
+                            UPDATE panels 
+                            SET last_update = NOW(),
+                                status = :status
+                            WHERE id = :panel_id
+                        """), {
+                            'status': new_status,
+                            'panel_id': result.panel_id
+                        })
                     
                     logger.debug(f"Panel {result.panel_id} estado actualizado: {new_status}")
         

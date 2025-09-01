@@ -1570,7 +1570,9 @@ def send_message_to_panel(panel_id):
         
         # Actualizar estado del panel (usar el objeto dentro de la sesión)
         panel.status = 'ONLINE' if result['success'] else 'OFFLINE'
-        panel.last_message = message
+        # Solo actualizar last_message si el envío fue exitoso
+        if result['success']:
+            panel.last_message = message
         panel.last_update = datetime.now()
         
         session.commit()

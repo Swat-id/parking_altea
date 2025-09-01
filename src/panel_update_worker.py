@@ -274,7 +274,7 @@ class PanelUpdateWorker:
             Lista de diccionarios con datos de parkings
         """
         try:
-            # Consulta optimizada que obtiene parkings con al menos un panel activo
+            # Consulta optimizada que obtiene parkings con paneles (independientemente del estado)
             result = session.execute(text("""
                 SELECT DISTINCT 
                     p.id, p.name, p.current_occupancy, p.max_capacity, p.status,
@@ -283,7 +283,7 @@ class PanelUpdateWorker:
                     COUNT(pan.id) as panel_count
                 FROM parkings p
                 INNER JOIN panels pan ON pan.parking_id = p.id
-                WHERE pan.status != 'OFFLINE'
+                WHERE pan.is_active = true
                 GROUP BY p.id, p.name, p.current_occupancy, p.max_capacity, p.status,
                          p.threshold_dense, p.threshold_full, p.fixed_message_flag, p.message_type
                 HAVING COUNT(pan.id) > 0
@@ -306,7 +306,7 @@ class PanelUpdateWorker:
                 }
                 parkings_data.append(parking_data)
             
-            logger.debug(f"Obtenidos {len(parkings_data)} parkings con paneles activos")
+            logger.debug(f"Obtenidos {len(parkings_data)} parkings con paneles configurados")
             return parkings_data
             
         except Exception as e:
