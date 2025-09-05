@@ -79,6 +79,53 @@
   - `src/panel_schedule_service.py`
   - `requirements.txt`
 
+#### **EC-003: Campo "status" faltante en envío a FIWARE**
+- **Estado**: 🔍 Identificado - En análisis técnico
+- **Prioridad**: 🔴 CRÍTICA
+- **Impacto**: FIWARE no recibe información completa del estado de parkings
+- **Descripción**: Sistema omite campo "status" en envío a FIWARE
+- **Análisis Detallado**:
+  - **Problema**: Integración FIWARE no incluye campo status del parking
+  - **Impacto**: Sistemas externos no conocen estado real (LIBRE, DENSO, COMPLETO)
+  - **Valor esperado**: Status basado en programación activa o estado calculado
+  - **Casos**: Estados estándar, programaciones activas, número de plazas
+- **Reproducción**: 
+  - Condición: Cambio de estado en parking
+  - Resultado: FIWARE recibe datos sin campo "status"
+- **Impacto en Usuarios**: ❌ Alto - Información incompleta en sistemas externos
+- **Archivos Sospechosos**:
+  - Integración FIWARE (ubicación por determinar)
+  - Servicios de comunicación con externos
+  - Endpoints de estado de parkings
+- **Estimación**: 1-2 días
+- **📋 Análisis Detallado**: [Ver análisis FIWARE completo](analisis_integracion_fiware_v3.5.0.md)
+
+#### **EC-004: Visualización inconsistente en paneles configurados para plazas libres**
+- **Estado**: ✅ RESUELTO
+- **Prioridad**: 🟡 ALTA
+- **Impacto**: Paneles muestran a veces plazas libres, a veces estados (LLIURE/DENS/COMPLET)
+- **Descripción**: Eventos automáticos interferían con lógica del worker
+- **Análisis Detallado**:
+  - **Causa Raíz**: Flujos automáticos (cámaras, ocupación manual, config) no respetaban `message_type`
+  - **Flujo Correcto**: Worker cada 5 minutos respeta configuración PLAZAS_LIBRES
+  - **Interferencias**: Cámaras cada 30s, ocupación manual, cambios config
+  - **Frecuencia**: 80% del tiempo incorrecto debido a interferencias
+- **Reproducción**:
+  - Condición: Parking configurado con `message_type = 'PLAZAS_LIBRES'`
+  - Resultado: Panel alterna entre mostrar "8" y "DENS" para misma ocupación
+- **Impacto en Usuarios**: 🟡 Medio - Confusión en información mostrada
+- **✅ SOLUCIÓN IMPLEMENTADA**:
+  - **Camera Server**: Eliminada actualización automática problemática
+  - **Ocupación Manual**: Solo actualiza si hay programación activa
+  - **Config Changes**: Usa lógica del worker que respeta message_type
+  - **Resultado**: Worker maneja 100% de actualizaciones automáticas
+- **Archivos Corregidos**:
+  - `src/camera_server.py` (línea 508) - Eliminada actualización problemática
+  - `src/api_server.py` (línea 824) - Solo actualiza con programación activa
+  - `src/api_server.py` (línea 920) - Usa lógica correcta del worker
+- **Commit**: `de10ae2` - fix(EC-004): Eliminar interferencias en actualización de paneles
+- **📋 Análisis Detallado**: [Ver análisis completo de paneles](analisis_actualizacion_paneles_v3.5.0.md)
+
 ---
 
 ### **🟡 ERRORES DE ALTA PRIORIDAD**
@@ -155,21 +202,21 @@
 | Tipo | Cantidad | Críticos | Alta | Media | Baja |
 |------|----------|----------|------|-------|------|
 | **Frontend** | 1 | 0 | 1 | 0 | 0 |
-| **Backend** | 2 | 1 | 1 | 0 | 0 |
+| **Backend** | 3 | 1 | 2 | 0 | 0 |
 | **Base de Datos** | 0 | 0 | 0 | 0 | 0 |
-| **Integración** | 0 | 0 | 0 | 0 | 0 |
+| **Integración** | 1 | 1 | 0 | 0 | 0 |
 | **Configuración** | 1 | 1 | 0 | 0 | 0 |
-| **TOTAL** | **2** | **1** | **1** | **0** | **0** |
+| **TOTAL** | **4** | **2** | **2** | **0** | **0** |
 
 ### **📈 Estimación de Tiempos**
 
 | Prioridad | Errores | Tiempo Estimado | Orden |
 |-----------|---------|-----------------|-------|
-| 🔴 **Críticos** | 1 | 1-2 días | 1º |
-| 🟡 **Alta** | 1 | 0 días (resuelto) | - |
+| 🔴 **Críticos** | 2 | 1-2 días | 1º |
+| 🟡 **Alta** | 2 | 0 horas (2 resueltos) | - |
 | 🟢 **Media** | 0 | 0 días | - |
 | 🔵 **Baja** | 0 | 0 días | - |
-| **TOTAL** | **2** | **1-2 días** | |
+| **TOTAL** | **4** | **1-2 días** | |
 
 ---
 
@@ -330,15 +377,15 @@ python tests/performance/load_test.py
 
 ### **📋 Dashboard de Estado**
 ```
-🔴 Críticos:     1/1 (100%) - ✅ EC-002 RESUELTO
-🟡 Alta:         1/1 (100%) - ✅ EC-001 RESUELTO
+🔴 Críticos:     1/2 (50%)  - ✅ EC-002 RESUELTO | 🔧 EC-003 EN ANÁLISIS
+🟡 Alta:         2/2 (100%) - ✅ EC-001 RESUELTO | ✅ EC-004 RESUELTO
 🟢 Media:        0/0 (N/A)  - ✅ No hay errores media
 🔵 Baja:         0/0 (N/A)  - ✅ No hay errores baja
 
-Total:           2/2 (100%) - ✅ COMPLETADO
-Tiempo usado:    1 día (ambos errores)
-Tiempo estimado: 2-4 días (completado en 1)
-Estado:          🎉 TODOS LOS ERRORES RESUELTOS
+Total:           3/4 (75%)  - 🚧 EN PROGRESO
+Tiempo usado:    1 día (3 errores resueltos)
+Tiempo restante: 1-2 días (EC-003 FIWARE)
+Estado:          🎯 SOLO QUEDA FIWARE POR IMPLEMENTAR
 ```
 
 ---
