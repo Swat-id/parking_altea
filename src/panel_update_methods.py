@@ -215,7 +215,7 @@ class PanelUpdateMethods:
     @staticmethod
     def _calculate_occupancy_message(parking_data: Dict[str, Any]) -> tuple[str, int]:
         """
-        Calcular mensaje y color según configuración del parking
+        Calcular mensaje y color según configuración del parking con validación robusta
         
         Args:
             parking_data: Datos del parking
@@ -228,8 +228,24 @@ class PanelUpdateMethods:
         status = parking_data['status']
         message_type = parking_data.get('message_type', 'ESTADO')  # NUEVO: Configuración por parking
         
-        # Calcular plazas libres
+        # VALIDACIÓN ROBUSTA DE DATOS
+        # Asegurar que max_capacity sea positivo
+        if max_capacity <= 0:
+            logger.warning(f"Parking {parking_data.get('name', 'unknown')} tiene max_capacity inválido: {max_capacity}")
+            max_capacity = 1  # Valor mínimo para evitar división por cero
+        
+        # Asegurar que occupancy esté en rango válido [0, max_capacity]
+        original_occupancy = occupancy
+        occupancy = max(0, min(occupancy, max_capacity))
+        
+        if original_occupancy != occupancy:
+            logger.warning(f"Parking {parking_data.get('name', 'unknown')}: occupancy corregido de {original_occupancy} a {occupancy} (max: {max_capacity})")
+        
+        # Calcular plazas libres con validación
         free_spaces = max_capacity - occupancy
+        
+        # Doble validación de seguridad para plazas libres
+        free_spaces = max(0, min(free_spaces, max_capacity))
         
         if message_type == 'PLAZAS_LIBRES':
             # Opción: Solo número de plazas libres
@@ -247,6 +263,64 @@ class PanelUpdateMethods:
                 return "DENS", 3  # AMARILLO
             else:  # LIBRE
                 return "LLIURE", 2  # VERDE
+    
+    @staticmethod
+    def _verify_panel_connectivity(panel: Panel) -> bool:
+        """
+        Verificar conectividad de panel antes de enviar mensaje
+        
+        Args:
+            panel: Panel a verificar
+            
+        Returns:
+            True si el panel está online, False si está offline
+        """
+        try:
+            from panel_client import ping_panel
+            
+            # Realizar ping al panel
+            is_online = ping_panel(panel.ip)
+            
+            # Actualizar estado si cambió
+            current_status_online = (panel.status == 'ONLINE')
+            
+            if is_online != current_status_online:
+                logger.info(f"Panel {panel.id} ({panel.ip}) cambió estado: {panel.status} → {'ONLINE' if is_online else 'OFFLINE'}")
+                
+                # Actualizar estado en base de datos
+                from config import DB_URL
+                from sqlalchemy import create_engine
+                from sqlalchemy.orm import sessionmaker
+                
+                engine = create_engine(DB_URL)
+                Session = sessionmaker(bind=engine)
+                session = Session()
+                
+                try:
+                    session.execute(text("""
+                        UPDATE panels 
+                        SET status = :status, last_update = NOW()
+                        WHERE id = :panel_id
+                    """), {
+                        'status': 'ONLINE' if is_online else 'OFFLINE',
+                        'panel_id': panel.id
+                    })
+                    session.commit()
+                    
+                    # Actualizar el objeto panel en memoria
+                    panel.status = 'ONLINE' if is_online else 'OFFLINE'
+                    
+                except Exception as e:
+                    logger.error(f"Error actualizando estado de panel {panel.id}: {e}")
+                    session.rollback()
+                finally:
+                    session.close()
+            
+            return is_online
+            
+        except Exception as e:
+            logger.error(f"Error verificando conectividad panel {panel.id} ({panel.ip}): {e}")
+            return False
     
     @staticmethod
     def _send_to_panels_parallel(panel_service, panels: List[Panel], message: str, 
@@ -303,12 +377,40 @@ class PanelUpdateMethods:
                     error=str(e)
                 )
         
-        # Enviar a todos los paneles en paralelo
+        # NUEVA LÓGICA: Verificar conectividad antes de enviar
         results = []
+        online_panels = []
+        offline_panels = []
         
+        logger.info(f"Verificando conectividad de {len(panels)} paneles antes de enviar mensaje...")
+        
+        # Verificar conectividad de todos los paneles primero
+        for panel in panels:
+            if PanelUpdateMethods._verify_panel_connectivity(panel):
+                online_panels.append(panel)
+            else:
+                offline_panels.append(panel)
+                # Crear resultado de fallo para panel offline
+                results.append(PanelUpdateResult(
+                    panel_id=panel.id,
+                    panel_ip=panel.ip,
+                    success=False,
+                    message='Panel offline - ping failed',
+                    response_time_ms=0,
+                    error='Panel not reachable via ping'
+                ))
+        
+        logger.info(f"Paneles online: {len(online_panels)}, offline: {len(offline_panels)}")
+        
+        # Continuar solo con paneles online
+        if not online_panels:
+            logger.warning("No hay paneles online para actualizar")
+            return results
+        
+        # Enviar solo a paneles online
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Crear futures para todos los paneles
-            futures = {executor.submit(send_to_single_panel, panel): panel for panel in panels}
+            # Crear futures solo para paneles online
+            futures = {executor.submit(send_to_single_panel, panel): panel for panel in online_panels}
             
             # Recoger resultados con timeout total
             total_timeout = timeout_per_panel + 5  # Timeout total un poco mayor

@@ -469,4 +469,69 @@ watch -n 5 "curl -s localhost:8080/health | jq"
 
 ---
 
+## 🔧 EC-005: Mejoras del Worker de Paneles
+
+### **📋 Descripción**
+**Problema**: El worker de actualización de paneles presenta varios problemas de eficiencia y validación:
+1. No valida que las plazas libres sean >= 0 y <= max_capacity
+2. No verifica conectividad antes de enviar mensajes a paneles
+3. Paneles marcados como OFFLINE siguen recibiendo intentos de actualización
+
+### **🎯 Impacto**
+- **Funcional**: Valores negativos o incorrectos en displays de paneles
+- **Performance**: Timeouts innecesarios en paneles offline
+- **Monitoreo**: Estado de paneles impreciso en el frontend
+
+### **📊 Estado**
+✅ **RESUELTO** - Implementadas mejoras en worker
+
+### **🔧 Implementación**
+
+#### **Cambios Realizados**:
+
+**1. Validación Robusta de Plazas Libres**
+- **Archivo**: `src/panel_update_methods.py`
+- **Función**: `_calculate_occupancy_message()`
+- **Mejoras**:
+  - Validación de `max_capacity > 0`
+  - Corrección de `occupancy` en rango [0, max_capacity]
+  - Validación de `free_spaces` en rango [0, max_capacity]
+  - Logging de correcciones automáticas
+
+**2. Verificación de Conectividad Previa**
+- **Archivo**: `src/panel_update_methods.py`
+- **Función**: Nueva `_verify_panel_connectivity()`
+- **Funcionalidad**:
+  - Ping previo a cada panel antes de envío
+  - Actualización automática de estado en BD
+  - Sincronización de estado en memoria
+
+**3. Envío Inteligente a Paneles**
+- **Archivo**: `src/panel_update_methods.py`
+- **Función**: `_send_to_panels_parallel()` mejorada
+- **Mejoras**:
+  - Verificación masiva de conectividad antes de envío
+  - Envío solo a paneles online
+  - Resultados de error para paneles offline
+  - Logging mejorado de estadísticas
+
+#### **Archivos Modificados**:
+- ✅ `src/panel_update_methods.py` - Lógica principal mejorada
+- ✅ `docs/v3.5.0/analisis_worker_mejoras_v3.5.0.md` - Documentación técnica
+
+### **🧪 Validación**
+- [x] Validación de casos extremos (occupancy negativo, superior a max_capacity)
+- [x] Verificación de ping antes de envío
+- [x] Logging de cambios de estado de paneles
+- [ ] Testing en entorno de producción
+- [ ] Monitoreo de métricas de performance
+
+### **📈 Beneficios Esperados**
+1. **Datos Consistentes**: Eliminación de valores negativos en paneles
+2. **Eficiencia**: Reducción de timeouts al verificar conectividad primero
+3. **Estado Preciso**: Detección proactiva de paneles offline
+4. **Performance**: Menos tiempo perdido en paneles no accesibles
+
+---
+
 *Análisis de Errores Parking Altea v3.5.0 - Framework de Identificación y Corrección - Enero 2025*
