@@ -817,17 +817,25 @@ def set_occupancy(pid):
         session.commit()
         session.close()
         
-        # Enviar mensaje a paneles después de actualizar la ocupación
+        # CORRECCIÓN EC-004: Solo actualizar paneles si hay programación activa
+        # El worker se encarga de actualizaciones regulares respetando message_type
         try:
-            from panel_communication_service import update_parking_panels
-            # Usar el mismo formato que el flujo de cámaras que funciona correctamente
-            update_parking_panels(pid, final_occupancy, final_max_capacity, final_status)
-            logger.info(f"Panel messages sent after manual occupancy update for parking {parking_name}")
+            from panel_schedule_service import PanelScheduleService
+            session_temp = Session()
+            schedule_service = PanelScheduleService(session_temp)
+            active_schedules = schedule_service.get_active_schedules_for_parking(pid)
+            
+            if active_schedules:
+                # Solo actualizar si hay programación activa para mostrarla inmediatamente
+                from panel_communication_service import update_parking_panels
+                update_parking_panels(pid, final_occupancy, final_max_capacity, final_status)
+                logger.info(f"Panel updated due to active schedule after manual occupancy update for parking {parking_name}")
+            else:
+                logger.info(f"Manual occupancy update for {parking_name} - Panel will be updated by worker in next cycle (respects message_type)")
+            
+            session_temp.close()
         except Exception as e:
-            logger.error(f"Error sending panel messages after manual occupancy update: {e}")
-            # Log detallado del error para debugging
-            import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
+            logger.error(f"Error checking schedules after manual occupancy update: {e}")
         
         logger.info(f"Manual occupancy update - Parking: {parking_name}, Previous: {previous_occupancy}, New: {final_occupancy}, Change: {change_amount}, Status: {final_status}")
         
@@ -901,6 +909,7 @@ def update_parking_config(pid):
             p.status = 'LIBRE'
         
         # Guardar valores antes de cerrar la sesión
+        final_occupancy = p.current_occupancy
         final_max_capacity = p.max_capacity
         final_threshold_dense = p.threshold_dense
         final_threshold_full = p.threshold_full
@@ -910,19 +919,36 @@ def update_parking_config(pid):
         session.commit()
         session.close()
         
-        # Enviar mensaje a paneles después de actualizar la configuración
+        # CORRECCIÓN EC-004: Actualizar paneles usando lógica del worker que respeta message_type
         try:
-            from panel_communication_service import update_parking_panels
-            # Obtener la ocupación actual para enviar el mensaje actualizado
-            session = Session()
-            p = session.query(Parking).get(pid)
-            if p:
-                update_parking_panels(pid, p.current_occupancy, p.max_capacity, p.status)
-                logger.info(f"Panel messages sent after config update for parking {parking_name}")
-            session.close()
+            from panel_update_methods import PanelUpdateMethods
+            
+            # Preparar datos como lo hace el worker
+            parking_data = {
+                'id': pid,
+                'name': parking_name,
+                'current_occupancy': final_occupancy,
+                'max_capacity': final_max_capacity,
+                'status': final_status,
+                'message_type': final_message_type or 'ESTADO',
+                'fixed_message_flag': False  # Los cambios de config no deberían tener mensaje fijo
+            }
+            
+            # Usar la lógica correcta del worker (crear instancia mock)
+            class MockWorker:
+                def Session(self):
+                    return Session()
+            
+            mock_worker = MockWorker()
+            result = PanelUpdateMethods.update_parking_panels(mock_worker, parking_data)
+            
+            if result and result.panels_updated > 0:
+                logger.info(f"Panel updated after config change for {parking_name} using worker logic (respects message_type)")
+            else:
+                logger.info(f"Config change for {parking_name} - Panel update handled by worker logic")
+                
         except Exception as e:
-            logger.error(f"Error sending panel messages after config update: {e}")
-            # Log detallado del error para debugging
+            logger.error(f"Error updating panels after config change using worker logic: {e}")
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
         

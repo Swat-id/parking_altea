@@ -503,19 +503,11 @@ def handle_camera():
                         processing_status = "schedule_active"
                         error_message = f"Panel update skipped due to active schedule: {active_schedules[0].name}"
                     else:
-                        # Solo actualizar paneles si no hay programación activa
-                        try:
-                            update_parking_panels(parking.id, parking.current_occupancy, parking.max_capacity, parking.status)
-                            logger.info(f"Message sent to panels for {parking.name}: {parking.current_occupancy}/{parking.max_capacity} ({parking.status})")
-                            processing_status = "processed" if not is_reset else "reset_processed"
-                            error_message = None
-                        except Exception as e:
-                            logger.error(f"Error sending to panels for {parking.name}: {e}")
-                            # Log detallado del error para debugging
-                            import traceback
-                            logger.error(f"Traceback: {traceback.format_exc()}")
-                            processing_status = "panel_error"
-                            error_message = f"Error sending to panels: {e}"
+                        # CORRECCIÓN EC-004: No actualizar paneles desde cámaras para evitar interferencias
+                        # El worker se encargará de actualizar paneles cada 5 minutos respetando message_type
+                        logger.info(f"Occupancy updated for {parking.name}: {parking.current_occupancy}/{parking.max_capacity} ({parking.status}) - Panel update will be handled by worker")
+                        processing_status = "processed" if not is_reset else "reset_processed"
+                        error_message = None
                 
                 # Preparar información adicional para el log en caso de reinicio
                 if is_reset and error_message is None:
