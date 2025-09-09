@@ -60,7 +60,8 @@
 - **[Documentación v3.2.0](v3.2.0/)** - Versión 3.2.0 con sistema de alarmas
 - **[Documentación v3.3.0](v3.3.0/)** - Versión 3.3.0 con optimizaciones
 - **[Documentación v3.4.0](v3.4.0/)** - Versión 3.4.0 con arquitectura separada (PRODUCCIÓN)
-- **[Documentación v3.5.0](v3.5.0/)** - Versión 3.5.0 corrección de errores (EN DESARROLLO)
+- **[Documentación v3.5.0](v3.5.0/)** - Versión 3.5.0 corrección de errores
+- **[Documentación v4.0.0](v4.0.0/)** - Versión 4.0.0 con nuevas funcionalidades (EN DESARROLLO)
 
 ## 🔧 **Correcciones y Mejoras**
 
@@ -98,8 +99,8 @@
 
 ### **Versión en Producción:** v3.4.0
 ### **Estado:** ✅ **PRODUCCIÓN - OPERATIVO** (Arquitectura Separada)
-### **Versión en Desarrollo:** v3.5.0 (Corrección de Errores)
-### **Última Actualización:** Enero 2025
+### **Versión en Desarrollo:** v4.0.0 (Nuevas Funcionalidades)
+### **Última Actualización:** Septiembre 2025
 ### **Última Mejora:** Arquitectura separada de mensajes y paneles implementada
 
 ### **Servicios Activos v3.4.0:**
@@ -118,4 +119,4 @@
 
 ---
 
-*Documentación Parking Altea - Actualizada para v3.4.0 (Producción) y v3.5.0 (Desarrollo) - Enero 2025* 
+*Documentación Parking Altea - Actualizada para v3.4.0 (Producción) y v4.0.0 (Desarrollo) - Septiembre 2025* 
