@@ -27,7 +27,7 @@ Este documento presenta un análisis exhaustivo del proceso completo de gestión
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   CÁMARAS       │───▶│  CAMERA SERVER   │───▶│   BASE DATOS    │
-│   (IP Cameras)  │    │  (Puerto 5000)   │    │  (PostgreSQL)   │
+│   (IP Cameras)  │    │  (Puerto 6400)   │    │  (PostgreSQL)   │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
                                 │
                                 ▼
@@ -40,7 +40,7 @@ Este documento presenta un análisis exhaustivo del proceso completo de gestión
 ### **Versiones del Sistema**
 
 #### **v3.4.0 (Producción) - Arquitectura Separada**
-- **Camera Server**: Puerto 5000 (procesamiento concurrente)
+- **Camera Server**: Puerto 6400 (procesamiento concurrente)
 - **Panel Worker**: Servicio independiente
 - **Procesamiento**: 100% asíncrono con `CameraMessageProcessor`
 - **Respuesta**: <200ms garantizado
