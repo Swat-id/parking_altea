@@ -17,9 +17,22 @@ import subprocess
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Feature flag para nueva lógica de cálculo de deltas v4.0.0
+# True = Nueva lógica (almacenamiento inmediato)
+# False = Lógica actual (mantener compatibilidad)
+USE_NEW_DELTA_LOGIC = True
+
 # Importar la función de actualización de paneles
 from panel_communication_service import update_parking_panels
 logger.info("Función update_parking_panels importada correctamente")
+
+# Log del estado del feature flag
+if USE_NEW_DELTA_LOGIC:
+    logger.info("🚀 CAMERA SERVER v4.0.0 - NEW DELTA LOGIC ENABLED")
+    logger.info("Features: Immediate storage, unified delta calculation, improved reset handling")
+else:
+    logger.info("📜 CAMERA SERVER - LEGACY DELTA LOGIC ENABLED")
+    logger.info("Using original delta calculation for compatibility")
 
 app = Flask(__name__)
 engine = create_engine(config.DB_URL, echo=False)
@@ -179,6 +192,120 @@ def calculate_deltas_with_reset_handling(previous_in, previous_out, new_in, new_
     logger.info(f"Deltas calculated - Delta In: {delta_in}, Delta Out: {delta_out}, Reset: {is_reset}")
     
     return delta_in, delta_out, is_reset, reset_info
+
+# =================== NUEVA LÓGICA DE CÁLCULO DE DELTAS v4.0.0 ===================
+
+def detect_camera_reset_new_logic(previous_in, previous_out, new_in, new_out):
+    """
+    Nueva lógica de detección de reinicios v4.0.0
+    
+    Mejoras:
+    - Detección simplificada basada en comparación directa
+    - Mejor manejo de casos extremos
+    """
+    # Si es la primera vez (contadores anteriores son None), no es reinicio
+    if previous_in is None or previous_out is None:
+        return False, new_in, new_out
+    
+    # Detectar reinicio: nuevos contadores son menores que los anteriores
+    is_reset = (new_in < previous_in) or (new_out < previous_out)
+    
+    if is_reset:
+        logger.info(f"CAMERA RESET DETECTED (NEW LOGIC) - Previous: In={previous_in}, Out={previous_out} -> New: In={new_in}, Out={new_out}")
+        return True, new_in, new_out
+    
+    return False, previous_in, previous_out
+
+def calculate_deltas_new_logic(previous_in, previous_out, new_in, new_out):
+    """
+    Nueva lógica de cálculo de deltas v4.0.0
+    
+    Cambios principales:
+    1. Cálculo de delta unificado en lugar de delta_in y delta_out separados
+    2. En reinicios: usar diferencia absoluta de valores nuevos
+    3. Simplificación de la lógica de validación
+    """
+    # Detectar si hay reinicio usando nueva lógica
+    is_reset, base_in, base_out = detect_camera_reset_new_logic(
+        previous_in, previous_out, new_in, new_out
+    )
+    
+    if is_reset:
+        # NUEVA LÓGICA: En reinicio, usar diferencia absoluta de valores nuevos
+        delta_final = new_in - new_out
+        logger.info(f"Reset detected (NEW LOGIC) - Using absolute difference: {new_in} - {new_out} = {delta_final}")
+        
+        reset_info = {
+            "is_reset": True,
+            "previous_in": previous_in,
+            "previous_out": previous_out,
+            "new_in": new_in,
+            "new_out": new_out,
+            "delta_calculation_method": "absolute_difference",
+            "logic_version": "v4.0.0"
+        }
+        
+        return delta_final, True, reset_info
+    else:
+        # Caso normal: calcular diferencias incrementales
+        delta_in_diff = new_in - previous_in
+        delta_out_diff = new_out - previous_out
+        delta_final = delta_in_diff - delta_out_diff
+        
+        # Validación: no permitir deltas negativos en funcionamiento normal
+        if delta_in_diff < 0:
+            logger.warning(f"Negative delta_in_diff detected (NEW LOGIC): {delta_in_diff}. Setting to 0.")
+            delta_in_diff = 0
+        if delta_out_diff < 0:
+            logger.warning(f"Negative delta_out_diff detected (NEW LOGIC): {delta_out_diff}. Setting to 0.")
+            delta_out_diff = 0
+        
+        # Recalcular delta final con valores corregidos
+        delta_final = delta_in_diff - delta_out_diff
+        
+        logger.info(f"Deltas calculated (NEW LOGIC) - In diff: {delta_in_diff}, Out diff: {delta_out_diff}, Final delta: {delta_final}")
+        
+        reset_info = {
+            "is_reset": False,
+            "previous_in": previous_in,
+            "previous_out": previous_out,
+            "new_in": new_in,
+            "new_out": new_out,
+            "delta_in_diff": delta_in_diff,
+            "delta_out_diff": delta_out_diff,
+            "delta_calculation_method": "incremental_difference",
+            "logic_version": "v4.0.0"
+        }
+        
+        return delta_final, False, reset_info
+
+def validate_delta_thresholds(delta_final, is_reset):
+    """
+    Validar que el delta calculado esté dentro de umbrales razonables
+    
+    Args:
+        delta_final: Delta calculado
+        is_reset: Si es un reinicio
+        
+    Returns:
+        tuple: (is_valid, corrected_delta, warning_message)
+    """
+    MAX_DELTA_NORMAL = 50  # Máximo 50 vehículos por mensaje en operación normal
+    MAX_DELTA_RESET = 200  # Máximo 200 vehículos en caso de reinicio
+    
+    threshold = MAX_DELTA_RESET if is_reset else MAX_DELTA_NORMAL
+    
+    if abs(delta_final) > threshold:
+        warning_msg = f"Delta excesivo detectado: {delta_final}, umbral: {threshold}, reset: {is_reset}"
+        logger.warning(warning_msg)
+        
+        # Limitar delta a umbral máximo manteniendo signo
+        corrected_delta = threshold if delta_final > 0 else -threshold
+        return False, corrected_delta, warning_msg
+    
+    return True, delta_final, None
+
+# =================== FIN NUEVA LÓGICA v4.0.0 ===================
 
 @app.route('/camera', methods=['POST'])
 def handle_camera():
@@ -390,26 +517,78 @@ def handle_camera():
         previous_vehicle_in = first_access.last_vehicle_in
         previous_vehicle_out = first_access.last_vehicle_out
         
-        # Calcular deltas con manejo de reinicios
-        logger.info(f"Calculating deltas - Previous: In={previous_vehicle_in}, Out={previous_vehicle_out} -> New: In={veh_in}, Out={veh_out}")
-        delta_in, delta_out, is_reset, reset_info = calculate_deltas_with_reset_handling(
-            previous_vehicle_in, previous_vehicle_out, veh_in, veh_out
-        )
+        # =================== LÓGICA DE CÁLCULO DE DELTAS ===================
+        if USE_NEW_DELTA_LOGIC:
+            logger.info(f"Using NEW DELTA LOGIC v4.0.0")
+            
+            # PASO 1: ALMACENAMIENTO INMEDIATO (cambio clave de la nueva lógica)
+            logger.info(f"Storing new values immediately - Previous: In={previous_vehicle_in}, Out={previous_vehicle_out} -> New: In={veh_in}, Out={veh_out}")
+            for access in accesses:
+                access.last_vehicle_in = veh_in
+                access.last_vehicle_out = veh_out
+            
+            # PASO 2: Detección de mensajes duplicados (post-almacenamiento)
+            if veh_in == previous_vehicle_in and veh_out == previous_vehicle_out:
+                logger.info("DUPLICATE MESSAGE DETECTED (NEW LOGIC) - Skipping processing")
+                
+                # Registrar log de duplicado
+                log_camera_message(
+                    session=session,
+                    camera_ip=ip,
+                    camera_line=original_line,
+                    camera_name=device,
+                    raw_message=raw_data,
+                    vehicle_in=veh_in,
+                    vehicle_out=veh_out,
+                    status="duplicate_new_logic",
+                    error_message="Duplicate message detected by new logic",
+                    processing_time=(time.time() - start_time) * 1000
+                )
+                
+                return jsonify({'status': 'duplicate_ignored_new_logic', 'message': 'Duplicate message ignored by new logic'}), 200
+            
+            # PASO 3: Calcular delta final usando nueva lógica
+            delta_final, is_reset, reset_info = calculate_deltas_new_logic(
+                previous_vehicle_in, previous_vehicle_out, veh_in, veh_out
+            )
+            
+            # PASO 4: Validar umbrales
+            is_valid, corrected_delta, warning_msg = validate_delta_thresholds(delta_final, is_reset)
+            if not is_valid:
+                logger.warning(f"Delta corrected - Original: {delta_final}, Corrected: {corrected_delta}, Reason: {warning_msg}")
+                delta_final = corrected_delta
+            
+            # Variables para compatibilidad con logging existente
+            delta_in = reset_info.get("delta_in_diff", 0) if not is_reset else 0
+            delta_out = reset_info.get("delta_out_diff", 0) if not is_reset else 0
+            
+            logger.info(f"NEW LOGIC - Delta final: {delta_final}, Is Reset: {is_reset}")
+            
+        else:
+            logger.info(f"Using LEGACY DELTA LOGIC")
+            
+            # Calcular deltas con manejo de reinicios (lógica original)
+            logger.info(f"Calculating deltas - Previous: In={previous_vehicle_in}, Out={previous_vehicle_out} -> New: In={veh_in}, Out={veh_out}")
+            delta_in, delta_out, is_reset, reset_info = calculate_deltas_with_reset_handling(
+                previous_vehicle_in, previous_vehicle_out, veh_in, veh_out
+            )
+            
+            # Calcular delta final para compatibilidad
+            delta_final = delta_in - delta_out if not is_reset else 0
+            
+            # Actualizar contadores DESPUÉS de calcular (lógica original)
+            for access in accesses:
+                access.last_vehicle_in = veh_in
+                access.last_vehicle_out = veh_out
         
         # Log detallado de los deltas calculados
-        logger.info(f"Delta calculation result - Delta In: {delta_in}, Delta Out: {delta_out}, Is Reset: {is_reset}")
+        logger.info(f"Delta calculation result - Final Delta: {delta_final}, Is Reset: {is_reset}")
         logger.info(f"Reset info: {reset_info}")
         
         # Si es un reinicio, logear información adicional
         if is_reset:
             logger.warning(f"CAMERA RESET PROCESSED - Device: {device}, Line: {original_line}")
             logger.warning(f"Reset details: {reset_info}")
-        
-        # NUEVA LÓGICA: Actualizar contadores de TODOS los accesos ANTES de calcular ocupación
-        # Esto es crucial para evitar duplicados
-        for access in accesses:
-            access.last_vehicle_in = veh_in
-            access.last_vehicle_out = veh_out
         
         # CORRECCIÓN CRÍTICA: La lógica correcta es aplicar el delta a todos los parkings asociados
         # NO sumar contadores absolutos de todas las cámaras
@@ -423,15 +602,23 @@ def handle_camera():
                 parking = camera_parking.parking
                 previous_occupancy = parking.current_occupancy
                 
-                # LÓGICA CORRECTA: Aplicar el delta calculado al parking
-                # Solo aplicar deltas si NO es un reinicio
-                if not is_reset:
-                    # Aplicar el delta de esta cámara al parking
-                    parking.current_occupancy += (delta_in - delta_out)
-                    logger.info(f"Occupancy updated for parking {parking.name} - Previous: {previous_occupancy}, Delta applied: +{delta_in} -{delta_out} = {delta_in - delta_out}, New: {parking.current_occupancy}")
+                # =================== APLICACIÓN DE DELTA AL AFORO ===================
+                if USE_NEW_DELTA_LOGIC:
+                    # NUEVA LÓGICA: Aplicar delta final unificado
+                    parking.current_occupancy += delta_final
+                    if is_reset:
+                        logger.info(f"Occupancy updated (NEW LOGIC - RESET) for parking {parking.name} - Previous: {previous_occupancy}, Delta applied: {delta_final} (absolute difference), New: {parking.current_occupancy}")
+                    else:
+                        logger.info(f"Occupancy updated (NEW LOGIC) for parking {parking.name} - Previous: {previous_occupancy}, Delta applied: {delta_final}, New: {parking.current_occupancy}")
                 else:
-                    # En caso de reinicio, mantener la ocupación actual
-                    logger.info(f"Reset detected for parking {parking.name} - Keeping current occupancy: {parking.current_occupancy}")
+                    # LÓGICA ORIGINAL: Aplicar deltas separados solo si NO es reinicio
+                    if not is_reset:
+                        # Aplicar el delta de esta cámara al parking
+                        parking.current_occupancy += (delta_in - delta_out)
+                        logger.info(f"Occupancy updated (LEGACY) for parking {parking.name} - Previous: {previous_occupancy}, Delta applied: +{delta_in} -{delta_out} = {delta_in - delta_out}, New: {parking.current_occupancy}")
+                    else:
+                        # En caso de reinicio, mantener la ocupación actual
+                        logger.info(f"Reset detected (LEGACY) for parking {parking.name} - Keeping current occupancy: {parking.current_occupancy}")
                 
                 # PERMITIR OCUPACIÓN POR ENCIMA DEL MÁXIMO Y VALORES NEGATIVOS
                 # No limitar la ocupación al máximo de capacidad
@@ -509,11 +696,25 @@ def handle_camera():
                         processing_status = "processed" if not is_reset else "reset_processed"
                         error_message = None
                 
-                # Preparar información adicional para el log en caso de reinicio
+                # Preparar información adicional para el log
                 if is_reset and error_message is None:
-                    error_message = f"Camera reset detected - Previous: In={previous_vehicle_in}, Out={previous_vehicle_out} -> New: In={veh_in}, Out={veh_out}"
+                    if USE_NEW_DELTA_LOGIC:
+                        error_message = f"Camera reset detected (NEW LOGIC) - Previous: In={previous_vehicle_in}, Out={previous_vehicle_out} -> New: In={veh_in}, Out={veh_out}, Delta applied: {delta_final}"
+                    else:
+                        error_message = f"Camera reset detected (LEGACY) - Previous: In={previous_vehicle_in}, Out={previous_vehicle_out} -> New: In={veh_in}, Out={veh_out}"
                 
                 # Registrar log de cámara para cada parking
+                if USE_NEW_DELTA_LOGIC:
+                    # Para nueva lógica, usar valores de reset_info específicos
+                    previous_in_log = reset_info.get("previous_in", previous_vehicle_in)
+                    previous_out_log = reset_info.get("previous_out", previous_vehicle_out)
+                    status_suffix = "_new_logic"
+                else:
+                    # Para lógica legacy, usar valores ajustados como antes
+                    previous_in_log = reset_info.get("adjusted_previous_in", previous_vehicle_in)
+                    previous_out_log = reset_info.get("adjusted_previous_out", previous_vehicle_out)
+                    status_suffix = "_legacy"
+                
                 log_camera_message(
                     session=session,
                     camera_ip=ip,
@@ -522,13 +723,13 @@ def handle_camera():
                     raw_message=raw_data,
                     vehicle_in=veh_in,
                     vehicle_out=veh_out,
-                    status=processing_status,
+                    status=processing_status + status_suffix,
                     error_message=error_message,
                     access_id=access.id,
                     parking_id=parking.id,
                     processing_time=(time.time() - start_time) * 1000,
-                    previous_vehicle_in=reset_info["adjusted_previous_in"],
-                    previous_vehicle_out=reset_info["adjusted_previous_out"],
+                    previous_vehicle_in=previous_in_log,
+                    previous_vehicle_out=previous_out_log,
                     delta_in=delta_in,
                     delta_out=delta_out,
                     new_occupancy=occ,

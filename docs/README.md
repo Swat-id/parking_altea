@@ -61,7 +61,7 @@
 - **[Documentación v3.3.0](v3.3.0/)** - Versión 3.3.0 con optimizaciones
 - **[Documentación v3.4.0](v3.4.0/)** - Versión 3.4.0 con arquitectura separada (PRODUCCIÓN)
 - **[Documentación v3.5.0](v3.5.0/)** - Versión 3.5.0 corrección de errores
-- **[Documentación v4.0.0](v4.0.0/)** - Versión 4.0.0 con nuevas funcionalidades (EN DESARROLLO)
+- **[Documentación v4.0.0](v4.0.0/)** - Versión 4.0.0 con nueva lógica de deltas (IMPLEMENTADO - LISTO PARA DESPLIEGUE)
 
 ## 🔧 **Correcciones y Mejoras**
 
