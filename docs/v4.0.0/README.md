@@ -53,6 +53,13 @@
    - Versión resumida para despliegue ágil
    - **🔥 PARA EJECUCIÓN INMEDIATA**
 
+7. **[comandos_manuales_completos_v4_0_0.md](comandos_manuales_completos_v4_0_0.md)**
+   - **🔧 Todos los comandos paso a paso SIN scripts**
+   - Despliegue completamente manual
+   - 13 pasos detallados con verificación
+   - Backup, tests y rollback manuales
+   - **👨‍💻 PARA CONTROL TOTAL MANUAL**
+
 ---
 
 ## 🚀 Archivos de Código y Scripts
