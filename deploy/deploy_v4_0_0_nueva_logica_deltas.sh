@@ -32,12 +32,12 @@ log_error() {
 
 # Variables
 SERVICE_NAME="parking-camera.service"
-BACKUP_DIR="/opt/parking/backups"
+BACKUP_DIR="/opt/parking_altea/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-DEPLOYMENT_LOG="/opt/parking/logs/deployment_v4_0_0_${TIMESTAMP}.log"
+DEPLOYMENT_LOG="/opt/parking_altea/logs/deployment_v4_0_0_${TIMESTAMP}.log"
 
 # Crear directorio de logs si no existe
-mkdir -p /opt/parking/logs
+mkdir -p /opt/parking_altea/logs
 
 # Función para logging a archivo
 log_to_file() {
@@ -174,7 +174,7 @@ fi
 log_info "PASO 9: Configurando monitorización post-despliegue..."
 
 # Crear script de monitorización
-cat > /opt/parking/scripts/monitor_v4_0_0.sh << 'EOF'
+cat > /opt/parking_altea/scripts/monitor_v4_0_0.sh << 'EOF'
 #!/bin/bash
 echo "=== MONITORIZACIÓN NUEVA LÓGICA v4.0.0 ==="
 echo "Fecha: $(date)"
@@ -206,14 +206,14 @@ echo "🔄 Estado del servicio:"
 systemctl status parking-camera.service --no-pager -l
 EOF
 
-chmod +x /opt/parking/scripts/monitor_v4_0_0.sh
-log_success "Script de monitorización creado: /opt/parking/scripts/monitor_v4_0_0.sh"
+chmod +x /opt/parking_altea/scripts/monitor_v4_0_0.sh
+log_success "Script de monitorización creado: /opt/parking_altea/scripts/monitor_v4_0_0.sh"
 log_to_file "Script de monitorización configurado"
 
 # PASO 10: Crear script de rollback rápido
 log_info "PASO 10: Creando script de rollback rápido..."
 
-cat > /opt/parking/scripts/rollback_v4_0_0.sh << EOF
+cat > /opt/parking_altea/scripts/rollback_v4_0_0.sh << EOF
 #!/bin/bash
 echo "🔄 ROLLBACK RÁPIDO v4.0.0"
 echo "========================="
@@ -241,8 +241,8 @@ fi
 echo "❌ Rollback cancelado."
 EOF
 
-chmod +x /opt/parking/scripts/rollback_v4_0_0.sh
-log_success "Script de rollback creado: /opt/parking/scripts/rollback_v4_0_0.sh"
+chmod +x /opt/parking_altea/scripts/rollback_v4_0_0.sh
+log_success "Script de rollback creado: /opt/parking_altea/scripts/rollback_v4_0_0.sh"
 log_to_file "Script de rollback configurado"
 
 # RESUMEN FINAL
@@ -255,15 +255,15 @@ echo
 echo "📁 Archivos importantes:"
 echo "   - Backup: $BACKUP_DIR/camera_server.py.backup.$TIMESTAMP"
 echo "   - Log de despliegue: $DEPLOYMENT_LOG"
-echo "   - Monitor: /opt/parking/scripts/monitor_v4_0_0.sh"
-echo "   - Rollback: /opt/parking/scripts/rollback_v4_0_0.sh"
+echo "   - Monitor: /opt/parking_altea/scripts/monitor_v4_0_0.sh"
+echo "   - Rollback: /opt/parking_altea/scripts/rollback_v4_0_0.sh"
 echo
 echo "📊 Comandos de monitorización:"
-echo "   sudo /opt/parking/scripts/monitor_v4_0_0.sh"
+echo "   sudo /opt/parking_altea/scripts/monitor_v4_0_0.sh"
 echo "   sudo journalctl -u parking-camera.service -f"
 echo
 echo "🔄 En caso de problemas:"
-echo "   sudo /opt/parking/scripts/rollback_v4_0_0.sh"
+echo "   sudo /opt/parking_altea/scripts/rollback_v4_0_0.sh"
 echo
 echo "⏰ Próximos pasos:"
 echo "   1. Monitorizar durante las próximas 2 horas"

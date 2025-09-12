@@ -15,7 +15,7 @@
 ssh root@157.180.91.63
 
 # Navegar al directorio del proyecto
-cd /opt/parking
+cd /opt/parking_altea
 
 # Verificar ubicación actual
 pwd
@@ -34,10 +34,10 @@ git status
 
 ```bash
 # Crear directorio de backup con fecha
-mkdir -p /opt/parking/backups/$(date +%Y%m%d_%H%M%S)
+mkdir -p /opt/parking_altea/backups/$(date +%Y%m%d_%H%M%S)
 
 # Definir variable para el directorio de backup
-BACKUP_DIR="/opt/parking/backups/$(date +%Y%m%d_%H%M%S)"
+BACKUP_DIR="/opt/parking_altea/backups/$(date +%Y%m%d_%H%M%S)"
 
 # Backup del archivo principal
 cp src/camera_server.py $BACKUP_DIR/camera_server.py.backup
@@ -420,25 +420,25 @@ echo "watch -n 900 '/tmp/monitor_v4_0_0_manual.sh'"
 
 ```bash
 # Crear directorio para logs específicos de v4.0.0
-mkdir -p /opt/parking/logs/v4_0_0
+mkdir -p /opt/parking_altea/logs/v4_0_0
 
 # Crear script para capturar logs de nueva lógica
-cat > /opt/parking/logs/v4_0_0/capture_new_logic_logs.sh << 'EOF'
+cat > /opt/parking_altea/logs/v4_0_0/capture_new_logic_logs.sh << 'EOF'
 #!/bin/bash
-LOG_FILE="/opt/parking/logs/v4_0_0/new_logic_$(date +%Y%m%d).log"
+LOG_FILE="/opt/parking_altea/logs/v4_0_0/new_logic_$(date +%Y%m%d).log"
 journalctl -u parking-camera.service --since "1 hour ago" | grep "NEW LOGIC" >> $LOG_FILE
 journalctl -u parking-camera.service --since "1 hour ago" | grep "Reset detected (NEW LOGIC)" >> $LOG_FILE
 journalctl -u parking-camera.service --since "1 hour ago" | grep "DUPLICATE MESSAGE DETECTED (NEW LOGIC)" >> $LOG_FILE
 echo "$(date): Logs captured to $LOG_FILE"
 EOF
 
-chmod +x /opt/parking/logs/v4_0_0/capture_new_logic_logs.sh
+chmod +x /opt/parking_altea/logs/v4_0_0/capture_new_logic_logs.sh
 
 # Ejecutar captura inicial
-/opt/parking/logs/v4_0_0/capture_new_logic_logs.sh
+/opt/parking_altea/logs/v4_0_0/capture_new_logic_logs.sh
 
 # Mostrar logs capturados
-ls -la /opt/parking/logs/v4_0_0/
+ls -la /opt/parking_altea/logs/v4_0_0/
 ```
 
 ---
@@ -479,7 +479,7 @@ systemctl stop parking-camera.service
 
 # Restaurar backup (usar el directorio creado en PASO 2)
 # Reemplazar BACKUP_DIR con el directorio real
-BACKUP_DIR="/opt/parking/backups/YYYYMMDD_HHMMSS"  # Ajustar con directorio real
+BACKUP_DIR="/opt/parking_altea/backups/YYYYMMDD_HHMMSS"  # Ajustar con directorio real
 cp $BACKUP_DIR/camera_server.py.backup src/camera_server.py
 
 # Verificar restauración

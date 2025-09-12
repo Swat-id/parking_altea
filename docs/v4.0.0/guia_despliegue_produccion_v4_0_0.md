@@ -35,7 +35,7 @@ Esta guía proporciona **todos los comandos exactos** para desplegar la nueva l�
 - **Usuario**: root
 - **Servicio**: parking-camera.service
 - **Puerto**: 6400
-- **Directorio**: /opt/parking/ (asumir ubicación estándar)
+- **Directorio**: /opt/parking_altea
 
 ---
 
@@ -52,7 +52,7 @@ ssh root@157.180.91.63
 
 ```bash
 # Navegar al directorio del proyecto
-cd /opt/parking
+cd /opt/parking_altea
 
 # Verificar que estamos en el directorio correcto
 pwd
@@ -66,18 +66,18 @@ git branch
 
 ```bash
 # Crear directorio de backup si no existe
-mkdir -p /opt/parking/backups/$(date +%Y%m%d)
+mkdir -p /opt/parking_altea/backups/$(date +%Y%m%d)
 
 # Backup del archivo principal
-cp src/camera_server.py /opt/parking/backups/$(date +%Y%m%d)/camera_server.py.backup.$(date +%H%M%S)
+cp src/camera_server.py /opt/parking_altea/backups/$(date +%Y%m%d)/camera_server.py.backup.$(date +%H%M%S)
 
 # Verificar estado del servicio antes del despliegue
 systemctl status parking-camera.service
 
 # Backup de logs actuales
-journalctl -u parking-camera.service --since "24 hours ago" > /opt/parking/backups/$(date +%Y%m%d)/camera_service_logs_pre_deployment.log
+journalctl -u parking-camera.service --since "24 hours ago" > /opt/parking_altea/backups/$(date +%Y%m%d)/camera_service_logs_pre_deployment.log
 
-echo "✅ Backup completado en /opt/parking/backups/$(date +%Y%m%d)/"
+echo "✅ Backup completado en /opt/parking_altea/backups/$(date +%Y%m%d)/"
 ```
 
 ### 🔄 PASO 4: Actualización desde Git
@@ -199,7 +199,7 @@ echo "📊 Iniciando monitorización..."
 journalctl -u parking-camera.service -f &
 
 # Estadísticas de la nueva lógica
-/opt/parking/scripts/monitor_v4_0_0.sh
+/opt/parking_altea/scripts/monitor_v4_0_0.sh
 
 # Verificar procesamiento en los últimos 10 minutos
 journalctl -u parking-camera.service --since "10 minutes ago" | grep "NEW LOGIC - Delta final" | wc -l
@@ -240,7 +240,7 @@ echo
 
 ```bash
 # Ejecutar cada hora durante las primeras 24 horas
-/opt/parking/scripts/monitor_v4_0_0.sh
+/opt/parking_altea/scripts/monitor_v4_0_0.sh
 ```
 
 ---
@@ -253,7 +253,7 @@ echo
 echo "🔄 Ejecutando rollback rápido..."
 
 # Usar script automatizado
-/opt/parking/scripts/rollback_v4_0_0.sh
+/opt/parking_altea/scripts/rollback_v4_0_0.sh
 
 # Seleccionar opción 1 cuando pregunte
 # Esto cambiará USE_NEW_DELTA_LOGIC = False
@@ -455,10 +455,10 @@ psql -h localhost -U parking_user -d parking_db -c "SELECT 1;"
 3. **Estado del sistema**: `systemctl status parking-camera.service`
 
 ### Archivos importantes:
-- **Backup**: `/opt/parking/backups/$(date +%Y%m%d)/`
+- **Backup**: `/opt/parking_altea/backups/$(date +%Y%m%d)/`
 - **Logs**: `journalctl -u parking-camera.service`
 - **Configuración**: `src/camera_server.py` (línea 23 - feature flag)
-- **Scripts**: `/opt/parking/scripts/`
+- **Scripts**: `/opt/parking_altea/scripts/`
 
 ---
 
@@ -469,9 +469,9 @@ psql -h localhost -U parking_user -d parking_db -c "SELECT 1;"
 ```bash
 # 1. Conectar y preparar
 ssh root@157.180.91.63
-cd /opt/parking
-mkdir -p /opt/parking/backups/$(date +%Y%m%d)
-cp src/camera_server.py /opt/parking/backups/$(date +%Y%m%d)/camera_server.py.backup.$(date +%H%M%S)
+cd /opt/parking_altea
+mkdir -p /opt/parking_altea/backups/$(date +%Y%m%d)
+cp src/camera_server.py /opt/parking_altea/backups/$(date +%Y%m%d)/camera_server.py.backup.$(date +%H%M%S)
 
 # 2. Actualizar código
 git stash
@@ -493,7 +493,7 @@ journalctl -u parking-camera.service -f
 ### Rollback rápido si hay problemas:
 
 ```bash
-/opt/parking/scripts/rollback_v4_0_0.sh
+/opt/parking_altea/scripts/rollback_v4_0_0.sh
 ```
 
 ---

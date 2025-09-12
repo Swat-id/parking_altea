@@ -21,7 +21,7 @@ log_error() { echo -e "${RED}[FAIL]${NC} $1"; }
 CAMERA_ENDPOINT="http://localhost:6400/camera"
 TEST_DEVICE="TEST_CAMERA_V4"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-TEST_LOG="/opt/parking/logs/tests_v4_0_0_${TIMESTAMP}.log"
+TEST_LOG="/opt/parking_altea/logs/tests_v4_0_0_${TIMESTAMP}.log"
 
 echo "🧪 TESTS FUNCIONALES - NUEVA LÓGICA v4.0.0"
 echo "============================================="
@@ -278,7 +278,7 @@ if [ "$failed_tests" -eq 0 ]; then
     echo
     echo "📋 Próximos pasos recomendados:"
     echo "1. Monitorizar durante las próximas 2 horas"
-    echo "2. Ejecutar /opt/parking/scripts/monitor_v4_0_0.sh periódicamente"
+    echo "2. Ejecutar /opt/parking_altea/scripts/monitor_v4_0_0.sh periódicamente"
     echo "3. Verificar métricas de ocupación en dashboards"
     echo "4. Documentar comportamiento observado"
     
@@ -290,8 +290,8 @@ else
     echo
     echo "🚨 SE RECOMIENDA INVESTIGAR LOS FALLOS"
     echo
-    echo "🔄 En caso de problemas graves:"
-    echo "   sudo /opt/parking/scripts/rollback_v4_0_0.sh"
+echo "🔄 En caso de problemas graves:"
+echo "   sudo /opt/parking_altea/scripts/rollback_v4_0_0.sh"
     
     exit 1
 fi
