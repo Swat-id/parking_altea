@@ -38,6 +38,21 @@
    - Procedimientos de recuperación
    - **⚠️ CRÍTICO PARA ROLLBACK**
 
+### 🚀 **Guías de Despliegue en Producción**
+
+5. **[guia_despliegue_produccion_v4_0_0.md](guia_despliegue_produccion_v4_0_0.md)**
+   - **📋 Guía completa comando por comando**
+   - Todos los pasos detallados para producción
+   - Comandos de verificación y monitorización
+   - Procedimientos de rollback completos
+   - **👉 GUÍA PRINCIPAL PARA DESPLIEGUE**
+
+6. **[comandos_despliegue_rapido_v4_0_0.md](comandos_despliegue_rapido_v4_0_0.md)**
+   - **⚡ Comandos esenciales para ejecución rápida**
+   - Secuencia optimizada de comandos
+   - Versión resumida para despliegue ágil
+   - **🔥 PARA EJECUCIÓN INMEDIATA**
+
 ---
 
 ## 🚀 Archivos de Código y Scripts
