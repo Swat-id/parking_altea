@@ -456,6 +456,7 @@ class PanelScheduleService:
             now = get_madrid_now()
             current_time = now.strftime('%H:%M')
             current_weekday = get_weekday_madrid(now)  # 0=lunes, 6=domingo
+            current_date = now.date()  # Solo la fecha, sin hora
             
             # Mapear weekday a campos de la base de datos
             weekday_fields = {
@@ -481,33 +482,34 @@ class PanelScheduleService:
                 )
             ).order_by(PanelSchedule.priority.desc()).all()
             
-            # Filtrar por fechas con zona horaria
+            # Filtrar por fechas - LÓGICA CORREGIDA
             active_schedules = []
             for schedule in schedules:
                 try:
-                    # Asegurar que las fechas tengan zona horaria
-                    start_date = schedule.start_date
-                    end_date = schedule.end_date
+                    # Convertir fechas de la programación a fechas simples (sin hora) para comparación
+                    start_date = schedule.start_date.date() if schedule.start_date else None
+                    end_date = schedule.end_date.date() if schedule.end_date else None
                     
-                    # Convertir fechas a Madrid para comparación consistente
-                    from timezone_utils import to_madrid_time
-                    if start_date.tzinfo is None:
-                        from timezone_utils import MADRID_TZ
-                        start_date = MADRID_TZ.localize(start_date)
-                    else:
-                        start_date = to_madrid_time(start_date)
+                    # Verificar si la fecha actual está en el rango de la programación
+                    date_in_range = True
                     
-                    if end_date.tzinfo is None:
-                        end_date = MADRID_TZ.localize(end_date)
-                    else:
-                        end_date = to_madrid_time(end_date)
+                    if start_date and current_date < start_date:
+                        date_in_range = False
+                        logger.debug(f"Programación {schedule.id} no activa: fecha actual {current_date} < fecha inicio {start_date}")
                     
-                    if start_date <= now <= end_date:
+                    if end_date and current_date > end_date:
+                        date_in_range = False
+                        logger.debug(f"Programación {schedule.id} no activa: fecha actual {current_date} > fecha fin {end_date}")
+                    
+                    if date_in_range:
                         active_schedules.append(schedule)
+                        logger.debug(f"Programación {schedule.id} ({schedule.name}) está activa")
+                    
                 except Exception as e:
                     logger.error(f"Error verificando fechas de programación {schedule.id}: {e}")
                     continue
             
+            logger.info(f"Encontradas {len(active_schedules)} programaciones activas para parking {parking_id}")
             return active_schedules
             
         except Exception as e:
