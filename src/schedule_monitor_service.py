@@ -25,12 +25,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class ScheduleMonitorService:
-    def __init__(self, check_interval: int = 60):
+    def __init__(self, check_interval: int = 300):
         """
         Inicializar el servicio de monitorización
         
         Args:
-            check_interval: Intervalo en segundos para verificar programaciones (default: 60)
+            check_interval: Intervalo en segundos para verificar programaciones (default: 300 = 5 minutos)
         """
         self.check_interval = check_interval
         self.engine = create_engine(DB_URL)
@@ -357,7 +357,7 @@ def main():
     signal.signal(signal.SIGTERM, signal_handler)
     
     # Crear e iniciar el servicio
-    monitor = ScheduleMonitorService()  # Usar intervalo por defecto (60 segundos)
+    monitor = ScheduleMonitorService()  # Usar intervalo por defecto (300 segundos = 5 minutos)
     
     try:
         logger.info("Iniciando servicio de monitorización de programaciones...")
