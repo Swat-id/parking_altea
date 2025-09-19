@@ -11,7 +11,7 @@ Group=root
 WorkingDirectory=/opt/parking_altea/src
 Environment=PATH=/opt/parking_altea/venv/bin
 Environment=PYTHONPATH=/opt/parking_altea/src
-Environment=DATABASE_URL=postgresql://postgres:parking123@localhost:5432/parking_db
+Environment=DATABASE_URL=postgresql://parking_user:parking_pass@localhost:5432/parking_db
 ExecStart=/opt/parking_altea/venv/bin/python /opt/parking_altea/src/sensor_push_service.py
 Restart=always
 RestartSec=10

@@ -14,7 +14,7 @@
 
 ### **3. Configuración Base de Datos Incompleta**
 - **Problema**: `DATABASE_URL=postgresql:///parking_db` (sin usuario/contraseña)
-- **Solución**: Actualizada a `postgresql://postgres:parking123@localhost:5432/parking_db`
+- **Solución**: Actualizada a `postgresql://parking_user:parking_pass@localhost:5432/parking_db` (configuración original)
 - **Archivos**: 
   - `/etc/systemd/system/parking-api.service`
   - `/etc/systemd/system/parking-sensor-push.service`
