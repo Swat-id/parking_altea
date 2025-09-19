@@ -259,6 +259,147 @@ class PanelCommunicationService:
                         'message': f'Error inesperado: {str(e)}',
                         'panel_ip': panel_ip,
                         'protocol': protocol,
+                    'timestamp': datetime.now().isoformat()
+                }
+                    
+        except Exception as e:
+            logger.error(f"❌ Error general: {str(e)}")
+            return {
+                'success': False,
+                'message': f'Error general: {str(e)}',
+                'panel_ip': panel_ip,
+                'protocol': protocol,
+                'timestamp': datetime.now().isoformat()
+            }
+    
+    def _send_to_unified_api_with_window(self, panel_ip: str, text: str, 
+                                        color: int, font_size: int, effect: int,
+                                        window_id: int) -> Dict:
+        """
+        NUEVO v4.1.0: Enviar mensaje a ventana específica usando API unificada
+        
+        Args:
+            panel_ip: IP del panel
+            text: Texto a enviar
+            color: Color del texto
+            font_size: Tamaño de fuente
+            effect: Efecto del texto
+            window_id: ID de la ventana (0 o 1)
+            
+        Returns:
+            Diccionario con el resultado de la operación
+        """
+        try:
+            protocol = "new"  # Paneles Tipo 3 usan protocolo new
+            stay_time = 30000  # 30 segundos por defecto
+            
+            # Crear payload específico para ventana
+            window = {
+                "id": window_id,
+                "text": text,
+                "fontColor": color,
+                "fontSize": font_size,
+                "showEffect": effect,
+                "stayTime": stay_time,
+                "positionX": 0,
+                "positionY": 0
+            }
+            
+            payload = {
+                "panels": [
+                    {
+                        "ip": panel_ip,
+                        "port": 5200,
+                        "protocol": protocol,
+                        "windows": [window]  # Solo la ventana especificada
+                    }
+                ]
+            }
+            
+            logger.info(f"Enviando a panel {panel_ip} ventana {window_id}: {text}")
+            
+            # Intentar envío con reintentos
+            for attempt in range(self.retry_attempts):
+                try:
+                    response = requests.post(
+                        self.api_url,
+                        json=payload,
+                        headers={'Content-Type': 'application/json'},
+                        timeout=self.timeout
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        if result.get('success', False):
+                            logger.info(f"✅ Texto enviado exitosamente a ventana {window_id} de {panel_ip}")
+                            return {
+                                'success': True,
+                                'message': f'Texto enviado exitosamente a ventana {window_id} ({protocol})',
+                                'panel_ip': panel_ip,
+                                'window_id': window_id,
+                                'protocol': protocol,
+                                'text': text,
+                                'timestamp': datetime.now().isoformat()
+                            }
+                        else:
+                            logger.error(f"❌ Error en respuesta API: {result.get('message')}")
+                            return {
+                                'success': False,
+                                'message': result.get('message', 'Error desconocido'),
+                                'panel_ip': panel_ip,
+                                'window_id': window_id,
+                                'protocol': protocol,
+                                'timestamp': datetime.now().isoformat()
+                            }
+                    else:
+                        logger.error(f"❌ Error HTTP {response.status_code}: {response.text}")
+                        if attempt < self.retry_attempts - 1:
+                            time.sleep(self.retry_delay)
+                            continue
+                        else:
+                            return {
+                                'success': False,
+                                'message': f'Error HTTP {response.status_code}',
+                                'panel_ip': panel_ip,
+                                'window_id': window_id,
+                                'protocol': protocol,
+                                'timestamp': datetime.now().isoformat()
+                            }
+                            
+                except requests.exceptions.Timeout:
+                    logger.warning(f"⏰ Timeout en intento {attempt + 1} para ventana {window_id} de {panel_ip}")
+                    if attempt < self.retry_attempts - 1:
+                        time.sleep(self.retry_delay)
+                        continue
+                    else:
+                        return {
+                            'success': False,
+                            'message': 'Timeout en la comunicación',
+                            'panel_ip': panel_ip,
+                            'window_id': window_id,
+                            'protocol': protocol,
+                            'timestamp': datetime.now().isoformat()
+                        }
+                        
+                except requests.exceptions.ConnectionError:
+                    logger.error(f"🔌 Error de conexión con API en {self.api_url}")
+                    return {
+                        'success': False,
+                        'message': 'Error de conexión con la API de paneles',
+                        'panel_ip': panel_ip,
+                        'window_id': window_id,
+                        'protocol': protocol,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    
+                except Exception as e:
+                    logger.error(f"❌ Error inesperado: {str(e)}")
+                    return {
+                        'success': False,
+                        'message': f'Error inesperado: {str(e)}',
+                        'panel_ip': panel_ip,
+                        'window_id': window_id,
+                        'protocol': protocol,
                         'timestamp': datetime.now().isoformat()
                     }
                     
@@ -268,7 +409,8 @@ class PanelCommunicationService:
                 'success': False,
                 'message': f'Error general: {str(e)}',
                 'panel_ip': panel_ip,
-                'protocol': protocol,
+                'window_id': window_id,
+                'protocol': 'new',
                 'timestamp': datetime.now().isoformat()
             }
     
@@ -360,6 +502,32 @@ class PanelCommunicationService:
             [color], 
             [font_size], 
             [effect]
+        )
+    
+    def send_custom_text_to_window(self, panel_ip: str, text: str, 
+                                  color: int = 1, font_size: int = 2, 
+                                  effect: int = 2, window_id: int = 0) -> Dict:
+        """
+        NUEVO v4.1.0: Enviar texto personalizado a una ventana específica de un panel Tipo 3
+        
+        Args:
+            panel_ip: IP del panel
+            text: Texto a enviar
+            color: Color del texto (1=Rojo, 2=Verde, 3=Amarillo, etc.)
+            font_size: Tamaño de fuente (0=8px, 1=12px, 2=16px, etc.)
+            effect: Efecto (2=fijo, 12=scroll)
+            window_id: ID de la ventana (0 o 1)
+            
+        Returns:
+            Diccionario con el resultado de la operación
+        """
+        return self._send_to_unified_api_with_window(
+            panel_ip, 
+            text, 
+            color, 
+            font_size, 
+            effect,
+            window_id
         )
     
     def test_connection(self) -> Dict:

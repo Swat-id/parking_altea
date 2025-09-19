@@ -1621,9 +1621,14 @@ def send_message_to_panel(panel_id):
         color = req.get('color', 1)
         fontSize = req.get('fontSize', 2)  # Recibir código de fuente directamente
         showEffect = req.get('showEffect', "fijo")  # Fijo por defecto - CORREGIDO
+        window = req.get('window', 0)  # NUEVO v4.1.0: Ventana de destino (0 o 1)
         
         if not message:
             return jsonify({'error': 'Missing message field'}), 400
+        
+        # Validar ventana
+        if window not in [0, 1]:
+            return jsonify({'error': 'Window must be 0 or 1'}), 400
         
         # No convertir fontSize ya que viene como código
         font_size_code = fontSize
@@ -1644,30 +1649,61 @@ def send_message_to_panel(panel_id):
             session.close()
             return jsonify({'error': 'Panel not found'}), 404
         
+        # NUEVO v4.1.0: Validar ventana para paneles Tipo 3
+        if window == 1 and not panel.supports_multiple_windows():
+            session.close()
+            return jsonify({'error': 'Panel does not support window 1. Only Tipo 3 panels support multiple windows.'}), 400
+        
         # Guardar información del panel antes de cerrar la sesión
         panel_name = panel.name
         panel_ip = panel.ip
+        panel_supports_windows = panel.supports_multiple_windows()
         
         # Usar el PanelCommunicationService
         from panel_communication_service import get_panel_service
         panel_service = get_panel_service()
         
         start_time = datetime.now()
-        result = panel_service.send_custom_text(
-            panel_ip=panel_ip,
-            text=message,
-            color=color,
-            font_size=font_size_code,  # Usar código convertido
-            effect=effect_code  # Usar código numérico convertido
-        )
+        
+        # NUEVO v4.1.0: Enviar mensaje con ventana específica
+        if panel_supports_windows and window == 1:
+            # Para paneles Tipo 3, enviar a ventana específica
+            result = panel_service.send_custom_text_to_window(
+                panel_ip=panel_ip,
+                text=message,
+                color=color,
+                font_size=font_size_code,
+                effect=effect_code,
+                window_id=window
+            )
+        else:
+            # Comportamiento original para ventana 0 o paneles sin múltiples ventanas
+            result = panel_service.send_custom_text(
+                panel_ip=panel_ip,
+                text=message,
+                color=color,
+                font_size=font_size_code,
+                effect=effect_code
+            )
+        
         response_time = (datetime.now() - start_time).total_seconds() * 1000  # en ms
         
-        # Actualizar estado del panel (usar el objeto dentro de la sesión)
+        # NUEVO v4.1.0: Actualizar estado del panel por ventana
         panel.status = 'ONLINE' if result['success'] else 'OFFLINE'
-        # Solo actualizar last_message si el envío fue exitoso
+        current_time = datetime.now()
+        
+        # Actualizar campos específicos de la ventana
         if result['success']:
-            panel.last_message = message
-        panel.last_update = datetime.now()
+            if window == 0:
+                panel.last_message_window_0 = message
+                panel.last_update_window_0 = current_time
+                # Mantener compatibilidad con campo original
+                panel.last_message = message
+            elif window == 1:
+                panel.last_message_window_1 = message
+                panel.last_update_window_1 = current_time
+        
+        panel.last_update = current_time
         
         session.commit()
         session.close()
@@ -1678,7 +1714,9 @@ def send_message_to_panel(panel_id):
             'panel_id': panel_id,
             'panel_name': panel_name,
             'panel_ip': panel_ip,
-            'message': message,
+            'text_message': message,  # Renombrado para evitar conflicto
+            'window': window,  # NUEVO v4.1.0: Ventana utilizada
+            'supports_multiple_windows': panel_supports_windows,  # NUEVO v4.1.0: Capacidad del panel
             'duration': duration,
             'responseTime': response_time
         })
@@ -1803,6 +1841,52 @@ def send_message_to_panel_plural(panel_id):
 def test_panel_plural(panel_id):
     """Probar comunicación con un panel (ruta plural para compatibilidad con frontend)"""
     return test_panel(panel_id)
+
+@api_bp.route('/panels/<int:panel_id>/windows', methods=['GET'])
+@require_panel_access('panel_id')
+def get_panel_windows_info(panel_id):
+    """NUEVO v4.1.0: Obtener información de ventanas de un panel"""
+    try:
+        session = Session()
+        panel = session.query(Panel).get(panel_id)
+        
+        if not panel:
+            session.close()
+            return jsonify({'error': 'Panel not found'}), 404
+        
+        # Obtener configuración de ventanas
+        window_config = panel.get_window_config()
+        supports_multiple = panel.supports_multiple_windows()
+        
+        # Obtener información de cada ventana
+        windows_info = []
+        for window in window_config.get('windows', []):
+            window_id = window.get('id', 0)
+            windows_info.append({
+                'id': window_id,
+                'enabled': window.get('enabled', True),
+                'last_message': panel.get_last_message_for_window(window_id),
+                'last_update': panel.get_last_update_for_window(window_id).isoformat() if panel.get_last_update_for_window(window_id) else None
+            })
+        
+        session.close()
+        
+        return jsonify({
+            'panel_id': panel_id,
+            'panel_name': panel.name,
+            'supports_multiple_windows': supports_multiple,
+            'panel_type': {
+                'id': panel.panel_type.id,
+                'name': panel.panel_type.name,
+                'windows_count': panel.panel_type.windows_count
+            } if panel.panel_type else None,
+            'window_config': window_config,
+            'windows': windows_info
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo información de ventanas del panel {panel_id}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @api_bp.route('/panels/<int:panel_id>/multi-message', methods=['POST'])
 @require_panel_access('panel_id')

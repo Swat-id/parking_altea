@@ -116,10 +116,51 @@ class Panel(Base):
     last_protocol_check = Column(DateTime(timezone=True))
     protocol_status = Column(String(20), default='unknown')  # 'online', 'offline', 'unknown'
     
+    # NUEVOS CAMPOS v4.1.0: Soporte para ventanas múltiples
+    last_message_window_0 = Column(Text)  # Último mensaje enviado a ventana 0
+    last_message_window_1 = Column(Text)  # Último mensaje enviado a ventana 1
+    last_update_window_0 = Column(DateTime(timezone=True))  # Última actualización ventana 0
+    last_update_window_1 = Column(DateTime(timezone=True))  # Última actualización ventana 1
+    window_config_json = Column(JSON)  # Configuración detallada de ventanas
+    
     # Relaciones
     parking = relationship('Parking', back_populates='panels')
     panel_type = relationship('PanelType', back_populates='panels')
     user_panels = relationship('UserPanel', back_populates='panel')
+    
+    def supports_multiple_windows(self):
+        """Verificar si el panel soporta múltiples ventanas (Tipo 3)"""
+        if self.panel_type and hasattr(self.panel_type, 'windows_count'):
+            return self.panel_type.windows_count > 1
+        return False
+    
+    def get_window_config(self):
+        """Obtener configuración de ventanas del panel"""
+        if self.window_config_json:
+            return self.window_config_json
+        # Configuración por defecto
+        return {
+            "windows": [
+                {"id": 0, "enabled": True},
+                {"id": 1, "enabled": self.supports_multiple_windows()}
+            ]
+        }
+    
+    def get_last_message_for_window(self, window_id):
+        """Obtener último mensaje para una ventana específica"""
+        if window_id == 0:
+            return self.last_message_window_0
+        elif window_id == 1:
+            return self.last_message_window_1
+        return None
+    
+    def get_last_update_for_window(self, window_id):
+        """Obtener última actualización para una ventana específica"""
+        if window_id == 0:
+            return self.last_update_window_0
+        elif window_id == 1:
+            return self.last_update_window_1
+        return None
 
 # Tablas intermedias para relaciones muchos a muchos
 class UserParking(Base):
