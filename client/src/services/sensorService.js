@@ -33,7 +33,7 @@ const sensorService = {
 
   async createSensor(sensorData) {
     try {
-      const response = await api.post('/sensors', sensorData)
+      const response = await api.post('/api/sensors', sensorData)
       return response.data
     } catch (error) {
       console.error('Error creando sensor:', error)

@@ -39,7 +39,7 @@ export const statisticsService = {
       if (params.actionType) queryParams.append('action_type', params.actionType)
       if (params.limit) queryParams.append('limit', params.limit)
       
-      const response = await api.get(`/logs/activity?${queryParams.toString()}`)
+      const response = await api.get(`/api/logs/activity?${queryParams.toString()}`)
       return response.data
     } catch (error) {
       console.error('Error obteniendo logs de actividad:', error)
@@ -58,7 +58,7 @@ export const statisticsService = {
       if (params.parkingId) queryParams.append('parking_id', params.parkingId)
       if (params.limit) queryParams.append('limit', params.limit)
       
-      const response = await api.get(`/logs/panels?${queryParams.toString()}`)
+      const response = await api.get(`/api/logs/panels?${queryParams.toString()}`)
       return response.data
     } catch (error) {
       console.error('Error obteniendo logs de paneles:', error)
@@ -105,7 +105,7 @@ export const statisticsService = {
       if (options.date) params.append('date', options.date)
       if (options.days) params.append('days', options.days)
       
-      const response = await api.get(`/parking/${parkingId}/hourly-statistics?${params.toString()}`)
+      const response = await api.get(`/api/parking/${parkingId}/hourly-statistics?${params.toString()}`)
       return response.data
     } catch (error) {
       console.error('Error obteniendo estadísticas por horas:', error)

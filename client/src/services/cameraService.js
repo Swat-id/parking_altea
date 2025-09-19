@@ -48,7 +48,7 @@ const cameraService = {
    */
   async updateCameraLine(accessId, newLine) {
     try {
-      const response = await api.put(`/access/${accessId}/line`, { line: newLine });
+      const response = await api.put(`/api/access/${accessId}/line`, { line: newLine });
       return response.data;
     } catch (error) {
       console.error('Error actualizando línea de cámara:', error);
@@ -78,7 +78,7 @@ const cameraService = {
   async checkCameraStatus(ip) {
     try {
       // Usar un endpoint simple de ping o verificar conectividad
-      const response = await api.get(`/cameras/status`);
+      const response = await api.get(`/api/cameras/status`);
       const camera = response.data.cameras.find(c => c.ip === ip);
       return camera ? camera.ping_status === 'ONLINE' : false;
     } catch (error) {

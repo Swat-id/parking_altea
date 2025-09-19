@@ -164,7 +164,7 @@ const parkingService = {
    */
   async editParking(parkingId, parkingData) {
     try {
-      const response = await api.put(`/parkings/${parkingId}`, parkingData)
+      const response = await api.put(`/api/parkings/${parkingId}`, parkingData)
       return response.data
     } catch (error) {
       console.error('Error editando parking:', error)
@@ -177,7 +177,7 @@ const parkingService = {
    */
   async deleteParking(parkingId) {
     try {
-      const response = await api.delete(`/parkings/${parkingId}`)
+      const response = await api.delete(`/api/parkings/${parkingId}`)
       return response.data
     } catch (error) {
       console.error('Error eliminando parking:', error)
