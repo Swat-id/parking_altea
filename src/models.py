@@ -58,6 +58,10 @@ class Parking(Base):
     
     # NUEVA: Relación muchos a muchos con cámaras
     camera_parkings = relationship('CameraParking', back_populates='parking')
+    
+    # NUEVO v4.1.0: Relaciones con sensores individuales
+    individual_sensors = relationship('IndividualSensor', back_populates='parking')
+    sensor_summaries = relationship('ParkingSensorSummary', back_populates='parking')
 
 class Access(Base):
     __tablename__ = 'accesses'
@@ -559,3 +563,171 @@ class AlarmHistory(Base):
     
     def __repr__(self):
         return f"<AlarmHistory(id={self.id}, action='{self.action}', alarm_id={self.alarm_id})>"
+
+
+# ============================================================================
+# NUEVO v4.1.0: MODELOS PARA SISTEMA DE SENSORES INDIVIDUALES
+# ============================================================================
+
+class IndividualSensor(Base):
+    """Modelo para sensores de parking individuales (PMR, Eléctrico, etc.)"""
+    __tablename__ = 'individual_sensors'
+    
+    id = Column(Integer, primary_key=True)
+    serial_number = Column(String(100), unique=True, nullable=False)
+    name = Column(String(100), nullable=False)  # Nombre descriptivo de la plaza
+    sensor_type = Column(String(20), default='PMR', nullable=False)  # PMR, Electrico, Caravanas, Emergencias, Policia, Otros
+    parking_id = Column(Integer, ForeignKey('parkings.id', ondelete='SET NULL'), nullable=True)
+    description = Column(Text, nullable=True)
+    location_coordinates = Column(String(100), nullable=True)  # "lat,lng" format
+    manufacturer = Column(String(50), default='Fleximodo', nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relaciones
+    parking = relationship('Parking', back_populates='individual_sensors')
+    status_history = relationship('SensorStatusHistory', back_populates='sensor', cascade='all, delete-orphan')
+    current_status_rel = relationship('SensorCurrentStatus', back_populates='sensor', uselist=False, cascade='all, delete-orphan')
+    
+    # Constraintes
+    __table_args__ = (
+        UniqueConstraint('serial_number', name='unique_sensor_serial'),
+    )
+    
+    def __repr__(self):
+        return f"<IndividualSensor(id={self.id}, serial='{self.serial_number}', name='{self.name}', type='{self.sensor_type}')>"
+    
+    @property
+    def current_status(self):
+        """Obtener el estado actual del sensor"""
+        if self.current_status_rel:
+            return self.current_status_rel.current_status
+        return 'unknown'
+    
+    @property
+    def last_update(self):
+        """Obtener la última actualización del sensor"""
+        if self.current_status_rel:
+            return self.current_status_rel.last_update
+        return None
+    
+    @property
+    def battery_info(self):
+        """Obtener información de batería del sensor"""
+        if self.current_status_rel:
+            return {
+                'voltage': self.current_status_rel.battery_voltage,
+                'capacity': self.current_status_rel.battery_capacity,
+                'is_low': self.current_status_rel.battery_capacity < 20 if self.current_status_rel.battery_capacity else False
+            }
+        return None
+
+
+class SensorStatusHistory(Base):
+    """Historial de cambios de estado de sensores individuales"""
+    __tablename__ = 'sensor_status_history'
+    
+    id = Column(Integer, primary_key=True)
+    sensor_id = Column(Integer, ForeignKey('individual_sensors.id', ondelete='CASCADE'), nullable=False)
+    status = Column(String(20), nullable=False)  # free, busy, error, unknown, notcalib
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+    battery_voltage = Column(Float(precision=2), nullable=True)
+    battery_capacity = Column(Integer, nullable=True)  # 0-100%
+    temperature = Column(Float(precision=2), nullable=True)
+    network_signal_strength = Column(Integer, nullable=True)
+    radar_only = Column(Boolean, default=False)
+    raw_data = Column(JSON, nullable=True)  # Datos completos del push
+    
+    # Relaciones
+    sensor = relationship('IndividualSensor', back_populates='status_history')
+    
+    def __repr__(self):
+        return f"<SensorStatusHistory(id={self.id}, sensor_id={self.sensor_id}, status='{self.status}', timestamp={self.timestamp})>"
+
+
+class SensorCurrentStatus(Base):
+    """Estado actual de cada sensor individual"""
+    __tablename__ = 'sensor_current_status'
+    
+    sensor_id = Column(Integer, ForeignKey('individual_sensors.id', ondelete='CASCADE'), primary_key=True)
+    current_status = Column(String(20), nullable=False)  # free, busy, error, unknown, notcalib
+    last_update = Column(DateTime(timezone=True), server_default=func.now())
+    battery_voltage = Column(Float(precision=2), nullable=True)
+    battery_capacity = Column(Integer, nullable=True)  # 0-100%
+    temperature = Column(Float(precision=2), nullable=True)
+    network_signal_strength = Column(Integer, nullable=True)
+    consecutive_errors = Column(Integer, default=0)
+    last_successful_ping = Column(DateTime(timezone=True), nullable=True)
+    
+    # Relaciones
+    sensor = relationship('IndividualSensor', back_populates='current_status_rel')
+    
+    def __repr__(self):
+        return f"<SensorCurrentStatus(sensor_id={self.sensor_id}, status='{self.current_status}', last_update={self.last_update})>"
+    
+    @property
+    def is_online(self):
+        """Verificar si el sensor está online (actualizado en las últimas 2 horas)"""
+        if not self.last_update:
+            return False
+        from datetime import datetime, timedelta
+        return (datetime.now() - self.last_update) < timedelta(hours=2)
+    
+    @property
+    def needs_attention(self):
+        """Verificar si el sensor necesita atención (batería baja, errores consecutivos, offline)"""
+        conditions = [
+            self.battery_capacity and self.battery_capacity < 20,
+            self.consecutive_errors > 3,
+            not self.is_online,
+            self.current_status == 'error'
+        ]
+        return any(conditions)
+
+
+class ParkingSensorSummary(Base):
+    """Resumen de sensores por parking y tipo"""
+    __tablename__ = 'parking_sensor_summary'
+    
+    id = Column(Integer, primary_key=True)
+    parking_id = Column(Integer, ForeignKey('parkings.id', ondelete='CASCADE'), nullable=False)
+    sensor_type = Column(String(20), nullable=False)  # PMR, Electrico, Caravanas, etc.
+    total_sensors = Column(Integer, default=0)
+    free_sensors = Column(Integer, default=0)
+    busy_sensors = Column(Integer, default=0)
+    error_sensors = Column(Integer, default=0)
+    last_update = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relaciones
+    parking = relationship('Parking', back_populates='sensor_summaries')
+    
+    # Constraintes
+    __table_args__ = (
+        UniqueConstraint('parking_id', 'sensor_type', name='unique_parking_sensor_type'),
+    )
+    
+    def __repr__(self):
+        return f"<ParkingSensorSummary(parking_id={self.parking_id}, type='{self.sensor_type}', total={self.total_sensors})>"
+    
+    @property
+    def occupancy_rate(self):
+        """Calcular tasa de ocupación para este tipo de sensor"""
+        if self.total_sensors == 0:
+            return 0
+        return round((self.busy_sensors / self.total_sensors) * 100, 2)
+    
+    @property
+    def available_sensors(self):
+        """Sensores disponibles (libres)"""
+        return self.free_sensors
+    
+    @property
+    def status_distribution(self):
+        """Distribución de estados"""
+        return {
+            'free': self.free_sensors,
+            'busy': self.busy_sensors,
+            'error': self.error_sensors,
+            'unknown': self.total_sensors - (self.free_sensors + self.busy_sensors + self.error_sensors)
+        }

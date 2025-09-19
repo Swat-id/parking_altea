@@ -12,7 +12,7 @@ from sqlalchemy.orm import sessionmaker
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from config import DB_URL, API_PORT
-from models import Base, User, Parking, Access, Panel, OccupancyHistory, ScheduledMessage, ActivityLog, PanelMessageLog, VehicleCount, CameraLog, UserParking, UserPanel, UserAccess, PanelSchedule, PanelScheduleLog, PanelType, CameraParking, AlarmConfiguration, AlarmConfigurationTarget, AlarmConfigurationThreshold, Alarm, AlarmHistory
+from models import Base, User, Parking, Access, Panel, OccupancyHistory, ScheduledMessage, ActivityLog, PanelMessageLog, VehicleCount, CameraLog, UserParking, UserPanel, UserAccess, PanelSchedule, PanelScheduleLog, PanelType, CameraParking, AlarmConfiguration, AlarmConfigurationTarget, AlarmConfigurationThreshold, Alarm, AlarmHistory, IndividualSensor, SensorStatusHistory, SensorCurrentStatus, ParkingSensorSummary
 from panel_schedule_service import PanelScheduleService
 from auth import (
     create_user, authenticate_user, delete_user, change_password, 
@@ -4044,6 +4044,625 @@ def get_alarm_statistics():
     except Exception as e:
         logger.error(f"Error obteniendo estadísticas de alarmas: {e}")
         return jsonify({'error': 'Internal server error'}), 500
+
+
+# ============================================================================
+# NUEVO v4.1.0: ENDPOINTS PARA SISTEMA DE SENSORES INDIVIDUALES
+# ============================================================================
+
+@api_bp.route('/sensors', methods=['GET'])
+@require_auth
+def get_individual_sensors():
+    """Obtener todos los sensores individuales con filtros opcionales"""
+    try:
+        session = Session()
+        
+        # Parámetros de filtro
+        parking_id = request.args.get('parking_id', type=int)
+        sensor_type = request.args.get('sensor_type')
+        is_active = request.args.get('is_active', type=bool)
+        
+        # Query base
+        query = session.query(IndividualSensor)
+        
+        # Aplicar filtros
+        if parking_id:
+            query = query.filter(IndividualSensor.parking_id == parking_id)
+        if sensor_type:
+            query = query.filter(IndividualSensor.sensor_type == sensor_type)
+        if is_active is not None:
+            query = query.filter(IndividualSensor.is_active == is_active)
+        
+        sensors = query.all()
+        
+        # Formatear respuesta
+        sensors_data = []
+        for sensor in sensors:
+            sensor_data = {
+                'id': sensor.id,
+                'serial_number': sensor.serial_number,
+                'name': sensor.name,
+                'sensor_type': sensor.sensor_type,
+                'parking_id': sensor.parking_id,
+                'parking_name': sensor.parking.name if sensor.parking else None,
+                'description': sensor.description,
+                'location_coordinates': sensor.location_coordinates,
+                'manufacturer': sensor.manufacturer,
+                'is_active': sensor.is_active,
+                'created_at': sensor.created_at.isoformat() if sensor.created_at else None,
+                'updated_at': sensor.updated_at.isoformat() if sensor.updated_at else None,
+                'current_status': sensor.current_status,
+                'last_update': sensor.last_update.isoformat() if sensor.last_update else None,
+                'battery_info': sensor.battery_info
+            }
+            sensors_data.append(sensor_data)
+        
+        session.close()
+        return jsonify(sensors_data)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo sensores individuales: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@api_bp.route('/sensors', methods=['POST'])
+@require_auth
+def create_individual_sensor():
+    """Crear un nuevo sensor individual"""
+    try:
+        data = request.get_json()
+        
+        # Validaciones
+        required_fields = ['serial_number', 'name']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        
+        # Validar tipo de sensor
+        valid_types = ['PMR', 'Electrico', 'Caravanas', 'Emergencias', 'Policia', 'Otros']
+        sensor_type = data.get('sensor_type', 'PMR')
+        if sensor_type not in valid_types:
+            return jsonify({'error': f'Invalid sensor_type. Must be one of: {valid_types}'}), 400
+        
+        session = Session()
+        
+        # Verificar que el serial_number no exista
+        existing_sensor = session.query(IndividualSensor).filter(
+            IndividualSensor.serial_number == data['serial_number']
+        ).first()
+        
+        if existing_sensor:
+            session.close()
+            return jsonify({'error': 'Serial number already exists'}), 400
+        
+        # Verificar que el parking existe si se especifica
+        parking_id = data.get('parking_id')
+        if parking_id:
+            parking = session.query(Parking).get(parking_id)
+            if not parking:
+                session.close()
+                return jsonify({'error': 'Parking not found'}), 404
+        
+        # Crear sensor
+        sensor = IndividualSensor(
+            serial_number=data['serial_number'],
+            name=data['name'],
+            sensor_type=sensor_type,
+            parking_id=parking_id,
+            description=data.get('description'),
+            location_coordinates=data.get('location_coordinates'),
+            manufacturer=data.get('manufacturer', 'Fleximodo'),
+            is_active=data.get('is_active', True)
+        )
+        
+        session.add(sensor)
+        session.commit()
+        
+        # Crear estado inicial
+        initial_status = SensorCurrentStatus(
+            sensor_id=sensor.id,
+            current_status='unknown',
+            last_update=datetime.now()
+        )
+        session.add(initial_status)
+        session.commit()
+        
+        # Respuesta
+        response_data = {
+            'id': sensor.id,
+            'serial_number': sensor.serial_number,
+            'name': sensor.name,
+            'sensor_type': sensor.sensor_type,
+            'parking_id': sensor.parking_id,
+            'parking_name': sensor.parking.name if sensor.parking else None,
+            'description': sensor.description,
+            'location_coordinates': sensor.location_coordinates,
+            'manufacturer': sensor.manufacturer,
+            'is_active': sensor.is_active,
+            'created_at': sensor.created_at.isoformat(),
+            'current_status': 'unknown'
+        }
+        
+        session.close()
+        return jsonify(response_data), 201
+        
+    except Exception as e:
+        logger.error(f"Error creando sensor individual: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@api_bp.route('/sensors/<int:sensor_id>', methods=['GET'])
+@require_auth
+def get_individual_sensor(sensor_id):
+    """Obtener un sensor individual por ID"""
+    try:
+        session = Session()
+        sensor = session.query(IndividualSensor).get(sensor_id)
+        
+        if not sensor:
+            session.close()
+            return jsonify({'error': 'Sensor not found'}), 404
+        
+        # Obtener historial reciente (últimas 24 horas)
+        recent_history = session.query(SensorStatusHistory).filter(
+            SensorStatusHistory.sensor_id == sensor_id,
+            SensorStatusHistory.timestamp >= datetime.now() - timedelta(hours=24)
+        ).order_by(SensorStatusHistory.timestamp.desc()).limit(50).all()
+        
+        history_data = []
+        for record in recent_history:
+            history_data.append({
+                'status': record.status,
+                'timestamp': record.timestamp.isoformat(),
+                'battery_voltage': record.battery_voltage,
+                'battery_capacity': record.battery_capacity,
+                'temperature': record.temperature
+            })
+        
+        response_data = {
+            'id': sensor.id,
+            'serial_number': sensor.serial_number,
+            'name': sensor.name,
+            'sensor_type': sensor.sensor_type,
+            'parking_id': sensor.parking_id,
+            'parking_name': sensor.parking.name if sensor.parking else None,
+            'description': sensor.description,
+            'location_coordinates': sensor.location_coordinates,
+            'manufacturer': sensor.manufacturer,
+            'is_active': sensor.is_active,
+            'created_at': sensor.created_at.isoformat() if sensor.created_at else None,
+            'updated_at': sensor.updated_at.isoformat() if sensor.updated_at else None,
+            'current_status': sensor.current_status,
+            'last_update': sensor.last_update.isoformat() if sensor.last_update else None,
+            'battery_info': sensor.battery_info,
+            'recent_history': history_data
+        }
+        
+        session.close()
+        return jsonify(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo sensor {sensor_id}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@api_bp.route('/sensors/<int:sensor_id>', methods=['PUT'])
+@require_auth
+def update_individual_sensor(sensor_id):
+    """Actualizar un sensor individual"""
+    try:
+        data = request.get_json()
+        session = Session()
+        
+        sensor = session.query(IndividualSensor).get(sensor_id)
+        if not sensor:
+            session.close()
+            return jsonify({'error': 'Sensor not found'}), 404
+        
+        # Validar tipo de sensor si se proporciona
+        if 'sensor_type' in data:
+            valid_types = ['PMR', 'Electrico', 'Caravanas', 'Emergencias', 'Policia', 'Otros']
+            if data['sensor_type'] not in valid_types:
+                session.close()
+                return jsonify({'error': f'Invalid sensor_type. Must be one of: {valid_types}'}), 400
+        
+        # Verificar serial_number único si se cambia
+        if 'serial_number' in data and data['serial_number'] != sensor.serial_number:
+            existing = session.query(IndividualSensor).filter(
+                IndividualSensor.serial_number == data['serial_number'],
+                IndividualSensor.id != sensor_id
+            ).first()
+            if existing:
+                session.close()
+                return jsonify({'error': 'Serial number already exists'}), 400
+        
+        # Verificar parking si se proporciona
+        if 'parking_id' in data and data['parking_id']:
+            parking = session.query(Parking).get(data['parking_id'])
+            if not parking:
+                session.close()
+                return jsonify({'error': 'Parking not found'}), 404
+        
+        # Actualizar campos
+        updatable_fields = [
+            'serial_number', 'name', 'sensor_type', 'parking_id', 
+            'description', 'location_coordinates', 'manufacturer', 'is_active'
+        ]
+        
+        for field in updatable_fields:
+            if field in data:
+                setattr(sensor, field, data[field])
+        
+        sensor.updated_at = datetime.now()
+        session.commit()
+        
+        response_data = {
+            'id': sensor.id,
+            'serial_number': sensor.serial_number,
+            'name': sensor.name,
+            'sensor_type': sensor.sensor_type,
+            'parking_id': sensor.parking_id,
+            'parking_name': sensor.parking.name if sensor.parking else None,
+            'description': sensor.description,
+            'location_coordinates': sensor.location_coordinates,
+            'manufacturer': sensor.manufacturer,
+            'is_active': sensor.is_active,
+            'updated_at': sensor.updated_at.isoformat()
+        }
+        
+        session.close()
+        return jsonify(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error actualizando sensor {sensor_id}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@api_bp.route('/sensors/<int:sensor_id>', methods=['DELETE'])
+@require_auth
+def delete_individual_sensor(sensor_id):
+    """Eliminar un sensor individual"""
+    try:
+        session = Session()
+        sensor = session.query(IndividualSensor).get(sensor_id)
+        
+        if not sensor:
+            session.close()
+            return jsonify({'error': 'Sensor not found'}), 404
+        
+        sensor_name = sensor.name
+        session.delete(sensor)
+        session.commit()
+        session.close()
+        
+        return jsonify({
+            'message': f'Sensor "{sensor_name}" deleted successfully',
+            'id': sensor_id
+        })
+        
+    except Exception as e:
+        logger.error(f"Error eliminando sensor {sensor_id}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@api_bp.route('/sensors/<int:sensor_id>/status', methods=['PUT'])
+@require_auth
+def update_sensor_status(sensor_id):
+    """NUEVO v4.1.0: Actualizar manualmente el estado de un sensor"""
+    try:
+        data = request.get_json()
+        
+        # Validaciones
+        if 'status' not in data:
+            return jsonify({'error': 'Missing required field: status'}), 400
+        
+        valid_statuses = ['free', 'busy', 'error', 'unknown', 'notcalib']
+        if data['status'] not in valid_statuses:
+            return jsonify({'error': f'Invalid status. Must be one of: {valid_statuses}'}), 400
+        
+        session = Session()
+        sensor = session.query(IndividualSensor).get(sensor_id)
+        
+        if not sensor:
+            session.close()
+            return jsonify({'error': 'Sensor not found'}), 404
+        
+        # Obtener o crear estado actual
+        current_status = session.query(SensorCurrentStatus).filter(
+            SensorCurrentStatus.sensor_id == sensor_id
+        ).first()
+        
+        if not current_status:
+            current_status = SensorCurrentStatus(sensor_id=sensor_id)
+            session.add(current_status)
+        
+        # Actualizar estado actual
+        old_status = current_status.current_status
+        current_status.current_status = data['status']
+        current_status.last_update = datetime.now()
+        
+        # Datos opcionales
+        if 'battery_capacity' in data:
+            current_status.battery_capacity = data['battery_capacity']
+        if 'battery_voltage' in data:
+            current_status.battery_voltage = data['battery_voltage']
+        if 'temperature' in data:
+            current_status.temperature = data['temperature']
+        
+        # Crear registro en historial
+        history_record = SensorStatusHistory(
+            sensor_id=sensor_id,
+            status=data['status'],
+            timestamp=datetime.now(),
+            battery_capacity=data.get('battery_capacity'),
+            battery_voltage=data.get('battery_voltage'),
+            temperature=data.get('temperature'),
+            raw_data={'manual_update': True, 'user_id': 'manual'}
+        )
+        session.add(history_record)
+        
+        session.commit()
+        
+        # Actualizar resúmenes si el sensor está vinculado a un parking
+        if sensor.parking_id:
+            _update_parking_sensor_summary(session, sensor.parking_id, sensor.sensor_type)
+        
+        session.close()
+        
+        return jsonify({
+            'message': 'Sensor status updated successfully',
+            'sensor_id': sensor_id,
+            'old_status': old_status,
+            'new_status': data['status'],
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error actualizando estado del sensor {sensor_id}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@api_bp.route('/sensors/summary', methods=['GET'])
+@require_auth
+def get_sensors_summary():
+    """Obtener resumen de sensores agrupados por parking y tipo"""
+    try:
+        parking_id = request.args.get('parking_id', type=int)
+        
+        session = Session()
+        
+        # Query base para resúmenes
+        query = session.query(ParkingSensorSummary)
+        if parking_id:
+            query = query.filter(ParkingSensorSummary.parking_id == parking_id)
+        
+        summaries = query.all()
+        
+        # Formatear respuesta
+        summary_data = []
+        for summary in summaries:
+            summary_data.append({
+                'parking_id': summary.parking_id,
+                'parking_name': summary.parking.name,
+                'sensor_type': summary.sensor_type,
+                'total_sensors': summary.total_sensors,
+                'free_sensors': summary.free_sensors,
+                'busy_sensors': summary.busy_sensors,
+                'error_sensors': summary.error_sensors,
+                'occupancy_rate': summary.occupancy_rate,
+                'available_sensors': summary.available_sensors,
+                'status_distribution': summary.status_distribution,
+                'last_update': summary.last_update.isoformat() if summary.last_update else None
+            })
+        
+        session.close()
+        return jsonify(summary_data)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo resumen de sensores: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@api_bp.route('/sensors/status/complete', methods=['GET'])
+@require_auth
+def get_complete_sensors_status():
+    """Endpoint autenticado para estado completo de sensores individuales"""
+    try:
+        parking_id = request.args.get('parking_id', type=int)
+        sensor_type = request.args.get('sensor_type')
+        
+        session = Session()
+        
+        # Query base
+        query = session.query(IndividualSensor).filter(IndividualSensor.is_active == True)
+        
+        # Aplicar filtros
+        if parking_id:
+            query = query.filter(IndividualSensor.parking_id == parking_id)
+        if sensor_type:
+            query = query.filter(IndividualSensor.sensor_type == sensor_type)
+        
+        sensors = query.all()
+        
+        # Formatear respuesta completa
+        sensors_data = []
+        for sensor in sensors:
+            sensor_data = {
+                'id': sensor.id,
+                'serial_number': sensor.serial_number,
+                'name': sensor.name,
+                'sensor_type': sensor.sensor_type,
+                'parking_id': sensor.parking_id,
+                'parking_name': sensor.parking.name if sensor.parking else None,
+                'description': sensor.description,
+                'location_coordinates': sensor.location_coordinates,
+                'manufacturer': sensor.manufacturer,
+                'current_status': sensor.current_status,
+                'last_update': sensor.last_update.isoformat() if sensor.last_update else None,
+                'battery_info': sensor.battery_info,
+                'is_online': sensor.current_status_rel.is_online if sensor.current_status_rel else False,
+                'needs_attention': sensor.current_status_rel.needs_attention if sensor.current_status_rel else True
+            }
+            sensors_data.append(sensor_data)
+        
+        # Estadísticas generales
+        total_sensors = len(sensors_data)
+        status_counts = {}
+        battery_alerts = 0
+        offline_sensors = 0
+        
+        for sensor_data in sensors_data:
+            status = sensor_data['current_status']
+            status_counts[status] = status_counts.get(status, 0) + 1
+            
+            if sensor_data['battery_info'] and sensor_data['battery_info']['is_low']:
+                battery_alerts += 1
+            
+            if not sensor_data['is_online']:
+                offline_sensors += 1
+        
+        response = {
+            'sensors': sensors_data,
+            'statistics': {
+                'total_sensors': total_sensors,
+                'status_distribution': status_counts,
+                'battery_alerts': battery_alerts,
+                'offline_sensors': offline_sensors,
+                'health_score': round(((total_sensors - offline_sensors - battery_alerts) / max(total_sensors, 1)) * 100, 2)
+            },
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        session.close()
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo estado completo de sensores: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@api_bp.route('/sensors/status/grouped', methods=['GET'])
+@require_auth
+def get_grouped_sensors_status():
+    """Endpoint autenticado para estado agrupado por parking"""
+    try:
+        session = Session()
+        
+        # Usar las vistas materializadas para datos optimizados
+        try:
+            # Intentar usar la función optimizada de la base de datos
+            result = session.execute("SELECT * FROM get_sensors_dashboard_data()").fetchall()
+            
+            grouped_data = []
+            for row in result:
+                grouped_data.append({
+                    'parking_id': row[0],
+                    'parking_name': row[1],
+                    'sensor_type': row[2],
+                    'total_sensors': row[3],
+                    'free_count': row[4],
+                    'busy_count': row[5],
+                    'error_count': row[6],
+                    'occupancy_rate': float(row[7]) if row[7] else 0,
+                    'avg_battery': float(row[8]) if row[8] else None,
+                    'low_battery_count': row[9],
+                    'stale_sensors': row[10],
+                    'health_score': float(row[11]) if row[11] else 0
+                })
+            
+        except Exception as db_error:
+            logger.warning(f"Error usando función optimizada, fallback a query manual: {db_error}")
+            
+            # Fallback a query manual
+            parkings = session.query(Parking).all()
+            grouped_data = []
+            
+            for parking in parkings:
+                # Obtener sensores por tipo para este parking
+                sensor_types = session.query(IndividualSensor.sensor_type).filter(
+                    IndividualSensor.parking_id == parking.id,
+                    IndividualSensor.is_active == True
+                ).distinct().all()
+                
+                for sensor_type_row in sensor_types:
+                    sensor_type = sensor_type_row[0]
+                    
+                    # Estadísticas para este tipo
+                    sensors = session.query(IndividualSensor).filter(
+                        IndividualSensor.parking_id == parking.id,
+                        IndividualSensor.sensor_type == sensor_type,
+                        IndividualSensor.is_active == True
+                    ).all()
+                    
+                    total = len(sensors)
+                    free = sum(1 for s in sensors if s.current_status == 'free')
+                    busy = sum(1 for s in sensors if s.current_status == 'busy')
+                    error = sum(1 for s in sensors if s.current_status == 'error')
+                    
+                    grouped_data.append({
+                        'parking_id': parking.id,
+                        'parking_name': parking.name,
+                        'sensor_type': sensor_type,
+                        'total_sensors': total,
+                        'free_count': free,
+                        'busy_count': busy,
+                        'error_count': error,
+                        'occupancy_rate': round((busy / total * 100) if total > 0 else 0, 2),
+                        'health_score': round(((total - error) / total * 100) if total > 0 else 0, 2)
+                    })
+        
+        session.close()
+        return jsonify({
+            'grouped_data': grouped_data,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo datos agrupados de sensores: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+def _update_parking_sensor_summary(session, parking_id, sensor_type):
+    """Función auxiliar para actualizar resúmenes por parking y tipo"""
+    try:
+        # Contar sensores por estado
+        sensors = session.query(IndividualSensor).filter(
+            IndividualSensor.parking_id == parking_id,
+            IndividualSensor.sensor_type == sensor_type,
+            IndividualSensor.is_active == True
+        ).all()
+        
+        total = len(sensors)
+        free = sum(1 for s in sensors if s.current_status == 'free')
+        busy = sum(1 for s in sensors if s.current_status == 'busy')
+        error = sum(1 for s in sensors if s.current_status == 'error')
+        
+        # Obtener o crear resumen
+        summary = session.query(ParkingSensorSummary).filter(
+            ParkingSensorSummary.parking_id == parking_id,
+            ParkingSensorSummary.sensor_type == sensor_type
+        ).first()
+        
+        if not summary:
+            summary = ParkingSensorSummary(
+                parking_id=parking_id,
+                sensor_type=sensor_type
+            )
+            session.add(summary)
+        
+        # Actualizar valores
+        summary.total_sensors = total
+        summary.free_sensors = free
+        summary.busy_sensors = busy
+        summary.error_sensors = error
+        summary.last_update = datetime.now()
+        
+        session.commit()
+        logger.info(f"Resumen actualizado para parking {parking_id}, tipo {sensor_type}: {total} total, {free} libres, {busy} ocupados, {error} errores")
+        
+    except Exception as e:
+        logger.error(f"Error actualizando resumen de parking {parking_id}, tipo {sensor_type}: {e}")
+
 
 # Registrar el Blueprint con la aplicación
 app.register_blueprint(api_bp)
