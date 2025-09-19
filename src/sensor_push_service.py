@@ -31,10 +31,13 @@ from models import (
     Parking
 )
 
+# Importar configuración del proyecto
+from config import DB_URL
+
 # Configuración
 class Config:
-    # Base de datos
-    DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:@localhost:5432/parking_db')
+    # Base de datos - usar la misma configuración que el API
+    DATABASE_URL = DB_URL
     
     # Servidor
     HOST = '0.0.0.0'
@@ -70,13 +73,11 @@ def setup_logging():
 
 # Inicialización
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = Config.DATABASE_URL
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 logger = setup_logging()
 
-# Inicializar base de datos
-db.init_app(app)
+# Configuración de base de datos (igual que api_server.py)
+engine = create_engine(Config.DATABASE_URL, echo=False)
+Session = sessionmaker(bind=engine)
 
 class SensorPushProcessor:
     """Procesador de mensajes push de sensores"""
@@ -114,9 +115,11 @@ class SensorPushProcessor:
                     'error': 'serial_number es obligatorio en sensor_info'
                 }
             
-            with app.app_context():
+            # Crear sesión de base de datos
+            session = Session()
+            try:
                 # Buscar el sensor en la base de datos
-                sensor = db.session.query(IndividualSensor).filter_by(
+                sensor = session.query(IndividualSensor).filter_by(
                     serial_number=serial_number
                 ).first()
                 
@@ -128,22 +131,26 @@ class SensorPushProcessor:
                     }
                 
                 # Procesar actualización de estado
-                result = self._update_sensor_status(sensor, push_data)
+                result = self._update_sensor_status(sensor, push_data, session)
                 
                 if result['success']:
                     # Actualizar resúmenes por parking
-                    self._update_parking_summaries(sensor.parking_id)
+                    self._update_parking_summaries(sensor.parking_id, session)
                     
                     # Commit de la transacción
-                    db.session.commit()
+                    session.commit()
                     
                     self.logger.info(f"Push procesado exitosamente para sensor {serial_number}")
                 
                 return result
+            finally:
+                session.close()
                 
         except Exception as e:
             self.logger.error(f"Error procesando push: {str(e)}")
-            db.session.rollback()
+            if 'session' in locals():
+                session.rollback()
+                session.close()
             return {
                 'success': False,
                 'error': 'Error interno del servidor',
@@ -184,7 +191,7 @@ class SensorPushProcessor:
             'errors': errors
         }
     
-    def _update_sensor_status(self, sensor: IndividualSensor, push_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _update_sensor_status(self, sensor: IndividualSensor, push_data: Dict[str, Any], session) -> Dict[str, Any]:
         """Actualiza el estado del sensor"""
         try:
             sensor_info = push_data.get('sensor_info', {})
@@ -212,10 +219,10 @@ class SensorPushProcessor:
                 raw_data=push_data  # Almacenar datos completos como JSONB
             )
             
-            db.session.add(history_record)
+            session.add(history_record)
             
             # Actualizar o crear estado actual
-            current_status = db.session.query(SensorCurrentStatus).filter_by(
+            current_status = session.query(SensorCurrentStatus).filter_by(
                 sensor_id=sensor.id
             ).first()
             
@@ -242,7 +249,7 @@ class SensorPushProcessor:
                     consecutive_errors=1 if push_data['status'] == 'error' else 0,
                     last_successful_ping=timestamp if push_data['status'] != 'error' else None
                 )
-                db.session.add(current_status)
+                session.add(current_status)
             
             return {
                 'success': True,
@@ -260,14 +267,14 @@ class SensorPushProcessor:
                 'error': f'Error actualizando sensor: {str(e)}'
             }
     
-    def _update_parking_summaries(self, parking_id: Optional[int]):
+    def _update_parking_summaries(self, parking_id: Optional[int], session):
         """Actualiza los resúmenes por parking"""
         if not parking_id:
             return
         
         try:
             # Obtener todos los sensores del parking
-            sensors = db.session.query(IndividualSensor).filter_by(
+            sensors = session.query(IndividualSensor).filter_by(
                 parking_id=parking_id,
                 is_active=True
             ).all()
@@ -288,7 +295,7 @@ class SensorPushProcessor:
                 summaries_by_type[sensor_type]['total_sensors'] += 1
                 
                 # Obtener estado actual
-                current_status = db.session.query(SensorCurrentStatus).filter_by(
+                current_status = session.query(SensorCurrentStatus).filter_by(
                     sensor_id=sensor.id
                 ).first()
                 
@@ -303,7 +310,7 @@ class SensorPushProcessor:
             
             # Actualizar o crear resúmenes
             for sensor_type, counts in summaries_by_type.items():
-                summary = db.session.query(ParkingSensorSummary).filter_by(
+                summary = session.query(ParkingSensorSummary).filter_by(
                     parking_id=parking_id,
                     sensor_type=sensor_type
                 ).first()
@@ -324,7 +331,7 @@ class SensorPushProcessor:
                         error_sensors=counts['error_sensors'],
                         last_update=datetime.utcnow()
                     )
-                    db.session.add(summary)
+                    session.add(summary)
             
             self.logger.debug(f"Resúmenes actualizados para parking {parking_id}")
             
@@ -333,45 +340,47 @@ class SensorPushProcessor:
     
     def process_manual_update(self, sensor_id: int, status_data: Dict[str, Any]) -> Dict[str, Any]:
         """Procesa una actualización manual de estado"""
+        session = Session()
         try:
-            with app.app_context():
-                sensor = db.session.query(IndividualSensor).filter_by(id=sensor_id).first()
-                
-                if not sensor:
-                    return {
-                        'success': False,
-                        'error': f'Sensor {sensor_id} no encontrado'
-                    }
-                
-                # Crear push simulado para actualización manual
-                simulated_push = {
-                    'status': status_data['status'],
-                    'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
-                    'sensor_info': {
-                        'serial_number': sensor.serial_number,
-                        'battery_voltage': status_data.get('battery_voltage'),
-                        'battery_capacity': status_data.get('battery_capacity'),
-                        'temperature': status_data.get('temperature')
-                    }
+            sensor = session.query(IndividualSensor).filter_by(id=sensor_id).first()
+            
+            if not sensor:
+                return {
+                    'success': False,
+                    'error': f'Sensor {sensor_id} no encontrado'
                 }
-                
-                # Procesar como push normal
-                result = self._update_sensor_status(sensor, simulated_push)
-                
-                if result['success']:
-                    self._update_parking_summaries(sensor.parking_id)
-                    db.session.commit()
-                    self.logger.info(f"Actualización manual procesada para sensor {sensor.serial_number}")
-                
-                return result
-                
+            
+            # Crear push simulado para actualización manual
+            simulated_push = {
+                'status': status_data['status'],
+                'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+                'sensor_info': {
+                    'serial_number': sensor.serial_number,
+                    'battery_voltage': status_data.get('battery_voltage'),
+                    'battery_capacity': status_data.get('battery_capacity'),
+                    'temperature': status_data.get('temperature')
+                }
+            }
+            
+            # Procesar como push normal
+            result = self._update_sensor_status(sensor, simulated_push, session)
+            
+            if result['success']:
+                self._update_parking_summaries(sensor.parking_id, session)
+                session.commit()
+                self.logger.info(f"Actualización manual procesada para sensor {sensor.serial_number}")
+            
+            return result
+            
         except Exception as e:
             self.logger.error(f"Error en actualización manual: {str(e)}")
-            db.session.rollback()
+            session.rollback()
             return {
                 'success': False,
                 'error': f'Error en actualización manual: {str(e)}'
             }
+        finally:
+            session.close()
 
 # Instancia global del procesador
 processor = SensorPushProcessor()
@@ -480,43 +489,43 @@ def manual_update():
 @app.route('/stats', methods=['GET'])
 def get_stats():
     """Endpoint para obtener estadísticas del servicio"""
+    session = Session()
     try:
-        with app.app_context():
-            # Estadísticas básicas
-            total_sensors = db.session.query(IndividualSensor).filter_by(is_active=True).count()
-            
-            # Conteo por estados
-            status_counts = db.session.execute(text("""
-                SELECT 
-                    scs.current_status,
-                    COUNT(*) as count
-                FROM sensor_current_status scs
-                JOIN individual_sensors s ON s.id = scs.sensor_id
-                WHERE s.is_active = true
-                GROUP BY scs.current_status
-            """)).fetchall()
-            
-            # Conteo por tipos
-            type_counts = db.session.execute(text("""
-                SELECT 
-                    s.sensor_type,
-                    COUNT(*) as count
-                FROM individual_sensors s
-                WHERE s.is_active = true
-                GROUP BY s.sensor_type
-            """)).fetchall()
-            
-            return jsonify({
-                'total_sensors': total_sensors,
-                'status_distribution': {row[0]: row[1] for row in status_counts},
-                'type_distribution': {row[0]: row[1] for row in type_counts},
-                'service_info': {
-                    'version': '4.1.0',
-                    'uptime': 'N/A',  # TODO: implementar tracking de uptime
-                    'port': Config.PORT
-                }
-            })
-            
+        # Estadísticas básicas
+        total_sensors = session.query(IndividualSensor).filter_by(is_active=True).count()
+        
+        # Conteo por estados
+        status_counts = session.execute(text("""
+            SELECT 
+                scs.current_status,
+                COUNT(*) as count
+            FROM sensor_current_status scs
+            JOIN individual_sensors s ON s.id = scs.sensor_id
+            WHERE s.is_active = true
+            GROUP BY scs.current_status
+        """)).fetchall()
+        
+        # Conteo por tipos
+        type_counts = session.execute(text("""
+            SELECT 
+                s.sensor_type,
+                COUNT(*) as count
+            FROM individual_sensors s
+            WHERE s.is_active = true
+            GROUP BY s.sensor_type
+        """)).fetchall()
+        
+        return jsonify({
+            'total_sensors': total_sensors,
+            'status_distribution': {row[0]: row[1] for row in status_counts},
+            'type_distribution': {row[0]: row[1] for row in type_counts},
+            'service_info': {
+                'version': '4.1.0',
+                'uptime': 'N/A',  # TODO: implementar tracking de uptime
+                'port': Config.PORT
+            }
+        })
+        
     except Exception as e:
         logger.error(f"Error obteniendo estadísticas: {str(e)}")
         return jsonify({
@@ -524,6 +533,8 @@ def get_stats():
             'error': 'Error obteniendo estadísticas',
             'details': str(e)
         }), 500
+    finally:
+        session.close()
 
 # ============================================================================
 # FUNCIONES DE UTILIDAD
@@ -531,13 +542,16 @@ def get_stats():
 
 def create_tables():
     """Crea las tablas necesarias si no existen"""
-    with app.app_context():
-        try:
-            db.create_all()
-            logger.info("Tablas de base de datos verificadas/creadas")
-        except Exception as e:
-            logger.error(f"Error creando tablas: {str(e)}")
-            raise
+    try:
+        # Las tablas ya están creadas por api_server.py
+        # Solo verificamos la conexión
+        session = Session()
+        session.execute(text("SELECT 1"))
+        session.close()
+        logger.info("Conexión a base de datos verificada")
+    except Exception as e:
+        logger.error(f"Error verificando conexión a base de datos: {str(e)}")
+        raise
 
 def main():
     """Función principal del servicio"""
