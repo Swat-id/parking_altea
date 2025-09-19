@@ -29,6 +29,7 @@ El sistema de plazas individuales permitirá gestionar sensores de parking indiv
 CREATE TABLE individual_sensors (
     id SERIAL PRIMARY KEY,
     serial_number VARCHAR(100) UNIQUE NOT NULL,
+    name VARCHAR(100) NOT NULL, -- Nombre descriptivo de la plaza
     sensor_type VARCHAR(20) DEFAULT 'PMR' NOT NULL,
     parking_id INTEGER REFERENCES parkings(id) ON DELETE SET NULL,
     description TEXT,
@@ -44,6 +45,7 @@ CREATE INDEX idx_individual_sensors_parking_id ON individual_sensors(parking_id)
 CREATE INDEX idx_individual_sensors_type ON individual_sensors(sensor_type);
 CREATE INDEX idx_individual_sensors_active ON individual_sensors(is_active);
 CREATE INDEX idx_individual_sensors_serial ON individual_sensors(serial_number);
+CREATE INDEX idx_individual_sensors_name ON individual_sensors(name);
 ```
 
 #### Tabla `sensor_status_history`
@@ -214,6 +216,7 @@ const IndividualSensors = () => {
   // Estados para formularios
   const [createForm, setCreateForm] = useState({
     serial_number: '',
+    name: '',
     sensor_type: 'PMR',
     parking_id: '',
     description: '',
@@ -267,6 +270,7 @@ const IndividualSensors = () => {
 CREATE TABLE IF NOT EXISTS individual_sensors (
     id SERIAL PRIMARY KEY,
     serial_number VARCHAR(100) UNIQUE NOT NULL,
+    name VARCHAR(100) NOT NULL,
     sensor_type VARCHAR(20) DEFAULT 'PMR' NOT NULL CHECK (
         sensor_type IN ('PMR', 'Electrico', 'Caravanas', 'Emergencias', 'Policia', 'Otros')
     ),
@@ -282,10 +286,10 @@ CREATE TABLE IF NOT EXISTS individual_sensors (
 -- [Resto de tablas...]
 
 -- Insertar datos de ejemplo
-INSERT INTO individual_sensors (serial_number, sensor_type, description) VALUES
-('FLX001001', 'PMR', 'Sensor PMR entrada principal'),
-('FLX001002', 'Electrico', 'Plaza eléctrica zona A'),
-('FLX001003', 'PMR', 'Sensor PMR zona B');
+INSERT INTO individual_sensors (serial_number, name, sensor_type, description) VALUES
+('FLX001001', 'Plaza PMR-01', 'PMR', 'Sensor PMR entrada principal'),
+('FLX001002', 'Plaza ELE-01', 'Electrico', 'Plaza eléctrica zona A'),
+('FLX001003', 'Plaza PMR-02', 'PMR', 'Sensor PMR zona B');
 
 COMMIT;
 ```
@@ -334,6 +338,7 @@ class IndividualSensor(Base):
     
     id = Column(Integer, primary_key=True)
     serial_number = Column(String(100), unique=True, nullable=False)
+    name = Column(String(100), nullable=False)  # Nombre descriptivo de la plaza
     sensor_type = Column(String(20), default='PMR', nullable=False)
     parking_id = Column(Integer, ForeignKey('parkings.id'), nullable=True)
     description = Column(Text)
@@ -531,9 +536,11 @@ class TestSensorPushService(unittest.TestCase):
 | **Servicio Push (Puerto 3535)** | 6 horas | Servidor Flask, procesamiento |
 | **Frontend - Gestión de Sensores** | 16 horas | Componentes, formularios, dashboard |
 | **Frontend - Dashboard Estados** | 8 horas | Gráficos, resúmenes, estadísticas |
-| **Integración y Testing** | 10 horas | Tests, validaciones, debugging |
+| **Frontend - Página Detalle Parking** | 6 horas | Sección sensores individuales, actualización manual |
+| **Backend - Endpoints Parking** | 4 horas | APIs para sensores por parking |
+| **Integración y Testing** | 12 horas | Tests, validaciones, debugging |
 | **Documentación y Despliegue** | 4 horas | Docs, scripts de despliegue |
-| **Total** | **64 horas** | Aproximadamente 8 días de trabajo |
+| **Total** | **74 horas** | Aproximadamente 9 días de trabajo |
 
 ### 11. Fases de Implementación
 
@@ -575,7 +582,42 @@ class TestSensorPushService(unittest.TestCase):
 4. **Escalabilidad**: Diseño debe soportar cientos de sensores
 5. **Sincronización**: Mantener consistencia entre estados individuales y resúmenes
 
-### 13. Optimizaciones Futuras
+### 13. Integración con Página de Detalle de Parking
+
+#### Modificaciones en la Página de Parking
+
+La página de detalle de parking se actualizará para incluir una nueva sección de sensores individuales debajo del bloque de paneles, mostrando:
+
+1. **Resumen por tipo de sensor**: Conteo de estados (libres, ocupadas, error) agrupado por tipo
+2. **Lista detallada de sensores**: Para cada sensor individual mostrar:
+   - Nombre descriptivo y serial number
+   - Estado actual con indicador visual
+   - Timestamp del último mensaje recibido
+   - Nivel de batería con icono visual
+   - Botón para actualización manual de estado
+
+#### Funcionalidades de la Nueva Sección
+
+1. **Visualización por bloques de tipo**: PMR, Eléctrico, Caravanas, etc.
+2. **Actualización en tiempo real**: Refresh automático cada 30 segundos
+3. **Actualización manual**: Modal para cambiar estado de cualquier plaza
+4. **Indicadores visuales**: Colores para estados, iconos para batería
+5. **Información técnica**: Timestamp, señal de red, temperatura
+
+#### Nuevos Endpoints Requeridos
+
+```python
+# Obtener sensores de un parking con estado actual
+GET /api/parkings/{id}/sensors
+
+# Obtener resumen agrupado por tipo
+GET /api/parkings/{id}/sensors/summary
+
+# Actualización manual de estado
+POST /api/individual-sensors/manual-update
+```
+
+### 14. Optimizaciones Futuras
 
 1. **Cache**: Redis para consultas frecuentes
 2. **Agregaciones**: Jobs para pre-calcular estadísticas

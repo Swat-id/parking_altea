@@ -5,10 +5,17 @@
 La versión 4.1.0 introduce tres mejoras principales al sistema de gestión de parking:
 
 1. **Selección de ventanas para paneles Tipo 3** (10 horas)
-2. **Sistema de gestión de plazas individuales PMR** (64 horas) 
-3. **Servicio de push de sensores en puerto 3535** (32 horas)
+2. **Sistema de gestión de plazas individuales PMR** (74 horas) 
+3. **Servicio de push de sensores en puerto 3535** (37 horas)
 
-**Estimación total**: 106 horas (~13 días de desarrollo)
+**Estimación total**: 121 horas (~15 días de desarrollo)
+
+### Nuevas Funcionalidades Añadidas
+
+- **Actualización manual de estados**: Interfaz para cambiar manualmente el estado de cualquier plaza individual
+- **Campo nombre para sensores**: Además del serial_number, cada sensor tendrá un nombre descriptivo
+- **Integración en página de parking**: Sección específica mostrando sensores por tipo con información detallada
+- **Procesamiento similar a cámaras**: El servicio push mantendrá actualizados tanto estados individuales como conteos agrupados
 
 ## Fases de Implementación
 
@@ -99,7 +106,7 @@ La versión 4.1.0 introduce tres mejoras principales al sistema de gestión de p
 ---
 
 ### FASE 4: Servicio de Push de Sensores (Puerto 3535)
-**Duración**: 4 días  
+**Duración**: 5 días  
 **Prioridad**: Alta  
 **Dependencias**: Fase 2 y 3 completadas
 
@@ -109,10 +116,11 @@ La versión 4.1.0 introduce tres mejoras principales al sistema de gestión de p
 |-------|------------|-------------|-------------|
 | **Servicio Flask base** | 6h | Backend | Servidor HTTP en puerto 3535 |
 | **Procesamiento de push** | 8h | Backend | Lógica de procesamiento de mensajes |
+| **Actualización manual estados** | 4h | Backend | Endpoint y lógica para cambios manuales |
 | **Middleware y seguridad** | 4h | Backend | Validaciones, logging, seguridad |
 | **Métricas y monitorización** | 4h | Backend | Estadísticas, health checks |
 | **Scripts de despliegue** | 3h | DevOps | Systemd, firewall, automatización |
-| **Testing completo** | 5h | QA | Tests unitarios, integración, manuales |
+| **Testing completo** | 6h | QA | Tests unitarios, integración, manuales |
 | **Documentación API** | 2h | Docs | Documentar protocolo y endpoints |
 
 #### Entregables
@@ -126,6 +134,7 @@ La versión 4.1.0 introduce tres mejoras principales al sistema de gestión de p
 - ✅ Servicio recibe y procesa push correctamente
 - ✅ Estados de sensores se actualizan en tiempo real
 - ✅ Resúmenes por parking se calculan automáticamente
+- ✅ Actualización manual de estados funciona correctamente
 - ✅ Servicio es resiliente a fallos y se reinicia automáticamente
 
 ---
@@ -159,10 +168,38 @@ La versión 4.1.0 introduce tres mejoras principales al sistema de gestión de p
 
 ---
 
-### FASE 6: Dashboard de Estados y Estadísticas
+### FASE 6: Integración con Página de Detalle de Parking
+**Duración**: 2 días  
+**Prioridad**: Media  
+**Dependencias**: Fase 4 y 5 completadas
+
+#### Tareas Específicas
+
+| Tarea | Estimación | Responsable | Descripción |
+|-------|------------|-------------|-------------|
+| **Backend - Endpoints parking** | 4h | Backend | APIs para obtener sensores por parking |
+| **Frontend - Sección sensores** | 4h | Frontend | Componente para mostrar sensores por tipo |
+| **Frontend - Modal actualización** | 2h | Frontend | Interfaz para actualización manual |
+| **Integración tiempo real** | 2h | Frontend | Auto-refresh y estados dinámicos |
+
+#### Entregables
+- [ ] Endpoints para consultar sensores por parking
+- [ ] Sección de sensores individuales en página de parking
+- [ ] Modal de actualización manual de estados
+- [ ] Visualización por bloques de tipo con resúmenes
+
+#### Criterios de Aceptación
+- ✅ Sensores se muestran agrupados por tipo en página de parking
+- ✅ Información de estado, batería y timestamp visible
+- ✅ Actualización manual funciona desde la interfaz
+- ✅ Datos se actualizan automáticamente cada 30 segundos
+
+---
+
+### FASE 7: Dashboard de Estados y Estadísticas
 **Duración**: 2 días  
 **Prioridad**: Baja  
-**Dependencias**: Fase 5 completada
+**Dependencias**: Fase 6 completada
 
 #### Tareas Específicas
 
@@ -187,7 +224,7 @@ La versión 4.1.0 introduce tres mejoras principales al sistema de gestión de p
 
 ---
 
-### FASE 7: Testing, Optimización y Documentación
+### FASE 8: Testing, Optimización y Documentación
 **Duración**: 1 día  
 **Prioridad**: Alta  
 **Dependencias**: Todas las fases anteriores
@@ -226,12 +263,13 @@ La versión 4.1.0 introduce tres mejoras principales al sistema de gestión de p
 - **Días 1-2**: Continuación Fase 3 - API completa
 - **Días 3-5**: Fase 4 - Servicio push (días 1-3)
 
-### Semana 3 (3 días)
-- **Día 1**: Finalización Fase 4 - Servicio push
-- **Días 2-3**: Fase 5 - Frontend básico
+### Semana 3 (5 días)
+- **Días 1-2**: Finalización Fase 4 - Servicio push
+- **Días 3-4**: Fase 5 - Frontend gestión sensores
+- **Día 5**: Fase 6 - Integración página parking (día 1)
 
 ### Día Final
-- **Día 1**: Fases 6 y 7 - Dashboard y finalización
+- **Día 1**: Finalización Fase 6, Fases 7 y 8 - Dashboard, testing y finalización
 
 ## Recursos Necesarios
 
@@ -280,8 +318,11 @@ La versión 4.1.0 introduce tres mejoras principales al sistema de gestión de p
 - ✅ Selección de ventanas funciona en paneles Tipo 3
 - ✅ Sensores individuales se pueden gestionar completamente
 - ✅ Push de sensores se procesa correctamente
-- ✅ Estados se actualizan en tiempo real
+- ✅ Estados se actualizan en tiempo real (automático y manual)
 - ✅ Resúmenes por parking son precisos
+- ✅ Página de parking muestra sensores por tipo con detalles
+- ✅ Actualización manual de estados funciona desde interfaz
+- ✅ Campo nombre permite identificación fácil de plazas
 - ✅ Autenticación funciona correctamente
 
 ### No Funcionales

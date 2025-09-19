@@ -49,6 +49,7 @@ psql -U parking_user -d parking_db
 CREATE TABLE IF NOT EXISTS individual_sensors (
     id SERIAL PRIMARY KEY,
     serial_number VARCHAR(100) UNIQUE NOT NULL,
+    name VARCHAR(100) NOT NULL, -- Nombre descriptivo de la plaza
     sensor_type VARCHAR(20) DEFAULT 'PMR' NOT NULL CHECK (
         sensor_type IN ('PMR', 'Electrico', 'Caravanas', 'Emergencias', 'Policia', 'Otros')
     ),
@@ -109,6 +110,7 @@ CREATE INDEX IF NOT EXISTS idx_individual_sensors_parking_id ON individual_senso
 CREATE INDEX IF NOT EXISTS idx_individual_sensors_type ON individual_sensors(sensor_type);
 CREATE INDEX IF NOT EXISTS idx_individual_sensors_active ON individual_sensors(is_active);
 CREATE INDEX IF NOT EXISTS idx_individual_sensors_serial ON individual_sensors(serial_number);
+CREATE INDEX IF NOT EXISTS idx_individual_sensors_name ON individual_sensors(name);
 
 CREATE INDEX IF NOT EXISTS idx_sensor_status_sensor_id ON sensor_status_history(sensor_id);
 CREATE INDEX IF NOT EXISTS idx_sensor_status_timestamp ON sensor_status_history(timestamp DESC);
@@ -117,10 +119,10 @@ CREATE INDEX IF NOT EXISTS idx_sensor_status_current ON sensor_status_history(se
 CREATE INDEX IF NOT EXISTS idx_parking_sensor_summary_parking ON parking_sensor_summary(parking_id);
 
 -- Insertar datos de ejemplo (opcional)
-INSERT INTO individual_sensors (serial_number, sensor_type, description) VALUES
-('FLX001001', 'PMR', 'Sensor PMR entrada principal - EJEMPLO'),
-('FLX001002', 'Electrico', 'Plaza eléctrica zona A - EJEMPLO'),
-('FLX001003', 'PMR', 'Sensor PMR zona B - EJEMPLO')
+INSERT INTO individual_sensors (serial_number, name, sensor_type, description) VALUES
+('FLX001001', 'Plaza PMR-01', 'PMR', 'Sensor PMR entrada principal - EJEMPLO'),
+('FLX001002', 'Plaza ELE-01', 'Electrico', 'Plaza eléctrica zona A - EJEMPLO'),
+('FLX001003', 'Plaza PMR-02', 'PMR', 'Sensor PMR zona B - EJEMPLO')
 ON CONFLICT (serial_number) DO NOTHING;
 
 -- Confirmar cambios

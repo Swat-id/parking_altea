@@ -2,7 +2,15 @@
 
 ## Descripción General
 
-El servicio en puerto 3535 recibirá notificaciones push de cambios de estado de sensores Fleximodo, procesará la información y actualizará la base de datos con los estados individuales de las plazas de parking.
+El servicio en puerto 3535 recibirá notificaciones push de cambios de estado de sensores Fleximodo, procesará la información y actualizará la base de datos con los estados individuales de las plazas de parking. Similar al servicio de cámaras, este servicio mantendrá actualizados tanto los estados individuales de cada plaza como los conteos agrupados por tipo y parking.
+
+### Funcionalidades Principales
+
+1. **Procesamiento automático de push**: Recepción y procesamiento de cambios de estado
+2. **Actualización de estados individuales**: Mantener el estado actual de cada sensor
+3. **Actualización de conteos agrupados**: Calcular automáticamente resúmenes por parking y tipo
+4. **Actualización manual de estados**: Permitir modificación manual del estado de cualquier plaza
+5. **Integración con página de parking**: Mostrar sensores individuales organizados por tipo
 
 ## Especificación del Protocolo Push
 
@@ -191,6 +199,59 @@ def service_stats():
         'uptime': '0h 0m',        # Implementar cálculo de uptime
         'last_message': None      # Timestamp del último mensaje
     })
+
+@app.route('/manual-update', methods=['POST'])
+def manual_status_update():
+    """
+    Endpoint para actualización manual de estado de sensor
+    
+    Payload esperado:
+    {
+        "sensor_id": 123,
+        "new_status": "busy",
+        "reason": "Manual update by admin",
+        "user_id": 1
+    }
+    """
+    try:
+        data = request.get_json()
+        sensor_id = data.get('sensor_id')
+        new_status = data.get('new_status')
+        reason = data.get('reason', 'Manual update')
+        user_id = data.get('user_id')
+        
+        if not all([sensor_id, new_status, user_id]):
+            return jsonify({'error': 'Missing required fields'}), 400
+        
+        # Validar estado
+        valid_statuses = ['free', 'busy', 'error', 'unknown', 'notcalib']
+        if new_status not in valid_statuses:
+            return jsonify({'error': f'Invalid status. Must be one of: {valid_statuses}'}), 400
+        
+        # Procesar actualización manual
+        processor = SensorPushProcessor()
+        result = processor.process_manual_update(sensor_id, new_status, reason, user_id)
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'message': 'Status updated manually',
+                'sensor_id': sensor_id,
+                'new_status': new_status,
+                'timestamp': datetime.utcnow().isoformat()
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': result['error']
+            }), 400
+            
+    except Exception as e:
+        logger.error(f"Error in manual update: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Internal server error'
+        }), 500
 ```
 
 ### Validaciones y Procesamiento
@@ -389,6 +450,87 @@ class SensorPushProcessor:
             
         except Exception as e:
             logger.error(f"Error updating parking summary: {e}")
+    
+    def process_manual_update(self, sensor_id, new_status, reason, user_id):
+        """Procesar actualización manual de estado de sensor"""
+        try:
+            # Buscar sensor
+            sensor = self.session.query(IndividualSensor).filter(
+                IndividualSensor.id == sensor_id,
+                IndividualSensor.is_active == True
+            ).first()
+            
+            if not sensor:
+                return {'success': False, 'error': f'Sensor not found: {sensor_id}'}
+            
+            # Obtener estado actual
+            current_status = self._get_current_status(sensor)
+            old_status = current_status.current_status if current_status else 'unknown'
+            
+            # Si el estado no ha cambiado, no hacer nada
+            if old_status == new_status:
+                return {'success': True, 'message': 'Status unchanged'}
+            
+            # Crear registro histórico con información de actualización manual
+            timestamp = datetime.utcnow()
+            history_record = SensorStatusHistory(
+                sensor_id=sensor.id,
+                status=new_status,
+                timestamp=timestamp,
+                battery_voltage=current_status.battery_voltage if current_status else None,
+                battery_capacity=current_status.battery_capacity if current_status else None,
+                temperature=current_status.temperature if current_status else None,
+                network_signal_strength=current_status.network_signal_strength if current_status else None,
+                radar_only=False,
+                raw_data={
+                    'manual_update': True,
+                    'reason': reason,
+                    'user_id': user_id,
+                    'timestamp': timestamp.isoformat(),
+                    'old_status': old_status,
+                    'new_status': new_status
+                }
+            )
+            
+            self.session.add(history_record)
+            
+            # Actualizar estado actual
+            sensor_info = {
+                'battery_voltage': current_status.battery_voltage if current_status else None,
+                'battery_capacity': current_status.battery_capacity if current_status else None,
+                'temperature': current_status.temperature if current_status else None,
+                'network_info': {
+                    'signal_strength': current_status.network_signal_strength if current_status else None
+                }
+            }
+            
+            self._update_current_status(sensor, new_status, timestamp, sensor_info)
+            
+            # Actualizar resumen por parking si está vinculado
+            if sensor.parking_id:
+                self._update_parking_summary(sensor.parking_id, sensor.sensor_type)
+            
+            # Commit de cambios
+            self.session.commit()
+            
+            logger.info(f"Manual status update for sensor {sensor.serial_number}: {old_status} -> {new_status} by user {user_id}")
+            
+            return {
+                'success': True,
+                'message': 'Manual status update processed',
+                'sensor_id': sensor.id,
+                'sensor_serial': sensor.serial_number,
+                'sensor_name': sensor.name,
+                'old_status': old_status,
+                'new_status': new_status,
+                'timestamp': timestamp.isoformat(),
+                'user_id': user_id
+            }
+            
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error processing manual update: {e}")
+            return {'success': False, 'error': str(e)}
 ```
 
 ## Configuración del Servicio
@@ -921,12 +1063,13 @@ log_message "INFO: Service monitoring completed successfully"
 |------------|------------|-------------|
 | **Servicio Flask Base** | 6 horas | Endpoint, validaciones, estructura básica |
 | **Procesamiento de Push** | 8 horas | Lógica de procesamiento, actualización BD |
+| **Actualización Manual de Estados** | 4 horas | Endpoint y lógica para cambios manuales |
 | **Middleware y Seguridad** | 4 horas | Validaciones IP, API key, logging |
 | **Métricas y Monitorización** | 4 horas | Estadísticas, health checks |
 | **Scripts de Despliegue** | 3 horas | Systemd, firewall, automatización |
-| **Testing y Validación** | 5 horas | Tests unitarios, integración, manual |
+| **Testing y Validación** | 6 horas | Tests unitarios, integración, manual |
 | **Documentación** | 2 horas | Docs de API, configuración |
-| **Total** | **32 horas** | Aproximadamente 4 días de trabajo |
+| **Total** | **37 horas** | Aproximadamente 5 días de trabajo |
 
 ## Consideraciones de Producción
 
