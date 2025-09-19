@@ -6,6 +6,16 @@ Esta guía contiene todos los comandos necesarios para desplegar la versión 4.1
 
 ## Pre-requisitos
 
+> **⚠️ IMPORTANTE - Configuración de PostgreSQL**
+> 
+> Si encuentras errores como "Peer authentication failed for user 'parking_user'", 
+> usa siempre `sudo -u postgres psql parking_db` para conectarte a la base de datos.
+> 
+> En el servidor de producción (157.180.91.63), la configuración correcta es:
+> - **Base de datos**: `parking_db`
+> - **Usuario del sistema**: `postgres`
+> - **Comando**: `sudo -u postgres psql parking_db`
+
 ### Verificación del Sistema
 ```bash
 # Verificar versión actual
@@ -18,7 +28,7 @@ sudo systemctl status parking-panel-worker
 sudo systemctl status parking-camera
 
 # Verificar base de datos
-psql -U parking_user -d parking_db -c "SELECT version();"
+sudo -u postgres psql parking_db -c "SELECT version();"
 ```
 
 ### Backup del Sistema
@@ -41,9 +51,14 @@ ls -la "$BACKUP_DIR"
 
 ### Crear Tablas de Sensores Individuales
 
+```bash
+# Conectar a la base de datos
+sudo -u postgres psql parking_db
+```
+
+Una vez conectado, ejecutar los siguientes comandos SQL:
+
 ```sql
--- Conectar a la base de datos
-psql -U parking_user -d parking_db
 
 -- Crear tabla de sensores individuales
 CREATE TABLE IF NOT EXISTS individual_sensors (
@@ -147,10 +162,10 @@ cat > /tmp/migrate_v4.1.0.sql << 'EOF'
 EOF
 
 # Ejecutar migración
-psql -U parking_user -d parking_db -f /tmp/migrate_v4.1.0.sql
+sudo -u postgres psql parking_db -f /tmp/migrate_v4.1.0.sql
 
 # Verificar migración
-psql -U parking_user -d parking_db -c "SELECT count(*) FROM individual_sensors;"
+sudo -u postgres psql parking_db -c "SELECT count(*) FROM individual_sensors;"
 ```
 
 ## FASE 2: Actualización del Backend
@@ -410,7 +425,7 @@ curl -s http://157.180.91.63:5789 > /dev/null && echo "✅ Frontend accesible de
 ```bash
 # Verificar nuevas tablas
 echo "=== VERIFICACIÓN DE BASE DE DATOS ==="
-psql -U parking_user -d parking_db -c "
+sudo -u postgres psql parking_db -c "
 SELECT 
     schemaname, 
     tablename, 
@@ -421,7 +436,7 @@ ORDER BY tablename;
 "
 
 # Verificar datos de ejemplo
-psql -U parking_user -d parking_db -c "SELECT count(*) as total_sensores FROM individual_sensors;"
+sudo -u postgres psql parking_db -c "SELECT count(*) as total_sensores FROM individual_sensors;"
 ```
 
 ### Tests de Funcionalidad
@@ -661,7 +676,7 @@ echo "📡 Push Service: http://157.180.91.63:3535"
 
 # Estado de base de datos
 echo -e "\nBase de datos:"
-SENSOR_COUNT=$(psql -U parking_user -d parking_db -t -c "SELECT count(*) FROM individual_sensors;" 2>/dev/null | tr -d ' ')
+SENSOR_COUNT=$(sudo -u postgres psql parking_db -t -c "SELECT count(*) FROM individual_sensors;" 2>/dev/null | tr -d ' ')
 echo "📊 Sensores individuales: $SENSOR_COUNT"
 
 echo -e "\n✅ Despliegue v4.1.0 completado exitosamente"
