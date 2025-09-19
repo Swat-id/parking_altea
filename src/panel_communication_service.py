@@ -676,11 +676,18 @@ def update_parking_panels(parking_id: int, current_occupancy: int, max_capacity:
                     
                     if result.get('success'):
                         updated_panels += 1
-                        # Actualizar el último mensaje del panel solo si fue exitoso
-                        panel.last_message = message
-                        panel.last_update = datetime.now()
+                        # NUEVO v4.1.0: Actualizar el último mensaje del panel solo si fue exitoso
+                        current_time = datetime.now()
+                        panel.last_message = message  # Mantener compatibilidad
+                        panel.last_update = current_time
+                        
+                        # NUEVO v4.1.0: Actualizar también las ventanas específicas
+                        panel.last_message_window_0 = message  # Los mensajes automáticos van a ventana 0
+                        panel.last_update_window_0 = current_time
+                        # No actualizar window_1 para mensajes automáticos de ocupación
+                        
                         panel.status = 'ONLINE'
-                        logger.info(f"Panel {panel.ip} actualizado correctamente")
+                        logger.info(f"Panel {panel.ip} actualizado correctamente con mensaje: '{message}'")
                     else:
                         error_msg = result.get('message', 'Error desconocido')
                         errors.append(f"Panel {panel.ip}: {error_msg}")
