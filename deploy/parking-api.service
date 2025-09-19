@@ -5,11 +5,15 @@ After=network.target
 [Service]
 Type=simple
 User=root
+Group=root
 WorkingDirectory=/opt/parking_altea/src
 Environment=PATH=/opt/parking_altea/venv/bin
-ExecStart=/opt/parking_altea/venv/bin/gunicorn --workers 3 --bind 0.0.0.0:6001 api_server:app
+Environment=PYTHONPATH=/opt/parking_altea/src
+Environment=DATABASE_URL=postgresql://postgres:parking123@localhost:5432/parking_db
+Environment=API_PORT=6001
+ExecStart=/opt/parking_altea/venv/bin/python /opt/parking_altea/src/api_server.py
 Restart=always
 RestartSec=10
 
 [Install]
-WantedBy=multi-user.target 
+WantedBy=multi-user.target
