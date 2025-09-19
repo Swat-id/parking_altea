@@ -6,7 +6,7 @@ export const statisticsService = {
    */
   getAllStatistics: async (days = 7) => {
     try {
-      const response = await api.get(`/statistics?days=${days}`)
+      const response = await api.get(`/api/statistics?days=${days}`)
       return response.data
     } catch (error) {
       console.error('Error obteniendo estadísticas generales:', error)
@@ -19,7 +19,7 @@ export const statisticsService = {
    */
   getParkingStatistics: async (parkingId, days = 7) => {
     try {
-      const response = await api.get(`/parking/${parkingId}/statistics?days=${days}`)
+      const response = await api.get(`/api/parkings/${parkingId}/statistics?days=${days}`)
       return response.data
     } catch (error) {
       console.error('Error obteniendo estadísticas del parking:', error)
@@ -71,7 +71,7 @@ export const statisticsService = {
    */
   exportData: async (parkingId, days = 7, format = 'csv') => {
     try {
-      const response = await api.get(`/parking/${parkingId}/statistics?days=${days}&format=${format}`, {
+      const response = await api.get(`/api/parkings/${parkingId}/statistics?days=${days}&format=${format}`, {
         responseType: 'blob'
       })
       

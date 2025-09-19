@@ -29,7 +29,7 @@ import {
 import toast from 'react-hot-toast'
 import api from '../services/api'
 
-const API_BASE_URL = 'http://157.180.91.63:5789'
+const API_BASE_URL = 'http://157.180.91.63:6001'
 
 const Schedules = () => {
   const queryClient = useQueryClient()
@@ -176,7 +176,7 @@ const Schedules = () => {
   )
 
   const executeScheduleMutation = useMutation(
-    (id) => api.post(`/schedules/${id}/execute`).then(res => res.data),
+    (id) => api.post(`/api/schedules/${id}/execute`).then(res => res.data),
     {
       onSuccess: (data) => {
         if (data.success) {
@@ -192,7 +192,7 @@ const Schedules = () => {
   )
 
   const executeAllSchedulesMutation = useMutation(
-    () => api.post('/schedules/execute-all').then(res => res.data),
+    () => api.post('/api/schedules/execute-all').then(res => res.data),
     {
       onSuccess: (data) => {
         if (data.success) {

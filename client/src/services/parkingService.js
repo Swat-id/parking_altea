@@ -32,7 +32,7 @@ const parkingService = {
    */
   async getParking(id) {
     try {
-      const response = await api.get(`/parking/${id}`)
+      const response = await api.get(`/api/parkings/${id}`)
       return response.data
     } catch (error) {
       console.error('Error obteniendo parking:', error)
@@ -45,7 +45,7 @@ const parkingService = {
    */
   async updateOccupancy(parkingId, occupancy) {
     try {
-      const response = await api.post(`/parking/${parkingId}/occupancy`, { occupancy })
+      const response = await api.post(`/api/parkings/${parkingId}/occupancy`, { occupancy })
       return response.data
     } catch (error) {
       console.error('Error actualizando ocupación:', error)
@@ -58,7 +58,7 @@ const parkingService = {
    */
   async updateConfig(parkingId, config) {
     try {
-      const response = await api.post(`/parking/${parkingId}/config`, config)
+      const response = await api.post(`/api/parkings/${parkingId}/config`, config)
       return response.data
     } catch (error) {
       console.error('Error actualizando configuración:', error)
@@ -71,7 +71,7 @@ const parkingService = {
    */
   async updateCameras(parkingId, cameras) {
     try {
-      const response = await api.put(`/parking/${parkingId}/cameras`, { cameras })
+      const response = await api.put(`/api/parkings/${parkingId}/cameras`, { cameras })
       return response.data
     } catch (error) {
       console.error('Error actualizando cámaras:', error)
@@ -84,7 +84,7 @@ const parkingService = {
    */
   async sendMessage(parkingId, message) {
     try {
-      const response = await api.post(`/parking/${parkingId}/message`, message)
+      const response = await api.post(`/api/parkings/${parkingId}/message`, message)
       return response.data
     } catch (error) {
       console.error('Error enviando mensaje:', error)
@@ -97,7 +97,7 @@ const parkingService = {
    */
   async getStatistics(parkingId) {
     try {
-      const response = await api.get(`/parking/${parkingId}/statistics`)
+      const response = await api.get(`/api/parkings/${parkingId}/statistics`)
       return response.data
     } catch (error) {
       console.error('Error obteniendo estadísticas:', error)
@@ -110,7 +110,7 @@ const parkingService = {
    */
   async getHistory(parkingId) {
     try {
-      const response = await api.get(`/parking/${parkingId}/history`)
+      const response = await api.get(`/api/parkings/${parkingId}/history`)
       return response.data
     } catch (error) {
       console.error('Error obteniendo historial:', error)
@@ -123,7 +123,7 @@ const parkingService = {
    */
   getScheduledMessages: async (parkingId) => {
     try {
-      const response = await api.get(`/parking/${parkingId}/message`)
+      const response = await api.get(`/api/parkings/${parkingId}/message`)
       return response.data
     } catch (error) {
       console.error('Error obteniendo mensajes programados:', error)
@@ -136,7 +136,7 @@ const parkingService = {
    */
   deleteScheduledMessage: async (parkingId, messageId) => {
     try {
-      const response = await api.delete(`/parking/${parkingId}/message`, {
+      const response = await api.delete(`/api/parkings/${parkingId}/message`, {
         data: { message_id: messageId }
       })
       return response.data

@@ -19,7 +19,7 @@ const cameraService = {
    */
   async getUserCameras() {
     try {
-      const response = await api.get('/user/cameras');
+      const response = await api.get('/api/user/cameras');
       return response.data;
     } catch (error) {
       console.error('Error obteniendo cámaras del usuario:', error);
@@ -32,7 +32,7 @@ const cameraService = {
    */
   async getCameras() {
     try {
-      const response = await api.get('/cameras');
+      const response = await api.get('/api/cameras');
       return response.data;
     } catch (error) {
       console.error('Error obteniendo cámaras:', error);
@@ -62,7 +62,7 @@ const cameraService = {
    */
   async getAllCamerasStatus() {
     try {
-      const response = await api.get('/cameras/status');
+      const response = await api.get('/api/cameras/status');
       return response.data;
     } catch (error) {
       console.error('Error obteniendo estado de cámaras:', error);
