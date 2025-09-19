@@ -81,7 +81,7 @@ const sensorService = {
 
   async getSensorsSummary(parkingId = null) {
     try {
-      const url = parkingId ? `/sensors/summary?parking_id=${parkingId}` : '/sensors/summary'
+      const url = parkingId ? `/api/sensors/summary?parking_id=${parkingId}` : '/api/sensors/summary'
       const response = await api.get(url)
       return response.data
     } catch (error) {
@@ -96,7 +96,7 @@ const sensorService = {
       if (filters.parking_id) params.append('parking_id', filters.parking_id)
       if (filters.sensor_type) params.append('sensor_type', filters.sensor_type)
       
-      const url = `/sensors/status/complete${params.toString() ? `?${params.toString()}` : ''}`
+      const url = `/api/sensors/status/complete${params.toString() ? `?${params.toString()}` : ''}`
       const response = await api.get(url)
       return response.data
     } catch (error) {
@@ -107,7 +107,7 @@ const sensorService = {
 
   async getGroupedStatus() {
     try {
-      const response = await api.get('/sensors/status/grouped')
+      const response = await api.get('/api/sensors/status/grouped')
       return response.data
     } catch (error) {
       console.error('Error obteniendo datos agrupados de sensores:', error)
