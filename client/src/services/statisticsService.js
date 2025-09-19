@@ -105,7 +105,7 @@ export const statisticsService = {
       if (options.date) params.append('date', options.date)
       if (options.days) params.append('days', options.days)
       
-      const response = await api.get(`/api/parking/${parkingId}/hourly-statistics?${params.toString()}`)
+      const response = await api.get(`/api/parkings/${parkingId}/hourly-statistics?${params.toString()}`)
       return response.data
     } catch (error) {
       console.error('Error obteniendo estadísticas por horas:', error)

@@ -188,7 +188,7 @@ const Parkings = () => {
 
   const loadParkingCameras = async (parkingId) => {
     try {
-      const response = await fetch(`/api/parking/${parkingId}/cameras`)
+      const response = await fetch(`/api/parkings/${parkingId}/cameras`)
       if (response.ok) {
         const data = await response.json()
         setAssignedCameras(data.cameras || [])
