@@ -1,0 +1,5 @@
+[33me401085[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mv3.4.0[m[33m)[m Agregar documentacion de despliegue v3.4.0 y aumentar timeouts para paneles lentos
+[33m430770b[m Aumentar timeouts de comunicación con paneles de 25s a 45s para paneles lentos
+[33m4ffce80[m[33m ([m[1;31morigin/v3.4.0[m[33m)[m TEMPORAL: Hacer visibles botones editar/borrar y crear panel para debugging
+[33mc1b0e28[m Fix: Corregir gestión de paneles en worker y preservar last_message
+[33m32b4dae[m Feature: Agregar funcionalidades CRUD completas para paneles

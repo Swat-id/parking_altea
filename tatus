@@ -13,3 +13,36 @@
   v3.0.0[m
   v3.1.0_login[m
 * [32mv3.2.0_alarms[m
+[33mcommit 768c938ab0a7ba452cdafc55c48374de589bfc95[m
+Author: SWATID <francisco.sanchis@swat-id.com>
+Date:   Mon Sep 1 23:37:10 2025 +0200
+
+    fix: Implementar edición completa de parkings (nombre y ubicación)
+    
+    PROBLEMA RESUELTO:
+    - No era posible editar nombre ni ubicación de parkings existentes
+    - El formulario solo permitía editar configuración técnica
+    
+    SOLUCIÓN IMPLEMENTADA:
+    - Backend: Nuevo endpoint PUT /parkings/{id} para edición general
+    - Frontend: Agregar campos nombre y ubicación al formulario
+    - Frontend: Método editParking() en parkingService.js
+    - Validación: Nombre único, campos requeridos
+    
+    ARCHIVOS MODIFICADOS:
+    - src/api_server.py: Endpoint PUT parkings con validaciones
+    - client/src/services/parkingService.js: Método editParking
+    - client/src/pages/Parkings.jsx: Formulario extendido + lógica
+    - docs/v3.5.0/analisis_errores_v3.5.0.md: Documentación del error
+    
+    TESTING:
+    - Validaciones frontend y backend
+    - Prevención de nombres duplicados
+    - Manejo de errores y estados de carga
+    
+    Refs: EC-001 en documentación v3.5.0
+
+client/src/pages/Parkings.jsx
+client/src/services/parkingService.js
+docs/v3.5.0/analisis_errores_v3.5.0.md
+src/api_server.py

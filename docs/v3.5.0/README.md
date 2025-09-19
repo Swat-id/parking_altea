@@ -13,14 +13,14 @@
 
 ### **📖 Documentos Principales**
 - **[Contexto y Estado de Desarrollo](contexto_desarrollo_v3.5.0.md)** - Estado actual del desarrollo de la rama
-- **[Análisis de Errores Detectados](analisis_errores_v3.5.0.md)** - Análisis detallado de los errores encontrados
-- **[Plan de Correcciones](plan_correcciones_v3.5.0.md)** - Plan detallado para solucionar los errores
-- **[Guía de Testing](testing_validacion_v3.5.0.md)** - Testing y validación de las correcciones
+- **[Análisis de Errores Detectados](analisis_errores_v3.5.0.md)** - Análisis detallado de errores EC-001, EC-002, EC-003, EC-004
+- **[Resumen de Cambios](resumen_cambios_v3.5.0.md)** - Resumen técnico completo de modificaciones
 
 ### **🔧 Documentos Técnicos**
-- **[Correcciones Implementadas](correcciones_implementadas_v3.5.0.md)** - Listado de correcciones aplicadas
-- **[Migraciones y Cambios](migraciones_cambios_v3.5.0.md)** - Cambios en base de datos y configuración
-- **[Guía de Despliegue](guia_despliegue_v3.5.0.md)** - Proceso de despliegue de la versión
+- **[Guía de Despliegue](guia_despliegue_v3.5.0.md)** - Guía completa de despliegue en producción  
+- **[Comandos de Despliegue](comandos_despliegue_v3.5.0.md)** - Comandos paso a paso para ejecutar
+- **[Análisis FIWARE](analisis_integracion_fiware_v3.5.0.md)** - Análisis detallado del error EC-003 de integración FIWARE
+- **[Análisis Actualización Paneles](analisis_actualizacion_paneles_v3.5.0.md)** - Análisis detallado del error EC-004 de visualización inconsistente
 
 ---
 

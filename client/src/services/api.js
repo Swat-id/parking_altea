@@ -5,7 +5,7 @@ const isProduction = window.location.hostname === '157.180.91.63' ||
                      window.location.hostname === 'localhost' ||
                      window.location.port === '5789'
 const API_BASE_URL = isProduction 
-  ? '/api'  // Usar ruta relativa para nginx proxy
+  ? 'http://157.180.91.63:6001'  // Usar URL directa temporalmente
   : (import.meta.env.VITE_API_URL || 'http://157.180.91.63:6001')
 
 const api = axios.create({
