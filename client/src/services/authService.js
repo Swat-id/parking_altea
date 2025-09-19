@@ -3,7 +3,7 @@ import api from './api'
 export const authService = {
   async login(email, password) {
     try {
-      const response = await api.post('/auth/login', { email, password })
+      const response = await api.post('/api/auth/login', { email, password })
       
       // Guardar token en localStorage
       if (response.data.token) {
@@ -19,7 +19,7 @@ export const authService = {
 
   async register(userData) {
     try {
-      const response = await api.post('/auth/register', userData)
+      const response = await api.post('/api/auth/register', userData)
       return response.data
     } catch (error) {
       console.error('Register error:', error)
@@ -29,7 +29,7 @@ export const authService = {
 
   async updatePassword(currentPassword, newPassword) {
     try {
-      const response = await api.put('/auth/password', {
+      const response = await api.put('/api/auth/password', {
         current_password: currentPassword,
         new_password: newPassword
       })
@@ -42,7 +42,7 @@ export const authService = {
 
   async getPermissions() {
     try {
-      const response = await api.get('/auth/permissions')
+      const response = await api.get('/api/auth/permissions')
       return response.data
     } catch (error) {
       console.error('Get permissions error:', error)
@@ -52,7 +52,7 @@ export const authService = {
 
   async getUserParkings() {
     try {
-      const response = await api.get('/user/parkings')
+      const response = await api.get('/api/user/parkings')
       return response.data
     } catch (error) {
       console.error('Get user parkings error:', error)
@@ -62,7 +62,7 @@ export const authService = {
 
   async getUserParking(id) {
     try {
-      const response = await api.get(`/user/parking/${id}`)
+      const response = await api.get(`/api/user/parking/${id}`)
       return response.data
     } catch (error) {
       console.error('Get user parking error:', error)
@@ -73,7 +73,7 @@ export const authService = {
   // Nuevas funciones para gestión de usuarios (solo superadmin)
   async getAllUsers() {
     try {
-      const response = await api.get('/admin/users')
+      const response = await api.get('/api/admin/users')
       return response.data
     } catch (error) {
       console.error('Get all users error:', error)
@@ -83,7 +83,7 @@ export const authService = {
 
   async getUserDetails(userId) {
     try {
-      const response = await api.get(`/admin/users/${userId}`)
+      const response = await api.get(`/api/admin/users/${userId}`)
       return response.data
     } catch (error) {
       console.error('Get user details error:', error)
@@ -93,7 +93,7 @@ export const authService = {
 
   async createUser(userData) {
     try {
-      const response = await api.post('/admin/users', userData)
+      const response = await api.post('/api/admin/users', userData)
       return response.data
     } catch (error) {
       console.error('Create user error:', error)
@@ -103,7 +103,7 @@ export const authService = {
 
   async updateUserRole(userId, role) {
     try {
-      const response = await api.put(`/admin/users/${userId}/role`, { role })
+      const response = await api.put(`/api/admin/users/${userId}/role`, { role })
       return response.data
     } catch (error) {
       console.error('Update user role error:', error)
@@ -113,7 +113,7 @@ export const authService = {
 
   async toggleUserStatus(userId) {
     try {
-      const response = await api.post(`/admin/users/${userId}/toggle`)
+      const response = await api.post(`/api/admin/users/${userId}/toggle`)
       return response.data
     } catch (error) {
       console.error('Toggle user status error:', error)
@@ -123,7 +123,7 @@ export const authService = {
 
   async deleteUser(userId) {
     try {
-      const response = await api.delete(`/admin/users/${userId}`)
+      const response = await api.delete(`/api/admin/users/${userId}`)
       return response.data
     } catch (error) {
       console.error('Delete user error:', error)
@@ -133,7 +133,7 @@ export const authService = {
 
   async assignUserResources(userId, resources) {
     try {
-      const response = await api.post(`/admin/users/${userId}/assign`, resources)
+      const response = await api.post(`/api/admin/users/${userId}/assign`, resources)
       return response.data
     } catch (error) {
       console.error('Assign user resources error:', error)
