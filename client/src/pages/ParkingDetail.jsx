@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import CameraAssignmentModal from '../components/CameraAssignmentModal'
+import ParkingSensorSection from '../components/ParkingSensorSection'
 import { useAuth } from '../context/AuthContext'
 
 const ParkingDetail = () => {
@@ -760,6 +761,12 @@ const ParkingDetail = () => {
           )}
         </div>
       </div>
+
+      {/* Sensores Individuales */}
+      <ParkingSensorSection 
+        parkingId={parking?.id} 
+        parkingName={parking?.name} 
+      />
     </div>
   )
 }
