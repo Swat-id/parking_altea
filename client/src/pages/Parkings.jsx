@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { Link } from 'react-router-dom'
 import parkingService from '../services/parkingService'
+import cameraService from '../services/cameraService'
 import CameraAssignmentModal from '../components/CameraAssignmentModal'
 import { useAuth } from '../context/AuthContext'
 import { 
@@ -188,11 +189,8 @@ const Parkings = () => {
 
   const loadParkingCameras = async (parkingId) => {
     try {
-      const response = await fetch(`/api/parkings/${parkingId}/cameras`)
-      if (response.ok) {
-        const data = await response.json()
-        setAssignedCameras(data.cameras || [])
-      }
+      const data = await cameraService.getParkingCameras(parkingId)
+      setAssignedCameras(data.cameras || [])
     } catch (err) {
       console.error('Error cargando cámaras del parking:', err)
       setAssignedCameras([])
