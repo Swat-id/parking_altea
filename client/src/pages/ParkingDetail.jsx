@@ -762,6 +762,9 @@ const ParkingDetail = () => {
         </div>
       </div>
 
+      {/* Separador visual */}
+      <div className="border-t border-gray-200 my-8"></div>
+
       {/* Sensores Individuales */}
       <ParkingSensorSection 
         parkingId={parking?.id} 

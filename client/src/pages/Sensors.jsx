@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import sensorService from '../services/sensorService'
+import parkingService from '../services/parkingService'
 import { useAuth } from '../context/AuthContext'
 import { EditSensorModal, StatusUpdateModal, SensorDetailModal } from '../components/SensorModals'
 import { 
@@ -74,7 +75,7 @@ const Sensors = () => {
   // Obtener parkings para filtros
   const { data: parkings = [] } = useQuery(
     'parkings',
-    () => fetch('/api/parkings').then(res => res.json())
+    () => parkingService.getAllParkings()
   )
 
   // Obtener resumen para dashboard
