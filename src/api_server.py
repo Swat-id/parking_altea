@@ -4664,6 +4664,167 @@ def _update_parking_sensor_summary(session, parking_id, sensor_type):
         logger.error(f"Error actualizando resumen de parking {parking_id}, tipo {sensor_type}: {e}")
 
 
+# ============================================================================
+# ENDPOINTS DASHBOARD Y ESTADÍSTICAS
+# ============================================================================
+
+@api_bp.route('/sensors/stats', methods=['GET'])
+@token_required
+def get_sensor_stats():
+    """
+    Endpoint para obtener estadísticas generales de sensores para dashboard
+    """
+    try:
+        # Estadísticas básicas
+        total_sensors = db.session.query(IndividualSensor).filter_by(is_active=True).count()
+        
+        # Distribución por estados
+        status_query = db.session.query(
+            SensorCurrentStatus.current_status,
+            db.func.count(SensorCurrentStatus.sensor_id)
+        ).join(
+            IndividualSensor, 
+            IndividualSensor.id == SensorCurrentStatus.sensor_id
+        ).filter(
+            IndividualSensor.is_active == True
+        ).group_by(SensorCurrentStatus.current_status).all()
+        
+        status_distribution = {status: count for status, count in status_query}
+        
+        # Distribución por tipos
+        type_query = db.session.query(
+            IndividualSensor.sensor_type,
+            db.func.count(IndividualSensor.id)
+        ).filter(
+            IndividualSensor.is_active == True
+        ).group_by(IndividualSensor.sensor_type).all()
+        
+        type_distribution = {sensor_type: count for sensor_type, count in type_query}
+        
+        # Sensores con batería baja
+        low_battery_count = db.session.query(SensorCurrentStatus).join(
+            IndividualSensor,
+            IndividualSensor.id == SensorCurrentStatus.sensor_id
+        ).filter(
+            IndividualSensor.is_active == True,
+            SensorCurrentStatus.battery_capacity < 20
+        ).count()
+        
+        # Sensores por parking
+        parking_stats = db.session.query(
+            Parking.id,
+            Parking.name,
+            db.func.count(IndividualSensor.id).label('sensor_count')
+        ).outerjoin(
+            IndividualSensor,
+            Parking.id == IndividualSensor.parking_id
+        ).filter(
+            IndividualSensor.is_active == True
+        ).group_by(Parking.id, Parking.name).all()
+        
+        parking_distribution = {
+            parking.name: parking.sensor_count 
+            for parking in parking_stats 
+            if parking.sensor_count > 0
+        }
+        
+        # Métricas de salud
+        error_sensors = status_distribution.get('error', 0) + status_distribution.get('unknown', 0)
+        health_percentage = ((total_sensors - error_sensors) / total_sensors * 100) if total_sensors > 0 else 100
+        
+        # Tasa de ocupación
+        busy_sensors = status_distribution.get('busy', 0)
+        occupancy_rate = (busy_sensors / total_sensors * 100) if total_sensors > 0 else 0
+        
+        return jsonify({
+            'total_sensors': total_sensors,
+            'status_distribution': status_distribution,
+            'type_distribution': type_distribution,
+            'parking_distribution': parking_distribution,
+            'low_battery_count': low_battery_count,
+            'health_percentage': round(health_percentage, 1),
+            'occupancy_rate': round(occupancy_rate, 1),
+            'last_update': datetime.utcnow().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo estadísticas de sensores: {str(e)}")
+        return jsonify({'error': 'Error obteniendo estadísticas'}), 500
+
+@api_bp.route('/dashboard/complete', methods=['GET'])
+@token_required
+def get_complete_dashboard():
+    """
+    Endpoint para obtener datos completos del dashboard incluyendo parkings y sensores
+    """
+    try:
+        # Datos de parkings existentes
+        parkings = db.session.query(Parking).all()
+        parking_data = []
+        
+        for parking in parkings:
+            # Contar paneles
+            panels_count = db.session.query(Panel).filter_by(
+                parking_id=parking.id,
+                is_active=True
+            ).count()
+            
+            # Contar sensores individuales
+            sensors_count = db.session.query(IndividualSensor).filter_by(
+                parking_id=parking.id,
+                is_active=True
+            ).count()
+            
+            # Estados de sensores
+            sensor_states = db.session.query(
+                SensorCurrentStatus.current_status,
+                db.func.count(SensorCurrentStatus.sensor_id)
+            ).join(
+                IndividualSensor,
+                IndividualSensor.id == SensorCurrentStatus.sensor_id
+            ).filter(
+                IndividualSensor.parking_id == parking.id,
+                IndividualSensor.is_active == True
+            ).group_by(SensorCurrentStatus.current_status).all()
+            
+            sensor_status_counts = {status: count for status, count in sensor_states}
+            
+            parking_data.append({
+                'id': parking.id,
+                'name': parking.name,
+                'location': parking.location,
+                'max_capacity': parking.max_capacity,
+                'current_occupancy': parking.current_occupancy,
+                'status': parking.status,
+                'panels_count': panels_count,
+                'sensors_count': sensors_count,
+                'sensor_states': sensor_status_counts,
+                'last_update': parking.last_update.isoformat() if parking.last_update else None
+            })
+        
+        # Estadísticas generales de sensores
+        sensor_stats = get_sensor_stats().get_json()
+        
+        # Resumen general del sistema
+        total_parkings = len(parkings)
+        total_panels = db.session.query(Panel).filter_by(is_active=True).count()
+        total_sensors = sensor_stats.get('total_sensors', 0)
+        
+        return jsonify({
+            'summary': {
+                'total_parkings': total_parkings,
+                'total_panels': total_panels,
+                'total_sensors': total_sensors,
+                'last_update': datetime.utcnow().isoformat()
+            },
+            'parkings': parking_data,
+            'sensor_stats': sensor_stats
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo datos completos del dashboard: {str(e)}")
+        return jsonify({'error': 'Error obteniendo datos del dashboard'}), 500
+
 # Registrar el Blueprint con la aplicación
 app.register_blueprint(api_bp)
 

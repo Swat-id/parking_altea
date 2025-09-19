@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
+import { useQuery } from 'react-query'
 import { authService } from '../services/authService'
 import parkingService from '../services/parkingService'
+import sensorService from '../services/sensorService'
 import { useAuth } from '../context/AuthContext'
 import { Link } from 'react-router-dom'
 
@@ -17,6 +19,38 @@ const AdminDashboard = () => {
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+
+  // Obtener estadísticas de sensores
+  const { data: sensorStats } = useQuery(
+    'admin-sensor-stats',
+    () => fetch('/api/sensors/stats').then(res => res.json()),
+    {
+      refetchInterval: 60000,
+      retry: 2
+    }
+  )
+
+  // Obtener estadísticas del servicio push
+  const { data: pushServiceStats } = useQuery(
+    'admin-push-stats',
+    () => fetch('http://localhost:3535/stats').then(res => res.json()),
+    {
+      refetchInterval: 60000,
+      retry: 1,
+      onError: () => {} // Ignorar errores si el servicio no está disponible
+    }
+  )
+
+  // Verificar estado del servicio push
+  const { data: pushServiceHealth } = useQuery(
+    'admin-push-health',
+    () => fetch('http://localhost:3535/health').then(res => res.json()),
+    {
+      refetchInterval: 30000,
+      retry: 1,
+      onError: () => {}
+    }
+  )
 
   // Cargar estadísticas
   const loadStats = async () => {
@@ -232,6 +266,101 @@ const AdminDashboard = () => {
                   <p className="text-sm text-gray-500">Configurar y gestionar paneles</p>
                 </div>
               </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Métricas del Sistema */}
+        <div className="bg-white rounded-lg shadow mb-8">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900">Métricas del Sistema</h3>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Estadísticas de Sensores */}
+              <div className="border rounded-lg p-4">
+                <h4 className="font-medium text-gray-900 mb-3">Sensores Individuales</h4>
+                {sensorStats ? (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Total:</span>
+                      <span className="font-medium">{sensorStats.total_sensors}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Libres:</span>
+                      <span className="font-medium text-green-600">{sensorStats.status_distribution?.free || 0}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Ocupados:</span>
+                      <span className="font-medium text-red-600">{sensorStats.status_distribution?.busy || 0}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Con errores:</span>
+                      <span className="font-medium text-yellow-600">{(sensorStats.status_distribution?.error || 0) + (sensorStats.status_distribution?.unknown || 0)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm border-t pt-2">
+                      <span>Salud del sistema:</span>
+                      <span className="font-medium text-green-600">{sensorStats.health_percentage}%</span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">Cargando estadísticas...</p>
+                )}
+              </div>
+
+              {/* Estado del Servicio Push */}
+              <div className="border rounded-lg p-4">
+                <h4 className="font-medium text-gray-900 mb-3">Servicio Push (Puerto 3535)</h4>
+                {pushServiceHealth ? (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Estado:</span>
+                      <span className={`font-medium ${pushServiceHealth.status === 'healthy' ? 'text-green-600' : 'text-red-600'}`}>
+                        {pushServiceHealth.status === 'healthy' ? '🟢 Operativo' : '🔴 Inactivo'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Versión:</span>
+                      <span className="font-medium">{pushServiceHealth.version}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Puerto:</span>
+                      <span className="font-medium">{pushServiceHealth.port}</span>
+                    </div>
+                    {pushServiceStats && (
+                      <div className="flex justify-between text-sm">
+                        <span>Sensores monitoreados:</span>
+                        <span className="font-medium">{pushServiceStats.total_sensors}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Estado:</span>
+                      <span className="font-medium text-red-600">🔴 Inactivo</span>
+                    </div>
+                    <p className="text-xs text-gray-500">Servicio no disponible</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Distribución por Tipos */}
+              <div className="border rounded-lg p-4">
+                <h4 className="font-medium text-gray-900 mb-3">Tipos de Sensores</h4>
+                {sensorStats?.type_distribution ? (
+                  <div className="space-y-2">
+                    {Object.entries(sensorStats.type_distribution).map(([type, count]) => (
+                      <div key={type} className="flex justify-between text-sm">
+                        <span>{type}:</span>
+                        <span className="font-medium">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">Sin datos disponibles</p>
+                )}
+              </div>
             </div>
           </div>
         </div>

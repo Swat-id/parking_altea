@@ -1,6 +1,7 @@
 import { useQuery } from 'react-query'
 import { Link } from 'react-router-dom'
 import parkingService from '../services/parkingService'
+import SensorDashboardSection from '../components/SensorDashboardSection'
 import { 
   Car, 
   Monitor, 
@@ -8,7 +9,9 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  MapPin
+  MapPin,
+  Cpu,
+  Activity
 } from 'lucide-react'
 
 const Dashboard = () => {
@@ -20,6 +23,17 @@ const Dashboard = () => {
       retry: 2,
       refetchOnWindowFocus: false,
       staleTime: 30000, // 30 segundos
+    }
+  )
+
+  // Obtener estadísticas completas del dashboard
+  const { data: dashboardStats, isLoading: statsLoading } = useQuery(
+    'dashboard-complete',
+    () => fetch('/api/dashboard/complete').then(res => res.json()),
+    {
+      retry: 2,
+      refetchInterval: 60000, // Refrescar cada minuto
+      staleTime: 30000
     }
   )
 
@@ -82,6 +96,11 @@ const Dashboard = () => {
   const parkingsLibres = parkings.filter(p => p.estado === 'LIBRE').length
   const parkingsDensos = parkings.filter(p => p.estado === 'DENSO').length
   const parkingsCompletos = parkings.filter(p => p.estado === 'COMPLETO').length
+
+  // Estadísticas de sensores desde dashboardStats
+  const sensorStats = dashboardStats?.sensor_stats || {}
+  const totalSensors = sensorStats.total_sensors || 0
+  const totalPanels = dashboardStats?.summary?.total_panels || 0
 
   return (
     <div className="space-y-6">
@@ -241,6 +260,9 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Sección de Sensores Individuales */}
+      <SensorDashboardSection />
     </div>
   )
 }
