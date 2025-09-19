@@ -20,6 +20,7 @@ La versión 4.1.0 introduce tres mejoras principales al sistema de gestión de p
 - ✅ [Análisis del sistema de plazas individuales PMR](./analisis_sistema_plazas_individuales.md)
 - ✅ [Análisis del servicio de push de sensores](./analisis_servicio_push_sensores.md)
 - ✅ [Roadmap de implementación](./roadmap_implementacion_v4.1.0.md)
+- ✅ [**Roadmap de desarrollo (PRINCIPAL)**](./roadmap_desarrollo_v4.1.0.md)
 - ✅ [Comandos de despliegue](./comandos_despliegue_v4.1.0.md)
 
 ## Funcionalidades Principales
