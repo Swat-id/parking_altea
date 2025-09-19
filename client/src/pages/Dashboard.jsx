@@ -1,6 +1,7 @@
 import { useQuery } from 'react-query'
 import { Link } from 'react-router-dom'
 import parkingService from '../services/parkingService'
+import sensorService from '../services/sensorService'
 import SensorDashboardSection from '../components/SensorDashboardSection'
 import { 
   Car, 
@@ -29,7 +30,7 @@ const Dashboard = () => {
   // Obtener estadísticas completas del dashboard
   const { data: dashboardStats, isLoading: statsLoading } = useQuery(
     'dashboard-complete',
-    () => fetch('/api/dashboard/complete').then(res => res.json()),
+    () => sensorService.getDashboardComplete(),
     {
       retry: 2,
       refetchInterval: 60000, // Refrescar cada minuto

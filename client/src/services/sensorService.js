@@ -175,6 +175,30 @@ const sensorService = {
     const statuses = this.getSensorStatuses()
     const found = statuses.find(s => s.value === status)
     return found ? found.icon : '❓'
+  },
+
+  // ============================================================================
+  // ESTADÍSTICAS PARA DASHBOARD
+  // ============================================================================
+
+  async getSensorStats() {
+    try {
+      const response = await api.get('/api/sensors/stats')
+      return response.data
+    } catch (error) {
+      console.error('Error obteniendo estadísticas de sensores:', error)
+      throw error
+    }
+  },
+
+  async getDashboardComplete() {
+    try {
+      const response = await api.get('/api/dashboard/complete')
+      return response.data
+    } catch (error) {
+      console.error('Error obteniendo datos completos del dashboard:', error)
+      throw error
+    }
   }
 }
 

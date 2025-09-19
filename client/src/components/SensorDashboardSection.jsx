@@ -22,7 +22,7 @@ const SensorDashboardSection = () => {
   // Obtener estadísticas de sensores
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery(
     'sensor-dashboard-stats',
-    () => fetch('/api/sensors/stats').then(res => res.json()),
+    () => sensorService.getSensorStats(),
     {
       refetchInterval: 30000, // Refrescar cada 30 segundos
       retry: 2
