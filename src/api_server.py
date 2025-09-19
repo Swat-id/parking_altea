@@ -1288,6 +1288,21 @@ def get_all_panels():
             schedule_service = PanelScheduleService(session)
             active_schedules = schedule_service.get_active_schedules_for_parking(panel.parking_id)
             
+            # NUEVO v4.1.0: Información de ventanas
+            supports_multiple = panel.supports_multiple_windows()
+            window_config = panel.get_window_config()
+            
+            # Información de ventanas con últimos mensajes
+            windows_info = []
+            for window in window_config.get('windows', []):
+                window_id = window.get('id', 0)
+                windows_info.append({
+                    'id': window_id,
+                    'enabled': window.get('enabled', True),
+                    'last_message': panel.get_last_message_for_window(window_id),
+                    'last_update': panel.get_last_update_for_window(window_id).isoformat() if panel.get_last_update_for_window(window_id) else None
+                })
+            
             panel_data = {
                 'id': panel.id,
                 'name': panel.name,
@@ -1302,10 +1317,15 @@ def get_all_panels():
                     'id': panel.panel_type.id,
                     'name': panel.panel_type.name,
                     'manufacturer': panel.panel_type.manufacturer.name,
-                    'protocol': panel.panel_type.protocol_type
+                    'protocol': panel.panel_type.protocol_type,
+                    'windows_count': panel.panel_type.windows_count
                 } if panel.panel_type else None,
                 'active_schedule': None,
-                'message_type': 'occupancy'  # Por defecto
+                'message_type': 'occupancy',  # Por defecto
+                # NUEVO v4.1.0: Información de ventanas
+                'supports_multiple_windows': supports_multiple,
+                'window_config': window_config,
+                'windows': windows_info
             }
             
             # Determinar tipo de mensaje y programación activa
@@ -1626,9 +1646,20 @@ def send_message_to_panel(panel_id):
         if not message:
             return jsonify({'error': 'Missing message field'}), 400
         
-        # Validar ventana
+        # VALIDACIONES v4.1.0
         if window not in [0, 1]:
             return jsonify({'error': 'Window must be 0 or 1'}), 400
+        
+        # Validar longitud del mensaje
+        if len(message) > 200:
+            return jsonify({'error': 'Message too long. Maximum 200 characters allowed.'}), 400
+        
+        # Validar parámetros de color y fuente
+        if color not in range(1, 8):  # Colores válidos 1-7
+            return jsonify({'error': 'Color must be between 1 and 7'}), 400
+        
+        if fontSize not in range(0, 5):  # Tamaños válidos 0-4
+            return jsonify({'error': 'Font size must be between 0 and 4'}), 400
         
         # No convertir fontSize ya que viene como código
         font_size_code = fontSize
@@ -1886,6 +1917,77 @@ def get_panel_windows_info(panel_id):
         
     except Exception as e:
         logger.error(f"Error obteniendo información de ventanas del panel {panel_id}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/panels/<int:panel_id>/validate', methods=['POST'])
+@require_panel_access('panel_id')
+def validate_panel_message(panel_id):
+    """NUEVO v4.1.0: Validar mensaje antes de envío (sin enviar realmente)"""
+    try:
+        req = request.get_json(force=True)
+        message = req.get('message', '')
+        window = req.get('window', 0)
+        color = req.get('color', 1)
+        fontSize = req.get('fontSize', 2)
+        
+        session = Session()
+        panel = session.query(Panel).get(panel_id)
+        
+        if not panel:
+            session.close()
+            return jsonify({'error': 'Panel not found'}), 404
+        
+        # Recopilar validaciones
+        validations = {
+            'valid': True,
+            'errors': [],
+            'warnings': [],
+            'panel_info': {
+                'id': panel_id,
+                'name': panel.name,
+                'supports_multiple_windows': panel.supports_multiple_windows(),
+                'panel_type': panel.panel_type.name if panel.panel_type else 'Unknown'
+            }
+        }
+        
+        # Validar mensaje
+        if not message:
+            validations['errors'].append('Message is required')
+            validations['valid'] = False
+        elif len(message) > 200:
+            validations['errors'].append('Message too long (max 200 characters)')
+            validations['valid'] = False
+        
+        # Validar ventana
+        if window not in [0, 1]:
+            validations['errors'].append('Window must be 0 or 1')
+            validations['valid'] = False
+        elif window == 1 and not panel.supports_multiple_windows():
+            validations['errors'].append('Panel does not support window 1 (only Tipo 3 panels)')
+            validations['valid'] = False
+        
+        # Validar parámetros
+        if color not in range(1, 8):
+            validations['errors'].append('Color must be between 1 and 7')
+            validations['valid'] = False
+        
+        if fontSize not in range(0, 5):
+            validations['errors'].append('Font size must be between 0 and 4')
+            validations['valid'] = False
+        
+        # Añadir advertencias
+        if len(message) > 100:
+            validations['warnings'].append('Long message may not display properly on some panels')
+        
+        if panel.status == 'OFFLINE':
+            validations['warnings'].append('Panel is currently offline')
+        
+        session.close()
+        
+        return jsonify(validations)
+        
+    except Exception as e:
+        logger.error(f"Error validando mensaje para panel {panel_id}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 @api_bp.route('/panels/<int:panel_id>/multi-message', methods=['POST'])

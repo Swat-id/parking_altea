@@ -134,7 +134,7 @@ const Layout = ({ children }) => {
                 alt="SWAT-ID Logo"
               />
               <h1 className="text-lg font-semibold text-gray-900">
-                Parking Altea
+                SWATID
               </h1>
             </div>
             <button
