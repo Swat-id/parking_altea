@@ -34,7 +34,7 @@ log_step() {
 }
 
 # Variables
-PROJECT_DIR="/opt/fleximodo"
+PROJECT_DIR="/opt/parking_altea"
 BACKUP_DIR=""
 PUSH_SERVICE_PORT=3535
 
@@ -47,12 +47,12 @@ fi
 cd "$PROJECT_DIR"
 
 # Buscar el backup más reciente
-BACKUP_DIR=$(find /opt/fleximodo/backups -type d -name "20*" | sort -r | head -1)
+BACKUP_DIR=$(find /opt/parking_altea/backups -type d -name "20*" | sort -r | head -1)
 
 if [ -z "$BACKUP_DIR" ] || [ ! -d "$BACKUP_DIR" ]; then
     log_error "No se encontró directorio de backup reciente"
     log_info "Directorios disponibles:"
-    ls -la /opt/fleximodo/backups/ 2>/dev/null || echo "No hay backups"
+    ls -la /opt/parking_altea/backups/ 2>/dev/null || echo "No hay backups"
     exit 1
 fi
 
@@ -94,7 +94,7 @@ fi
 log_step "3. Restaurando código fuente..."
 
 # Hacer backup del estado actual por si acaso
-ROLLBACK_BACKUP="/opt/fleximodo/backups/rollback_$(date +%Y%m%d_%H%M%S)"
+ROLLBACK_BACKUP="/opt/parking_altea/backups/rollback_$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$ROLLBACK_BACKUP"
 tar -czf "$ROLLBACK_BACKUP/pre_rollback.tar.gz" --exclude='.git' --exclude='node_modules' --exclude='venv' --exclude='__pycache__' --exclude='logs' .
 

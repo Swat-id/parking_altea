@@ -18,6 +18,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Variables
+PROJECT_DIR="/opt/parking_altea"
 API_PORT=5000
 PUSH_SERVICE_PORT=3535
 FRONTEND_PORT=5789
@@ -226,18 +227,32 @@ echo
 echo "6. VALIDACIÓN ARCHIVOS ESTÁTICOS"
 echo "================================"
 
-# Verificar build del frontend
-if [ -d "client/dist" ]; then
-    test_passed "Build del frontend existe (client/dist)"
+# Verificar build del frontend en directorio estático
+if [ -d "/opt/parking_altea/static" ]; then
+    test_passed "Directorio estático nginx existe (/opt/parking_altea/static)"
     
     # Verificar archivos principales
-    if [ -f "client/dist/index.html" ]; then
-        test_passed "Archivo index.html del frontend"
+    if [ -f "/opt/parking_altea/static/index.html" ]; then
+        test_passed "Archivo index.html desplegado en nginx"
     else
-        test_failed "Archivo index.html del frontend no encontrado"
+        test_failed "Archivo index.html no encontrado en nginx"
+    fi
+    
+    # Verificar assets
+    if find "/opt/parking_altea/static" -name "*.js" -o -name "*.css" | grep -q .; then
+        test_passed "Assets JS/CSS encontrados en nginx"
+    else
+        test_warning "Assets JS/CSS no encontrados en nginx"
     fi
 else
-    test_failed "Build del frontend no encontrado (client/dist)"
+    test_failed "Directorio estático nginx no encontrado"
+fi
+
+# Verificar también build local
+if [ -d "$PROJECT_DIR/client/dist" ]; then
+    test_passed "Build local del frontend existe (client/dist)"
+else
+    test_warning "Build local del frontend no encontrado (normal después del despliegue)"
 fi
 
 # Verificar archivo del servicio push

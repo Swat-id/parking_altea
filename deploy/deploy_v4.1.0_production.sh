@@ -20,8 +20,9 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Variables de configuración
-PROJECT_DIR="/opt/fleximodo"
-BACKUP_DIR="/opt/fleximodo/backups/$(date +%Y%m%d_%H%M%S)"
+PROJECT_DIR="/opt/parking_altea"
+BACKUP_DIR="/opt/parking_altea/backups/$(date +%Y%m%d_%H%M%S)"
+NGINX_STATIC_DIR="/opt/parking_altea/static"
 BRANCH="v4.1.0"
 FRONTEND_PORT=5789
 API_PORT=5000
@@ -318,14 +319,188 @@ if [ ! -d "dist" ]; then
     exit 1
 fi
 
-log_info "✅ Frontend compilado correctamente"
+# Crear directorio estático de nginx si no existe
+log_info "Preparando directorio estático nginx..."
+mkdir -p "$NGINX_STATIC_DIR"
+
+# Copiar build a directorio de nginx
+log_info "Copiando archivos al directorio estático..."
+cp -r dist/* "$NGINX_STATIC_DIR/"
+
+# Verificar que los archivos se copiaron correctamente
+if [ ! -f "$NGINX_STATIC_DIR/index.html" ]; then
+    log_error "Error copiando archivos del frontend"
+    exit 1
+fi
+
+log_info "✅ Frontend compilado y desplegado correctamente"
 
 cd ..
 
-log_step "8. Desplegando servicio push (Puerto $PUSH_SERVICE_PORT)..."
+log_step "8. Configurando nginx y desplegando servicio push..."
 
-# Copiar archivo de servicio systemd
-cp deploy/parking-sensor-push.service /etc/systemd/system/
+# Configurar nginx
+log_info "Configurando nginx para v4.1.0..."
+
+# Verificar si nginx está instalado
+if ! command -v nginx >/dev/null 2>&1; then
+    log_warning "Nginx no encontrado, instalando..."
+    apt-get update
+    apt-get install -y nginx
+fi
+
+# Crear configuración nginx actualizada con puerto 3535
+cat > /etc/nginx/sites-available/parking_altea << 'EOF'
+# Configuración de Nginx para Parking Altea v4.1.0
+server {
+    listen 80;
+    server_name 157.180.91.63;
+    
+    # Configuración de seguridad
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;
+    
+    # Configuración de logs
+    access_log /var/log/nginx/parking_altea_access.log;
+    error_log /var/log/nginx/parking_altea_error.log;
+    
+    # Configuración de compresión
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_proxied expired no-cache no-store private must-revalidate auth;
+    gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
+    
+    # API endpoints principales
+    location /api/ {
+        proxy_pass http://127.0.0.1:5000/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+        proxy_buffering on;
+        proxy_buffer_size 4k;
+        proxy_buffers 8 4k;
+    }
+    
+    # Servicio Push Sensores (Puerto 3535) - NUEVO v4.1.0
+    location /push-service/ {
+        proxy_pass http://127.0.0.1:3535/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
+        proxy_buffering on;
+    }
+    
+    # Health checks
+    location /health {
+        proxy_pass http://127.0.0.1:5000/health;
+        proxy_set_header Host $host;
+        access_log off;
+    }
+    
+    location /push-health {
+        proxy_pass http://127.0.0.1:3535/health;
+        proxy_set_header Host $host;
+        access_log off;
+    }
+    
+    # Frontend - React SPA
+    location / {
+        root /opt/parking_altea/static;
+        try_files $uri $uri/ /index.html;
+        
+        # Sin caché para HTML
+        location ~* \.(html)$ {
+            add_header Cache-Control "no-cache, no-store, must-revalidate";
+            add_header Pragma "no-cache";
+            add_header Expires "0";
+        }
+        
+        # Caché para assets estáticos
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+    }
+    
+    # Error pages
+    error_page 404 /index.html;
+    error_page 500 502 503 504 /50x.html;
+}
+EOF
+
+# Habilitar sitio
+ln -sf /etc/nginx/sites-available/parking_altea /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default
+
+# Verificar configuración nginx
+if nginx -t; then
+    log_info "✅ Configuración nginx válida"
+    systemctl reload nginx
+    log_info "✅ Nginx recargado"
+else
+    log_error "❌ Error en configuración nginx"
+    exit 1
+fi
+
+# Copiar archivo de servicio systemd actualizado
+log_info "Configurando servicio push systemd..."
+cat > /etc/systemd/system/parking-sensor-push.service << EOF
+[Unit]
+Description=Parking Sensor Push Service v4.1.0
+Documentation=https://github.com/Swat-id/parking_altea
+After=network.target postgresql.service
+Wants=network.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=$PROJECT_DIR
+Environment=PYTHONPATH=$PROJECT_DIR
+Environment=FLASK_APP=src.sensor_push_service
+Environment=FLASK_ENV=production
+Environment=DATABASE_URL=postgresql://postgres:@localhost:5432/$DB_NAME
+Environment=LOG_LEVEL=INFO
+Environment=LOG_FILE=$PROJECT_DIR/logs/sensor_push_service.log
+ExecStart=$PROJECT_DIR/venv/bin/python $PROJECT_DIR/src/sensor_push_service.py
+ExecReload=/bin/kill -HUP \$MAINPID
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=parking-sensor-push
+
+# Límites de recursos
+LimitNOFILE=65536
+MemoryLimit=512M
+
+# Configuración de red
+PrivateNetwork=false
+
+# Seguridad
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=$PROJECT_DIR/logs
+ReadWritePaths=/tmp
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 chmod 644 /etc/systemd/system/parking-sensor-push.service
 
 # Recargar systemd
@@ -378,13 +553,84 @@ fi
 
 log_step "10. Configurando firewall..."
 
-# Abrir puerto 3535 en firewall
-if command -v ufw &> /dev/null && ufw status | grep -q "Status: active"; then
-    log_info "Configurando reglas de firewall..."
+# Configurar firewall completo
+log_info "Configurando reglas de firewall..."
+
+if command -v ufw &> /dev/null; then
+    # Habilitar UFW si no está activo
+    if ! ufw status | grep -q "Status: active"; then
+        log_info "Habilitando UFW..."
+        echo "y" | ufw enable
+    fi
+    
+    # Reglas básicas
+    ufw default deny incoming
+    ufw default allow outgoing
+    
+    # SSH (puerto 22)
+    ufw allow ssh comment "SSH Access"
+    
+    # HTTP y HTTPS
+    ufw allow 80/tcp comment "HTTP - Nginx Frontend"
+    ufw allow 443/tcp comment "HTTPS - Nginx Frontend (futuro)"
+    
+    # API Backend (5000) - Solo localhost
+    ufw allow from 127.0.0.1 to any port 5000 comment "API Backend - Local only"
+    
+    # Push Service (3535) - Acceso externo para sensores
     ufw allow $PUSH_SERVICE_PORT/tcp comment "Parking Sensor Push Service v4.1.0"
-    log_info "Puerto $PUSH_SERVICE_PORT abierto en firewall"
+    
+    # Frontend desarrollo (5789) - Solo si es necesario
+    # ufw allow $FRONTEND_PORT/tcp comment "Frontend Dev Server"
+    
+    # PostgreSQL (5432) - Solo localhost
+    ufw allow from 127.0.0.1 to any port 5432 comment "PostgreSQL - Local only"
+    
+    log_info "✅ Reglas de firewall configuradas:"
+    ufw status numbered
+    
+elif command -v iptables &> /dev/null; then
+    log_info "Configurando iptables..."
+    
+    # Limpiar reglas existentes
+    iptables -F
+    iptables -X
+    iptables -t nat -F
+    iptables -t nat -X
+    iptables -t mangle -F
+    iptables -t mangle -X
+    
+    # Políticas por defecto
+    iptables -P INPUT DROP
+    iptables -P FORWARD DROP
+    iptables -P OUTPUT ACCEPT
+    
+    # Permitir loopback
+    iptables -A INPUT -i lo -j ACCEPT
+    iptables -A OUTPUT -o lo -j ACCEPT
+    
+    # Permitir conexiones establecidas
+    iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+    
+    # SSH
+    iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+    
+    # HTTP y HTTPS
+    iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+    iptables -A INPUT -p tcp --dport 443 -j ACCEPT
+    
+    # Push Service (3535)
+    iptables -A INPUT -p tcp --dport $PUSH_SERVICE_PORT -j ACCEPT
+    
+    # Guardar reglas
+    if command -v iptables-save &> /dev/null; then
+        iptables-save > /etc/iptables/rules.v4
+    fi
+    
+    log_info "✅ Reglas iptables configuradas"
+    
 else
-    log_info "UFW no está activo o no está instalado"
+    log_warning "No se encontró UFW ni iptables. Firewall no configurado."
 fi
 
 log_step "11. Validando despliegue..."
