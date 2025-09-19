@@ -16,7 +16,8 @@ import {
   Users,
   LogOut,
   Bell,
-  Clock
+  Clock,
+  Cpu
 } from 'lucide-react'
 
 const Layout = ({ children }) => {
@@ -35,6 +36,7 @@ const Layout = ({ children }) => {
     { name: 'Dashboard', href: '/dashboard', current: location.pathname === '/dashboard', icon: Home },
     { name: 'Parkings', href: '/parkings', current: location.pathname === '/parkings', icon: Car },
     { name: 'Paneles', href: '/panels', current: location.pathname === '/panels', icon: Monitor },
+    { name: 'Sensores', href: '/sensors', current: location.pathname === '/sensors', icon: Cpu },
     { name: 'Programaciones', href: '/schedules', current: location.pathname === '/schedules', icon: Calendar },
     { name: 'Estadísticas', href: '/statistics', current: location.pathname === '/statistics', icon: BarChart3 },
     { name: 'Camera Logs', href: '/camera-logs', current: location.pathname === '/camera-logs', icon: Camera },

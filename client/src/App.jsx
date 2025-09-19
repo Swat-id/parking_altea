@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard'
 import Parkings from './pages/Parkings'
 import ParkingDetail from './pages/ParkingDetail'
 import Panels from './pages/Panels'
+import Sensors from './pages/Sensors'
 import Schedules from './pages/Schedules'
 import Statistics from './pages/Statistics'
 import CameraLogs from './pages/CameraLogs'
@@ -42,6 +43,11 @@ function App() {
       <Route path="/panels" element={
         <Layout>
           <ProtectedRoute><Panels /></ProtectedRoute>
+        </Layout>
+      } />
+      <Route path="/sensors" element={
+        <Layout>
+          <ProtectedRoute><Sensors /></ProtectedRoute>
         </Layout>
       } />
       <Route path="/schedules" element={
