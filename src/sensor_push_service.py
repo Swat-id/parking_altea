@@ -28,8 +28,7 @@ from models import (
     SensorStatusHistory, 
     SensorCurrentStatus, 
     ParkingSensorSummary,
-    Parking,
-    db
+    Parking
 )
 
 # Configuración

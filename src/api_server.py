@@ -20,6 +20,14 @@ from auth import (
     require_parking_access, require_panel_access
 )
 
+# Token authentication decorator (placeholder for v4.1.0)
+def token_required(f):
+    """Placeholder decorator - replace with actual auth logic when needed"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        return f(*args, **kwargs)
+    return decorated
+
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
