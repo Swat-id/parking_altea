@@ -49,6 +49,7 @@ const Panels = () => {
   const [messageResponse, setMessageResponse] = useState(null)
   const [showResponseDetails, setShowResponseDetails] = useState(false)
   const [selectedColor, setSelectedColor] = useState(1) // 1=Rojo, 2=Verde, 3=Amarillo
+  const [selectedWindow, setSelectedWindow] = useState(0) // NUEVO v4.1.0: Ventana seleccionada (0 o 1)
   const [editingPanelId, setEditingPanelId] = useState(null)
   const [editingPanelTypeId, setEditingPanelTypeId] = useState(null)
   const [createForm, setCreateForm] = useState({
@@ -92,6 +93,10 @@ const Panels = () => {
     'parkings',
     () => fetch('/api/parkings').then(res => res.json())
   )
+
+  // NUEVO v4.1.0: Estado para validación
+  const [validationResult, setValidationResult] = useState(null)
+  const [showValidation, setShowValidation] = useState(false)
 
   // Mutaciones
   const sendMessageMutation = useMutation(
@@ -205,6 +210,25 @@ const Panels = () => {
     }
   )
 
+  // NUEVO v4.1.0: Mutación de validación
+  const validateMessageMutation = useMutation(
+    ({ panelId, messageData }) => panelService.validatePanelMessage(panelId, messageData),
+    {
+      onSuccess: (data) => {
+        setValidationResult(data)
+        setShowValidation(true)
+        if (data.valid) {
+          toast.success('Mensaje válido para envío')
+        } else {
+          toast.warning('Mensaje tiene errores de validación')
+        }
+      },
+      onError: (error) => {
+        toast.error('Error validando mensaje: ' + error.message)
+      }
+    }
+  )
+
   // Funciones auxiliares
   const getStatusColor = (status) => {
     switch (status) {
@@ -300,7 +324,7 @@ const Panels = () => {
       color: selectedColor,
       fontSize: 2,
       showEffect: "fijo",
-      window: 1
+      window: selectedWindow // NUEVO v4.1.0: Usar ventana seleccionada dinámicamente
     }
 
     sendMessageMutation.mutate({ panelId: selectedPanel.id, messageData })
@@ -322,6 +346,26 @@ const Panels = () => {
     setMessageText('')
     setMessageDuration(30)
     setSelectedColor(1)
+    setSelectedWindow(0) // NUEVO v4.1.0: Resetear ventana seleccionada
+    setValidationResult(null) // NUEVO v4.1.0: Limpiar validación
+    setShowValidation(false)
+  }
+
+  // NUEVO v4.1.0: Función para validar mensaje
+  const handleValidateMessage = () => {
+    if (!selectedPanel || !messageText.trim()) {
+      toast.error('Selecciona un panel y escribe un mensaje')
+      return
+    }
+
+    const messageData = {
+      message: messageText,
+      window: selectedWindow,
+      color: selectedColor,
+      fontSize: 2
+    }
+
+    validateMessageMutation.mutate({ panelId: selectedPanel.id, messageData })
   }
 
   const handleEditPanelType = (panelId, currentPanelTypeId) => {
@@ -528,6 +572,9 @@ const Panels = () => {
                   Tipo
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Ventanas
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Programación Activa
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -627,6 +674,40 @@ const Panels = () => {
                         >
                           <Edit className="h-3 w-3" />
                         </button>
+                      </div>
+                    )}
+                  </td>
+                  {/* NUEVO v4.1.0: Información de ventanas */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {panel.supports_multiple_windows ? (
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                          <Monitor className="h-3 w-3 mr-1" />
+                          Dual (0,1)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded-full">
+                          <Monitor className="h-3 w-3 mr-1" />
+                          Simple (0)
+                        </span>
+                      )}
+                    </div>
+                    {panel.supports_multiple_windows && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        {panel.windows && panel.windows.length > 0 ? (
+                          <div className="space-y-1">
+                            {panel.windows.map(window => (
+                              <div key={window.id} className="flex items-center">
+                                <span className="w-1 h-1 bg-gray-400 rounded-full mr-1"></span>
+                                V{window.id}: {window.last_message ? 
+                                  window.last_message.substring(0, 15) + (window.last_message.length > 15 ? '...' : '') 
+                                  : 'Sin mensaje'}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          'Sin info de ventanas'
+                        )}
                       </div>
                     )}
                   </td>
@@ -803,22 +884,174 @@ const Panels = () => {
                     <option value={7}>Blanco</option>
                   </select>
                 </div>
+
+                {/* NUEVO v4.1.0: Selector de ventana para paneles Tipo 3 */}
+                {selectedPanel?.supports_multiple_windows && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Ventana de Destino
+                    </label>
+                    <div className="flex space-x-3">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          value={0}
+                          checked={selectedWindow === 0}
+                          onChange={(e) => setSelectedWindow(parseInt(e.target.value))}
+                          className="mr-2 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700">Ventana 0</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          value={1}
+                          checked={selectedWindow === 1}
+                          onChange={(e) => setSelectedWindow(parseInt(e.target.value))}
+                          className="mr-2 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700">Ventana 1</span>
+                      </label>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {selectedPanel?.panel_type?.name || 'Panel Tipo 3'} soporta múltiples ventanas
+                    </p>
+                  </div>
+                )}
+                
+                {/* Información para paneles que no soportan múltiples ventanas */}
+                {selectedPanel && !selectedPanel?.supports_multiple_windows && (
+                  <div className="bg-blue-50 p-3 rounded-md">
+                    <div className="flex items-start">
+                      <Info className="h-5 w-5 text-blue-400 mt-0.5 mr-2" />
+                      <div>
+                        <p className="text-sm text-blue-800">
+                          Este panel solo soporta una ventana (Ventana 0)
+                        </p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          Tipo: {selectedPanel?.panel_type?.name || 'Estándar'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
+
+              <div className="flex justify-between items-center mt-6">
+                {/* NUEVO v4.1.0: Botón de validación */}
+                <button
+                  onClick={handleValidateMessage}
+                  disabled={validateMessageMutation.isLoading || !selectedPanel || !messageText.trim()}
+                  className="px-4 py-2 text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {validateMessageMutation.isLoading ? 'Validando...' : 'Validar Mensaje'}
+                </button>
+
+                <div className="flex space-x-3">
+                  <button
+                    onClick={clearMessageResponse}
+                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={sendMessageMutation.isLoading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {sendMessageMutation.isLoading ? 'Enviando...' : 'Enviar Mensaje'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* NUEVO v4.1.0: Modal de validación de mensaje */}
+      {showValidation && validationResult && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Validación de Mensaje</h3>
+                <button
+                  onClick={() => setShowValidation(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              {/* Estado de validación */}
+              <div className={`p-4 rounded-lg mb-4 ${validationResult.valid ? 'bg-green-50' : 'bg-red-50'}`}>
+                <div className="flex items-start">
+                  {validationResult.valid ? (
+                    <CheckCircle className="h-5 w-5 text-green-400 mt-0.5 mr-2" />
+                  ) : (
+                    <AlertCircle className="h-5 w-5 text-red-400 mt-0.5 mr-2" />
+                  )}
+                  <div>
+                    <p className={`text-sm font-medium ${validationResult.valid ? 'text-green-800' : 'text-red-800'}`}>
+                      {validationResult.valid ? 'Mensaje válido para envío' : 'Mensaje contiene errores'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Información del panel */}
+              <div className="bg-blue-50 p-3 rounded-lg mb-4">
+                <h4 className="text-sm font-medium text-blue-800 mb-2">Panel de Destino</h4>
+                <p className="text-sm text-blue-700">
+                  <strong>{validationResult.panel_info.name}</strong> ({validationResult.panel_info.panel_type})
+                </p>
+                <p className="text-xs text-blue-600">
+                  {validationResult.panel_info.supports_multiple_windows ? 'Soporta múltiples ventanas' : 'Solo ventana única'}
+                </p>
+              </div>
+
+              {/* Errores */}
+              {validationResult.errors && validationResult.errors.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="text-sm font-medium text-red-800 mb-2">Errores:</h4>
+                  <ul className="list-disc list-inside text-sm text-red-700 space-y-1">
+                    {validationResult.errors.map((error, index) => (
+                      <li key={index}>{error}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Advertencias */}
+              {validationResult.warnings && validationResult.warnings.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="text-sm font-medium text-yellow-800 mb-2">Advertencias:</h4>
+                  <ul className="list-disc list-inside text-sm text-yellow-700 space-y-1">
+                    {validationResult.warnings.map((warning, index) => (
+                      <li key={index}>{warning}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               <div className="flex justify-end space-x-3 mt-6">
                 <button
-                  onClick={clearMessageResponse}
+                  onClick={() => setShowValidation(false)}
                   className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
                 >
-                  Cancelar
+                  Cerrar
                 </button>
-                <button
-                  onClick={handleSendMessage}
-                  disabled={sendMessageMutation.isLoading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {sendMessageMutation.isLoading ? 'Enviando...' : 'Enviar Mensaje'}
-                </button>
+                {validationResult.valid && (
+                  <button
+                    onClick={() => {
+                      setShowValidation(false)
+                      handleSendMessage()
+                    }}
+                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                  >
+                    Enviar Mensaje
+                  </button>
+                )}
               </div>
             </div>
           </div>
