@@ -16,7 +16,7 @@ export const cameraLogService = {
       if (filters.level) params.append('level', filters.level)
       if (filters.limit) params.append('limit', filters.limit)
       
-      const response = await api.get(`/camera/logs?${params.toString()}`)
+      const response = await api.get(`/api/camera/logs?${params.toString()}`)
       return response.data
     } catch (error) {
       console.error('Error obteniendo logs de cámaras:', error)
@@ -36,7 +36,7 @@ export const cameraLogService = {
       if (filters.parking_id) params.append('parking_id', filters.parking_id)
       if (filters.days) params.append('days', filters.days)
       
-      const response = await api.get(`/camera/logs/stats?${params.toString()}`)
+      const response = await api.get(`/api/camera/logs/stats?${params.toString()}`)
       return response.data
     } catch (error) {
       console.error('Error obteniendo estadísticas de logs:', error)
@@ -56,7 +56,7 @@ export const cameraLogService = {
       if (filters.parking_id) params.append('parking_id', filters.parking_id)
       if (filters.limit) params.append('limit', filters.limit)
       
-      const response = await api.get(`/logs/activity?${params.toString()}`)
+      const response = await api.get(`/api/logs/activity?${params.toString()}`)
       return response.data
     } catch (error) {
       console.error('Error obteniendo logs de actividad:', error)
@@ -76,7 +76,7 @@ export const cameraLogService = {
       if (filters.panel_id) params.append('panel_id', filters.panel_id)
       if (filters.limit) params.append('limit', filters.limit)
       
-      const response = await api.get(`/logs/panels?${params.toString()}`)
+      const response = await api.get(`/api/logs/panels?${params.toString()}`)
       return response.data
     } catch (error) {
       console.error('Error obteniendo logs de paneles:', error)
@@ -89,7 +89,7 @@ export const cameraLogService = {
    */
   getParkingCameraLogs: async (parkingId, limit = 50) => {
     try {
-      const response = await api.get(`/camera/logs?parking_id=${parkingId}&limit=${limit}`)
+      const response = await api.get(`/api/camera/logs?parking_id=${parkingId}&limit=${limit}`)
       return response.data
     } catch (error) {
       console.error('Error obteniendo logs de cámaras del parking:', error)
@@ -102,7 +102,7 @@ export const cameraLogService = {
    */
   getErrorLogs: async (limit = 100) => {
     try {
-      const response = await api.get(`/camera/logs?status=error&limit=${limit}`)
+      const response = await api.get(`/api/camera/logs?status=error&limit=${limit}`)
       return response.data
     } catch (error) {
       console.error('Error obteniendo logs de errores:', error)
@@ -115,7 +115,7 @@ export const cameraLogService = {
    */
   getProcessedLogs: async (limit = 100) => {
     try {
-      const response = await api.get(`/camera/logs?status=processed&limit=${limit}`)
+      const response = await api.get(`/api/camera/logs?status=processed&limit=${limit}`)
       return response.data
     } catch (error) {
       console.error('Error obteniendo logs procesados:', error)

@@ -4,7 +4,7 @@ class AlarmService {
   // Configuraciones de alarmas
   async getAlarmConfigurations() {
     try {
-      const response = await api.get('/alarms/configurations');
+      const response = await api.get('/api/alarms/configurations');
       return response.data;
     } catch (error) {
       console.error('Error fetching alarm configurations:', error);
@@ -14,7 +14,7 @@ class AlarmService {
 
   async createAlarmConfiguration(config) {
     try {
-      const response = await api.post('/alarms/configurations', config);
+      const response = await api.post('/api/alarms/configurations', config);
       return response.data;
     } catch (error) {
       console.error('Error creating alarm configuration:', error);
@@ -24,7 +24,7 @@ class AlarmService {
 
   async updateAlarmConfiguration(id, config) {
     try {
-      const response = await api.put(`/alarms/configurations/${id}`, config);
+      const response = await api.put(`/api/alarms/configurations/${id}`, config);
       return response.data;
     } catch (error) {
       console.error('Error updating alarm configuration:', error);
@@ -34,7 +34,7 @@ class AlarmService {
 
   async deleteAlarmConfiguration(id) {
     try {
-      const response = await api.delete(`/alarms/configurations/${id}`);
+      const response = await api.delete(`/api/alarms/configurations/${id}`);
       return response.data;
     } catch (error) {
       console.error('Error deleting alarm configuration:', error);
@@ -44,7 +44,7 @@ class AlarmService {
 
   async getAlarmConfiguration(id) {
     try {
-      const response = await api.get(`/alarms/configurations/${id}`);
+      const response = await api.get(`/api/alarms/configurations/${id}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching alarm configuration:', error);
@@ -55,7 +55,7 @@ class AlarmService {
   // Alarmas activas
   async getActiveAlarms() {
     try {
-      const response = await api.get('/alarms');
+      const response = await api.get('/api/alarms');
       return response.data;
     } catch (error) {
       console.error('Error fetching active alarms:', error);
@@ -65,7 +65,7 @@ class AlarmService {
 
   async resolveAlarm(id, resolution) {
     try {
-      const response = await api.post(`/alarms/${id}/resolve`, resolution);
+      const response = await api.post(`/api/alarms/${id}/resolve`, resolution);
       return response.data;
     } catch (error) {
       console.error('Error resolving alarm:', error);
@@ -76,7 +76,7 @@ class AlarmService {
   // Estado de equipos
   async getEquipmentStatus() {
     try {
-      const response = await api.get('/alarms/equipment-status');
+      const response = await api.get('/api/alarms/equipment-status');
       return response.data;
     } catch (error) {
       console.error('Error fetching equipment status:', error);
@@ -96,7 +96,7 @@ class AlarmService {
       if (filters.end_date) params.append('end_date', filters.end_date);
       if (filters.limit) params.append('limit', filters.limit);
 
-      const response = await api.get(`/alarms/history?${params.toString()}`);
+      const response = await api.get(`/api/alarms/history?${params.toString()}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching alarm history:', error);
@@ -107,7 +107,7 @@ class AlarmService {
   // Estadísticas de alarmas
   async getAlarmStatistics() {
     try {
-      const response = await api.get('/alarms/statistics');
+      const response = await api.get('/api/alarms/statistics');
       return response.data;
     } catch (error) {
       console.error('Error fetching alarm statistics:', error);

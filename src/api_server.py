@@ -543,6 +543,53 @@ def create_parking():
         logger.error(f"Error creando parking: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@api_bp.route('/parkings/<int:parking_id>', methods=['GET'])
+@require_auth
+def get_parking_by_id(parking_id):
+    """Obtener un parking específico por ID (requiere autenticación)"""
+    try:
+        user_id = request.user_data['user_id']
+        user_role = request.user_data.get('role', 'user')
+        
+        session = Session()
+        
+        # Verificar que el parking existe
+        parking = session.query(Parking).get(parking_id)
+        if not parking:
+            session.close()
+            return jsonify({'error': 'Parking not found'}), 404
+        
+        # Verificar permisos (superadmin ve todo, usuario normal solo sus parkings)
+        if user_role != 'superadmin':
+            user_parking = session.query(UserParking).filter(
+                UserParking.user_id == user_id,
+                UserParking.parking_id == parking_id
+            ).first()
+            if not user_parking:
+                session.close()
+                return jsonify({'error': 'Access denied'}), 403
+        
+        # Formatear respuesta
+        data = {
+            'id': parking.id,
+            'name': parking.name,
+            'location': parking.location,
+            'total_plazas': parking.max_capacity,
+            'plazas_ocupadas': parking.current_occupancy,
+            'plazas_libres': parking.max_capacity - parking.current_occupancy,
+            'estado': parking.status,
+            'threshold_dense': parking.threshold_dense,
+            'threshold_full': parking.threshold_full,
+            'message_type': parking.message_type
+        }
+        
+        session.close()
+        return jsonify(data)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo parking {parking_id}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 @api_bp.route('/parkings/<int:parking_id>', methods=['PUT'])
 @require_superadmin
 def edit_parking(parking_id):
