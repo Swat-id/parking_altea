@@ -681,13 +681,21 @@ def update_parking_panels(parking_id: int, current_occupancy: int, max_capacity:
                         panel.last_message = message  # Mantener compatibilidad
                         panel.last_update = current_time
                         
-                        # NUEVO v4.1.0: Actualizar también las ventanas específicas
-                        panel.last_message_window_0 = message  # Los mensajes automáticos van a ventana 0
+                        # NUEVO v4.1.0: Actualizar ventanas específicas según tipo de panel
+                        panel.last_message_window_0 = message  # Todos los paneles tienen ventana 0
                         panel.last_update_window_0 = current_time
-                        # No actualizar window_1 para mensajes automáticos de ocupación
+                        
+                        # Solo actualizar ventana 1 para paneles Tipo 3 (múltiples ventanas)
+                        if panel.supports_multiple_windows():
+                            # Para paneles Tipo 3, el mensaje automático va a ambas ventanas
+                            panel.last_message_window_1 = message
+                            panel.last_update_window_1 = current_time
+                            logger.info(f"Panel Tipo 3 {panel.ip} actualizado en ambas ventanas: '{message}'")
+                        else:
+                            # Para paneles Tipo 1 y 2, no tocar ventana 1
+                            logger.info(f"Panel Tipo 1/2 {panel.ip} actualizado solo en ventana 0: '{message}'")
                         
                         panel.status = 'ONLINE'
-                        logger.info(f"Panel {panel.ip} actualizado correctamente con mensaje: '{message}'")
                     else:
                         error_msg = result.get('message', 'Error desconocido')
                         errors.append(f"Panel {panel.ip}: {error_msg}")
