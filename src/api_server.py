@@ -759,7 +759,7 @@ def get_parkings_status():
         logger.error(f"Error obteniendo estado de parkings: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@api_bp.route('/parking/<int:pid>', methods=['GET'])
+@api_bp.route('/parkings/<int:pid>', methods=['GET'])
 def get_parking(pid):
     """Obtener un parking específico"""
     try:
@@ -787,7 +787,7 @@ def get_parking(pid):
         logger.error(f"Error obteniendo parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@api_bp.route('/parking/<int:pid>/occupancy', methods=['POST'])
+@api_bp.route('/parkings/<int:pid>/occupancy', methods=['POST'])
 @require_parking_access('pid')
 def set_occupancy(pid):
     """Establecer ocupación de un parking"""
@@ -909,7 +909,7 @@ def set_occupancy(pid):
         logger.error(f"Error updating occupancy for parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@api_bp.route('/parking/<int:pid>/config', methods=['POST'])
+@api_bp.route('/parkings/<int:pid>/config', methods=['POST'])
 @require_parking_access('pid')
 def update_parking_config(pid):
     """Actualizar configuración de un parking"""
@@ -1022,7 +1022,7 @@ def update_parking_config(pid):
         logger.error(f"Error updating config for parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@api_bp.route('/parking/<int:pid>/cameras', methods=['PUT'])
+@api_bp.route('/parkings/<int:pid>/cameras', methods=['PUT'])
 @require_parking_access('pid')
 def update_parking_cameras(pid):
     """Actualizar cámaras de un parking usando la nueva relación muchos a muchos"""
@@ -1109,7 +1109,7 @@ def update_parking_cameras(pid):
         logger.error(f"Error updating cameras for parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@api_bp.route('/parking/<int:pid>/message', methods=['POST'])
+@api_bp.route('/parkings/<int:pid>/message', methods=['POST'])
 @require_parking_access('pid')
 def set_parking_message(pid):
     """Establecer mensaje para todos los paneles de un parking"""
@@ -1265,7 +1265,7 @@ def set_panel_message(ip):
         logger.error(f"Error setting panel message for IP {ip}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@api_bp.route('/parking/<int:pid>/message', methods=['GET'])
+@api_bp.route('/parkings/<int:pid>/message', methods=['GET'])
 def get_scheduled_messages(pid):
     """Obtener mensajes programados de un parking"""
     session = Session()
@@ -1287,7 +1287,7 @@ def get_scheduled_messages(pid):
     session.close()
     return jsonify(data)
 
-@api_bp.route('/parking/<int:pid>/message', methods=['DELETE'])
+@api_bp.route('/parkings/<int:pid>/message', methods=['DELETE'])
 def delete_scheduled_message(pid):
     """Eliminar mensaje programado de un parking"""
     try:
@@ -2204,7 +2204,7 @@ def get_all_panel_types():
         logger.error(f"Error obteniendo tipos de panel: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@api_bp.route('/parking/<int:pid>/statistics', methods=['GET'])
+@api_bp.route('/parkings/<int:pid>/statistics', methods=['GET'])
 @require_parking_access('pid')
 def get_parking_statistics(pid):
     """Obtener estadísticas de un parking"""
@@ -2271,7 +2271,7 @@ def get_all_statistics():
         logger.error(f"Error obteniendo estadísticas: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@api_bp.route('/parking/<int:pid>/history', methods=['GET'])
+@api_bp.route('/parkings/<int:pid>/history', methods=['GET'])
 @require_parking_access('pid')
 def get_occupancy_history(pid):
     """Obtener historial de ocupación de un parking"""
@@ -2522,7 +2522,7 @@ def get_camera_logs_stats():
         logger.error(f"Error obteniendo estadísticas de logs de cámaras: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@api_bp.route('/parking/<int:pid>/cameras', methods=['GET'])
+@api_bp.route('/parkings/<int:pid>/cameras', methods=['GET'])
 def get_parking_cameras(pid):
     """Obtener cámaras de un parking específico usando la nueva relación muchos a muchos"""
     try:
@@ -2675,7 +2675,7 @@ def get_all_cameras_status():
         logger.error(f"Error obteniendo estado de cámaras: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@api_bp.route('/parking/<int:pid>/hourly-statistics', methods=['GET'])
+@api_bp.route('/parkings/<int:pid>/hourly-statistics', methods=['GET'])
 def get_parking_hourly_statistics(pid):
     """Obtener estadísticas por horas de un parking"""
     try:
@@ -3111,7 +3111,7 @@ def get_schedule_logs():
         logger.error(f"Error obteniendo logs de programaciones: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@api_bp.route('/parking/<int:pid>/schedules', methods=['GET'])
+@api_bp.route('/parkings/<int:pid>/schedules', methods=['GET'])
 def get_parking_schedules(pid):
     """Obtener programaciones de un parking específico"""
     try:
@@ -3131,7 +3131,7 @@ def get_parking_schedules(pid):
         logger.error(f"Error obteniendo programaciones del parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@api_bp.route('/parking/<int:pid>/active-schedules', methods=['GET'])
+@api_bp.route('/parkings/<int:pid>/active-schedules', methods=['GET'])
 def get_parking_active_schedules(pid):
     """Obtener programaciones activas para un parking en el momento actual"""
     try:
