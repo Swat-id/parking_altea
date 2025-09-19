@@ -3,8 +3,8 @@
 ## Estado General del Proyecto
 - **Versión**: 4.1.0
 - **Fecha de inicio**: 19/09/2025
-- **Estimación total**: 121 horas (15 días laborables)
-- **Progreso general**: 0% (0/121 horas completadas)
+- **Estimación total**: 124 horas (15.5 días laborables)
+- **Progreso general**: 5% (6/124 horas completadas)
 
 ## Resumen de Funcionalidades
 
@@ -13,8 +13,8 @@
 - **Prioridad**: Media
 - **Descripción**: Permitir selección de ventana 0 o 1 en paneles Tipo 3
 
-### 2. Sistema de Plazas Individuales PMR (74h)
-- **Progreso**: 0% (0/74 horas)
+### 2. Sistema de Plazas Individuales PMR (77h)
+- **Progreso**: 8% (6/77 horas)
 - **Prioridad**: Alta
 - **Descripción**: Sistema completo de gestión de sensores individuales
 
@@ -27,17 +27,17 @@
 
 ## FASE 1: ACTUALIZACIÓN DE BASE DE DATOS
 **Duración**: 1 día (8 horas)  
-**Progreso**: 0% (0/8 horas)  
-**Estado**: ⏳ Pendiente
+**Progreso**: 75% (6/8 horas)  
+**Estado**: 🟡 En progreso
 
 ### Tareas Específicas
 
 | ID | Tarea | Estimación | Progreso | Estado | Responsable |
 |----|-------|------------|----------|--------|-------------|
 | 1.1 | Actualizar tabla panels para ventanas | 2h | 0% | ⏳ Pendiente | Backend |
-| 1.2 | Crear tablas sensores individuales | 3h | 0% | ⏳ Pendiente | Backend |
-| 1.3 | Crear índices y optimizaciones | 1h | 0% | ⏳ Pendiente | Backend |
-| 1.4 | Ejecutar migración y validar | 2h | 0% | ⏳ Pendiente | Backend |
+| 1.2 | Crear tablas sensores individuales | 3h | 100% | ✅ Completado | Backend |
+| 1.3 | Crear índices y optimizaciones | 1h | 100% | ✅ Completado | Backend |
+| 1.4 | Ejecutar migración y validar | 2h | 75% | 🟡 En progreso | Backend |
 
 ### Comandos de Actualización de Base de Datos
 
@@ -297,12 +297,190 @@ COMMIT;
 ```
 
 ### Criterios de Aceptación Fase 1
-- ✅ Tabla `panels` actualizada con campos para ventanas 0 y 1
+- ⏳ Tabla `panels` actualizada con campos para ventanas 0 y 1
 - ✅ Tablas de sensores individuales creadas correctamente
 - ✅ Índices de optimización aplicados
-- ✅ Datos de ejemplo insertados y validados
+- ⏳ Datos de ejemplo insertados y validados
 - ✅ Integridad referencial verificada
-- ✅ Triggers de actualización automática funcionando
+- ⏳ Triggers de actualización automática funcionando
+
+### 🔄 **PRÓXIMOS PASOS PARA COMPLETAR FASE 1:**
+
+**1. Actualizar tabla panels (continuar en la sesión psql actual):**
+```sql
+-- Añadir campos para almacenar último mensaje por ventana
+ALTER TABLE panels 
+ADD COLUMN IF NOT EXISTS last_message_window_0 TEXT,
+ADD COLUMN IF NOT EXISTS last_message_window_1 TEXT,
+ADD COLUMN IF NOT EXISTS last_update_window_0 TIMESTAMP WITH TIME ZONE,
+ADD COLUMN IF NOT EXISTS last_update_window_1 TIMESTAMP WITH TIME ZONE,
+ADD COLUMN IF NOT EXISTS window_config_json JSONB DEFAULT '{"windows": [{"id": 0, "enabled": true}, {"id": 1, "enabled": false}]}'::jsonb;
+
+-- Migrar datos existentes (mover last_message a window_0)
+UPDATE panels 
+SET last_message_window_0 = last_message,
+    last_update_window_0 = last_update
+WHERE last_message IS NOT NULL;
+
+-- Crear índices para optimización
+CREATE INDEX IF NOT EXISTS idx_panels_window_0_update ON panels(last_update_window_0);
+CREATE INDEX IF NOT EXISTS idx_panels_window_1_update ON panels(last_update_window_1);
+CREATE INDEX IF NOT EXISTS idx_panels_window_config ON panels USING GIN(window_config_json);
+```
+
+**2. Insertar datos de ejemplo:**
+```sql
+-- Insertar sensores de ejemplo
+INSERT INTO individual_sensors (serial_number, name, sensor_type, description) VALUES
+('FLX001001', 'Plaza PMR-01', 'PMR', 'Sensor PMR entrada principal - EJEMPLO'),
+('FLX001002', 'Plaza ELE-01', 'Electrico', 'Plaza eléctrica zona A - EJEMPLO'),
+('FLX001003', 'Plaza PMR-02', 'PMR', 'Sensor PMR zona B - EJEMPLO'),
+('FLX001004', 'Plaza CAR-01', 'Caravanas', 'Plaza para caravanas - EJEMPLO'),
+('FLX001005', 'Plaza EME-01', 'Emergencias', 'Plaza de emergencias - EJEMPLO')
+ON CONFLICT (serial_number) DO NOTHING;
+
+-- Insertar estados iniciales
+INSERT INTO sensor_current_status (sensor_id, current_status, battery_capacity, temperature)
+SELECT id, 'unknown', 85, 22.5 FROM individual_sensors
+ON CONFLICT (sensor_id) DO NOTHING;
+```
+
+**3. Crear trigger de actualización automática:**
+```sql
+-- Crear función para actualizar timestamp automáticamente
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Aplicar trigger a individual_sensors
+CREATE TRIGGER update_individual_sensors_updated_at 
+    BEFORE UPDATE ON individual_sensors 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+```
+
+**4. Optimizaciones de rendimiento (RECOMENDADO):**
+```sql
+-- VISTA MATERIALIZADA: Estado completo de parkings
+CREATE MATERIALIZED VIEW parking_complete_status AS
+SELECT 
+    p.id as parking_id,
+    p.name as parking_name,
+    p.location,
+    p.max_capacity,
+    p.current_occupancy,
+    p.status,
+    
+    -- Conteo de paneles
+    COUNT(DISTINCT pan.id) as total_panels,
+    COUNT(DISTINCT CASE WHEN pan.status = 'online' THEN pan.id END) as online_panels,
+    
+    -- Conteo de sensores individuales
+    COUNT(DISTINCT CASE WHEN s.sensor_type = 'PMR' THEN s.id END) as pmr_sensors,
+    COUNT(DISTINCT CASE WHEN s.sensor_type = 'Electrico' THEN s.id END) as electric_sensors,
+    COUNT(DISTINCT CASE WHEN s.sensor_type = 'Caravanas' THEN s.id END) as caravan_sensors,
+    
+    -- Estados de sensores
+    COUNT(DISTINCT CASE WHEN scs.current_status = 'free' THEN s.id END) as free_individual_sensors,
+    COUNT(DISTINCT CASE WHEN scs.current_status = 'busy' THEN s.id END) as busy_individual_sensors,
+    COUNT(DISTINCT CASE WHEN scs.current_status = 'error' THEN s.id END) as error_individual_sensors,
+    
+    -- Información de batería
+    AVG(CASE WHEN scs.battery_capacity IS NOT NULL THEN scs.battery_capacity END) as avg_battery_level,
+    COUNT(DISTINCT CASE WHEN scs.battery_capacity < 20 THEN s.id END) as low_battery_sensors,
+    
+    NOW() as view_updated_at
+    
+FROM parkings p
+LEFT JOIN panels pan ON pan.parking_id = p.id AND pan.is_active = true
+LEFT JOIN individual_sensors s ON s.parking_id = p.id AND s.is_active = true
+LEFT JOIN sensor_current_status scs ON scs.sensor_id = s.id
+GROUP BY p.id, p.name, p.location, p.max_capacity, p.current_occupancy, p.status;
+
+-- Índices para la vista
+CREATE UNIQUE INDEX idx_parking_complete_status_parking_id 
+ON parking_complete_status(parking_id);
+
+-- FUNCIÓN: Acceso rápido a estado de parking
+CREATE OR REPLACE FUNCTION get_parking_quick_status(parking_id_param INTEGER)
+RETURNS TABLE (
+    parking_id INTEGER,
+    parking_name VARCHAR,
+    total_panels BIGINT,
+    total_sensors BIGINT,
+    free_sensors BIGINT,
+    busy_sensors BIGINT,
+    error_sensors BIGINT,
+    avg_battery NUMERIC,
+    occupancy_rate NUMERIC
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        pcs.parking_id,
+        pcs.parking_name,
+        pcs.total_panels,
+        (pcs.pmr_sensors + pcs.electric_sensors + pcs.caravan_sensors) as total_sensors,
+        pcs.free_individual_sensors,
+        pcs.busy_individual_sensors,
+        pcs.error_individual_sensors,
+        ROUND(pcs.avg_battery_level, 1),
+        CASE 
+            WHEN (pcs.pmr_sensors + pcs.electric_sensors + pcs.caravan_sensors) > 0
+            THEN ROUND((pcs.busy_individual_sensors::NUMERIC / (pcs.pmr_sensors + pcs.electric_sensors + pcs.caravan_sensors)::NUMERIC) * 100, 2)
+            ELSE 0 
+        END as occupancy_rate
+    FROM parking_complete_status pcs
+    WHERE pcs.parking_id = parking_id_param;
+END;
+$$ LANGUAGE plpgsql;
+
+-- FUNCIÓN: Refrescar vistas (para usar en cron)
+CREATE OR REPLACE FUNCTION refresh_parking_views()
+RETURNS VOID AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW parking_complete_status;
+    INSERT INTO system_logs (level, message, timestamp) 
+    VALUES ('INFO', 'Vistas materializadas actualizadas', NOW())
+    ON CONFLICT DO NOTHING;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+**5. Validación final:**
+```sql
+-- Verificar tablas creadas
+SELECT 'Panels actualizados' as tabla, COUNT(*) as registros 
+FROM panels 
+WHERE window_config_json IS NOT NULL
+
+UNION ALL
+
+SELECT 'Sensores individuales' as tabla, COUNT(*) as registros 
+FROM individual_sensors
+
+UNION ALL
+
+SELECT 'Estados actuales' as tabla, COUNT(*) as registros 
+FROM sensor_current_status
+
+UNION ALL
+
+SELECT 'Vista materializada' as tabla, COUNT(*) as registros 
+FROM parking_complete_status;
+
+-- Test de función rápida (usar ID de parking existente)
+SELECT * FROM get_parking_quick_status(1);
+
+-- Mostrar resumen
+SELECT 
+    'FASE 1 COMPLETADA' as status,
+    NOW() as timestamp,
+    'Base de datos optimizada para v4.1.0' as message;
+```
 
 ---
 
@@ -526,13 +704,13 @@ COMMIT;
 - **Pendientes**: 9/9 fases (100%)
 
 ### Por Horas
-- **Completadas**: 0/121 horas (0%)
-- **En progreso**: 0/121 horas (0%)
-- **Pendientes**: 121/121 horas (100%)
+- **Completadas**: 6/124 horas (5%)
+- **En progreso**: 2/124 horas (2%)
+- **Pendientes**: 116/124 horas (93%)
 
 ### Por Funcionalidad
 - **Gestión Paneles**: 0/14 horas (0%)
-- **Sensores Individuales**: 0/70 horas (0%)
+- **Sensores Individuales**: 6/77 horas (8%)
 - **Servicio Push**: 0/37 horas (0%)
 
 ---
