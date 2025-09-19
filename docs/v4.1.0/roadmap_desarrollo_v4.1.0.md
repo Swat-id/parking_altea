@@ -41,12 +41,23 @@
 
 ### Comandos de Actualización de Base de Datos
 
+> **⚠️ IMPORTANTE**: Si encuentras el error "Peer authentication failed for user", usa:
+> ```bash
+> sudo -u postgres psql parking_db
+> ```
+> Esto ejecuta psql como el usuario del sistema `postgres` evitando problemas de autenticación.
+
 #### 1.1 Actualización de Tabla Panels (2 horas)
 
-```sql
--- Conectar a la base de datos
-psql -U parking_user -d parking_db
+```bash
+# Conectar a la base de datos como postgres (usuario por defecto en el servidor)
+# Según los scripts de deploy la BD se llama 'parking_db'
+sudo -u postgres psql parking_db
+```
 
+Una vez conectado, ejecutar los siguientes comandos SQL:
+
+```sql
 -- 1. Añadir campos para almacenar último mensaje por ventana
 ALTER TABLE panels 
 ADD COLUMN IF NOT EXISTS last_message_window_0 TEXT,
@@ -78,6 +89,7 @@ COMMIT;
 
 ```sql
 -- Continuar en la misma sesión de psql
+-- NOTA: La base de datos real es 'parking_db' según scripts de deploy
 
 -- 1. Tabla principal de sensores individuales
 CREATE TABLE IF NOT EXISTS individual_sensors (
