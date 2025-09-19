@@ -6,7 +6,7 @@ const parkingService = {
    */
   async getParkings() {
     try {
-      const response = await api.get('/parkings')
+      const response = await api.get('/api/parkings')
       return response.data
     } catch (error) {
       console.error('Error obteniendo parkings:', error)
@@ -19,7 +19,7 @@ const parkingService = {
    */
   async getUserParkings() {
     try {
-      const response = await api.get('/user/parkings')
+      const response = await api.get('/api/user/parkings')
       return response.data
     } catch (error) {
       console.error('Error obteniendo parkings del usuario:', error)
@@ -151,7 +151,7 @@ const parkingService = {
    */
   async createParking(parkingData) {
     try {
-      const response = await api.post('/parkings', parkingData)
+      const response = await api.post('/api/parkings', parkingData)
       return response.data
     } catch (error) {
       console.error('Error creando parking:', error)

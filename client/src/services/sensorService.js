@@ -12,7 +12,7 @@ const sensorService = {
       if (filters.sensor_type) params.append('sensor_type', filters.sensor_type)
       if (filters.is_active !== undefined) params.append('is_active', filters.is_active)
       
-      const url = `/sensors${params.toString() ? `?${params.toString()}` : ''}`
+      const url = `/api/sensors${params.toString() ? `?${params.toString()}` : ''}`
       const response = await api.get(url)
       return response.data
     } catch (error) {
@@ -23,7 +23,7 @@ const sensorService = {
 
   async getSensor(sensorId) {
     try {
-      const response = await api.get(`/sensors/${sensorId}`)
+      const response = await api.get(`/api/sensors/${sensorId}`)
       return response.data
     } catch (error) {
       console.error(`Error obteniendo sensor ${sensorId}:`, error)
@@ -43,7 +43,7 @@ const sensorService = {
 
   async updateSensor(sensorId, sensorData) {
     try {
-      const response = await api.put(`/sensors/${sensorId}`, sensorData)
+      const response = await api.put(`/api/sensors/${sensorId}`, sensorData)
       return response.data
     } catch (error) {
       console.error(`Error actualizando sensor ${sensorId}:`, error)
@@ -53,7 +53,7 @@ const sensorService = {
 
   async deleteSensor(sensorId) {
     try {
-      const response = await api.delete(`/sensors/${sensorId}`)
+      const response = await api.delete(`/api/sensors/${sensorId}`)
       return response.data
     } catch (error) {
       console.error(`Error eliminando sensor ${sensorId}:`, error)
@@ -67,7 +67,7 @@ const sensorService = {
 
   async updateSensorStatus(sensorId, statusData) {
     try {
-      const response = await api.put(`/sensors/${sensorId}/status`, statusData)
+      const response = await api.put(`/api/sensors/${sensorId}/status`, statusData)
       return response.data
     } catch (error) {
       console.error(`Error actualizando estado del sensor ${sensorId}:`, error)
