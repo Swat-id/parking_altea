@@ -11,6 +11,7 @@ User=root
 Group=root
 WorkingDirectory=/opt/parking_altea
 Environment=PYTHONPATH=/opt/parking_altea/src
+Environment=DATABASE_URL=postgresql://parking_user:parking_pass@localhost:5432/parking_db
 ExecStart=/opt/parking_altea/venv/bin/python src/panel_worker_service.py --interval 120
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always

@@ -5,9 +5,13 @@ After=network.target
 [Service]
 Type=simple
 User=root
+Group=root
 WorkingDirectory=/opt/parking_altea/src
+Environment=PYTHONPATH=/opt/parking_altea/src
+Environment=DATABASE_URL=postgresql://parking_user:parking_pass@localhost:5432/parking_db
 Environment=PATH=/opt/parking_altea/venv/bin
-ExecStart=/opt/parking_altea/venv/bin/gunicorn --workers 2 --bind 0.0.0.0:6400 camera_server:app
+ExecStartPre=/bin/sleep 5
+ExecStart=/opt/parking_altea/venv/bin/gunicorn --workers 2 --bind 0.0.0.0:6400 --timeout 120 --max-requests 1000 --preload camera_server:app
 Restart=always
 RestartSec=10
 
