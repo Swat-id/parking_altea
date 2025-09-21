@@ -6,8 +6,10 @@ Wants=parking-api.service
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/root/parking_altea/src
-ExecStart=/usr/bin/python3 /root/parking_altea/src/schedule_monitor_service.py
+WorkingDirectory=/opt/parking_altea/src
+Environment=PYTHONPATH=/opt/parking_altea/src
+Environment=DATABASE_URL=postgresql://parking_user:parking_pass@localhost:5432/parking_db
+ExecStart=/usr/bin/python3 /opt/parking_altea/src/schedule_monitor_service.py
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -19,7 +21,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/root/parking_altea/src
+ReadWritePaths=/opt/parking_altea/src
 
 # Configuración de recursos
 MemoryMax=512M

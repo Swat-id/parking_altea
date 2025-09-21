@@ -90,6 +90,36 @@ INFO - Parking 5 - P. Poble antic/Palau Altea: 2/2 paneles actualizados (occupan
 
 ---
 
+### **3. Archivo: `deploy/parking-schedule-monitor.service`**
+
+**Cambios aplicados:**
+```diff
+[Service]
+Type=simple
+User=root
+- WorkingDirectory=/root/parking_altea/src
++ WorkingDirectory=/opt/parking_altea/src
++ Environment=PYTHONPATH=/opt/parking_altea/src
++ Environment=DATABASE_URL=postgresql://parking_user:parking_pass@localhost:5432/parking_db
+ExecStart=/usr/bin/python3 /opt/parking_altea/src/schedule_monitor_service.py
+```
+
+**Estado**: ✅ **Aplicado en servidor remoto y local**
+
+---
+
+## 🚨 **PROBLEMA CRÍTICO IDENTIFICADO**
+
+### **Schedule Monitor Service NO funcionaba:**
+- **Error**: `fe_sendauth: no password supplied`
+- **Impacto**: **Las programaciones NO se ejecutaban**
+- **Resultado**: Paneles mostraban ocupación en lugar de mensajes programados
+
+### **Ejemplo del problema:**
+- **Programación**: "TANCAT" para parking 1 (activa 24/7)
+- **Panel mostraba**: "LLIURE" (ocupación) ❌
+- **Debería mostrar**: "TANCAT" (programación) ✅
+
 ## 🎯 **ACCIONES PENDIENTES**
 
 ### **1. Aplicar corrección del Camera Service en servidor remoto:**
@@ -105,6 +135,14 @@ systemctl start parking-camera.service
 ```bash
 systemctl status parking-camera.service
 journalctl -u parking-camera.service -n 10
+```
+
+### **3. Verificar ejecución de programaciones (próximo ciclo: ~07:33):**
+```bash
+# Verificar que Schedule Monitor ejecuta programaciones
+journalctl -u parking-schedule-monitor.service -f
+# Verificar que paneles muestran mensajes de programación
+sudo -u postgres psql parking_db -c "SELECT name, last_message FROM panels WHERE parking_id = 1;"
 ```
 
 ---
