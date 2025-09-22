@@ -2461,6 +2461,215 @@ def get_camera_logs():
         logger.error(f"Error obteniendo logs de cámaras: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@api_bp.route('/camera-logs-v2', methods=['GET'])
+def get_camera_logs_v2():
+    """
+    Endpoint avanzado para logs de cámaras con filtros completos
+    
+    Parámetros:
+    - parking_id: ID del parking
+    - access_id: ID del acceso 
+    - camera_ip: IP específica de la cámara
+    - camera_name: Nombre de la cámara (búsqueda parcial)
+    - status: processed|discarded|error
+    - date_from: YYYY-MM-DD (fecha desde)
+    - date_to: YYYY-MM-DD (fecha hasta)
+    - time_from: HH:MM (hora desde)
+    - time_to: HH:MM (hora hasta)
+    - has_changes: true/false (solo logs con cambios de ocupación)
+    - error_only: true/false (solo logs con errores)
+    - order_by: received_at|processed_at|processing_time
+    - order_direction: asc|desc
+    - page: número de página (desde 1)
+    - per_page: elementos por página (máx 500)
+    """
+    try:
+        from datetime import datetime, time
+        
+        # Parámetros de filtrado
+        parking_id = request.args.get('parking_id', type=int)
+        access_id = request.args.get('access_id', type=int)
+        camera_ip = request.args.get('camera_ip')
+        camera_name = request.args.get('camera_name')
+        status = request.args.get('status')
+        date_from = request.args.get('date_from')
+        date_to = request.args.get('date_to')
+        time_from = request.args.get('time_from')
+        time_to = request.args.get('time_to')
+        has_changes = request.args.get('has_changes', type=bool)
+        error_only = request.args.get('error_only', type=bool)
+        
+        # Parámetros de ordenación
+        order_by = request.args.get('order_by', 'received_at')
+        order_direction = request.args.get('order_direction', 'desc')
+        
+        # Parámetros de paginación
+        page = request.args.get('page', 1, type=int)
+        per_page = min(request.args.get('per_page', 50, type=int), 500)
+        
+        session = Session()
+        
+        # Construir query base
+        query = session.query(CameraLog)
+        
+        # Aplicar filtros
+        filters_applied = {}
+        
+        if parking_id:
+            query = query.filter(CameraLog.parking_id == parking_id)
+            filters_applied['parking_id'] = parking_id
+            
+        if access_id:
+            query = query.filter(CameraLog.access_id == access_id)
+            filters_applied['access_id'] = access_id
+            
+        if camera_ip:
+            query = query.filter(CameraLog.camera_ip == camera_ip)
+            filters_applied['camera_ip'] = camera_ip
+            
+        if camera_name:
+            query = query.filter(CameraLog.camera_name.ilike(f'%{camera_name}%'))
+            filters_applied['camera_name'] = camera_name
+            
+        if status:
+            query = query.filter(CameraLog.status == status)
+            filters_applied['status'] = status
+            
+        if error_only:
+            query = query.filter(CameraLog.status == 'error')
+            filters_applied['error_only'] = True
+            
+        if has_changes:
+            query = query.filter(CameraLog.occupancy_change != 0)
+            filters_applied['has_changes'] = True
+        
+        # Filtros de fecha y hora
+        if date_from:
+            try:
+                date_from_parsed = datetime.strptime(date_from, '%Y-%m-%d').date()
+                if time_from:
+                    time_from_parsed = datetime.strptime(time_from, '%H:%M').time()
+                    datetime_from = datetime.combine(date_from_parsed, time_from_parsed)
+                else:
+                    datetime_from = datetime.combine(date_from_parsed, time.min)
+                
+                query = query.filter(CameraLog.received_at >= datetime_from)
+                filters_applied['date_from'] = date_from
+                if time_from:
+                    filters_applied['time_from'] = time_from
+                    
+            except ValueError:
+                return jsonify({'error': 'Formato de fecha_from inválido. Usar YYYY-MM-DD'}), 400
+        
+        if date_to:
+            try:
+                date_to_parsed = datetime.strptime(date_to, '%Y-%m-%d').date()
+                if time_to:
+                    time_to_parsed = datetime.strptime(time_to, '%H:%M').time()
+                    datetime_to = datetime.combine(date_to_parsed, time_to_parsed)
+                else:
+                    datetime_to = datetime.combine(date_to_parsed, time.max)
+                
+                query = query.filter(CameraLog.received_at <= datetime_to)
+                filters_applied['date_to'] = date_to
+                if time_to:
+                    filters_applied['time_to'] = time_to
+                    
+            except ValueError:
+                return jsonify({'error': 'Formato de date_to inválido. Usar YYYY-MM-DD'}), 400
+        
+        # Aplicar ordenación
+        if order_by == 'received_at':
+            order_field = CameraLog.received_at
+        elif order_by == 'processed_at':
+            order_field = CameraLog.processed_at
+        elif order_by == 'processing_time':
+            order_field = CameraLog.processing_time
+        else:
+            order_field = CameraLog.received_at
+            
+        if order_direction == 'asc':
+            query = query.order_by(order_field.asc())
+        else:
+            query = query.order_by(order_field.desc())
+        
+        # Calcular estadísticas antes de paginar
+        total_count = query.count()
+        
+        stats_query = query
+        processed_count = stats_query.filter(CameraLog.status == 'processed').count()
+        error_count = stats_query.filter(CameraLog.status == 'error').count()
+        discarded_count = stats_query.filter(CameraLog.status == 'discarded').count()
+        changes_count = stats_query.filter(CameraLog.occupancy_change != 0).count()
+        
+        # Aplicar paginación
+        offset = (page - 1) * per_page
+        logs = query.offset(offset).limit(per_page).all()
+        
+        # Calcular información de paginación
+        total_pages = (total_count + per_page - 1) // per_page
+        has_next = page < total_pages
+        has_prev = page > 1
+        
+        # Formatear respuesta
+        data = []
+        for log in logs:
+            log_data = {
+                'id': log.id,
+                'camera_ip': log.camera_ip,
+                'camera_line': log.camera_line,
+                'camera_name': log.camera_name,
+                'parking_id': log.parking_id,
+                'parking_name': log.parking.name if log.parking else None,
+                'access_id': log.access_id,
+                'vehicle_in': log.vehicle_in,
+                'vehicle_out': log.vehicle_out,
+                'previous_vehicle_in': log.previous_vehicle_in,
+                'previous_vehicle_out': log.previous_vehicle_out,
+                'delta_in': log.delta_in,
+                'delta_out': log.delta_out,
+                'status': log.status,
+                'error_message': log.error_message,
+                'processing_time': log.processing_time,
+                'new_occupancy': log.new_occupancy,
+                'occupancy_change': log.occupancy_change,
+                'parking_status': log.parking_status,
+                'raw_message': log.raw_message,
+                'received_at': log.received_at.isoformat() if log.received_at else None,
+                'processed_at': log.processed_at.isoformat() if log.processed_at else None
+            }
+            data.append(log_data)
+        
+        session.close()
+        
+        # Respuesta estructurada
+        response = {
+            'logs': data,
+            'pagination': {
+                'current_page': page,
+                'per_page': per_page,
+                'total_pages': total_pages,
+                'total_count': total_count,
+                'has_next': has_next,
+                'has_prev': has_prev,
+                'next_page': page + 1 if has_next else None,
+                'prev_page': page - 1 if has_prev else None
+            },
+            'filters_applied': filters_applied,
+            'stats': {
+                'processed_count': processed_count,
+                'error_count': error_count,
+                'discarded_count': discarded_count,
+                'total_changes': changes_count
+            }
+        }
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo logs de cámaras v2: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 @api_bp.route('/camera/logs/stats', methods=['GET'])
 def get_camera_logs_stats():
     """Obtener estadísticas de logs de cámaras"""
