@@ -486,6 +486,94 @@ def manual_update():
             'details': str(e)
         }), 500
 
+@app.route('/', methods=['POST'])
+def receive_sensor_root():
+    """
+    Endpoint raíz para recibir datos de sensores
+    Los sensores Fleximodo están enviando POST a / directamente
+    """
+    try:
+        client_ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
+        logger.info(f"Recibiendo datos de sensor desde IP: {client_ip}")
+        
+        # Intentar procesar como JSON primero
+        if request.is_json:
+            try:
+                push_data = request.get_json()
+                logger.info(f"Datos JSON recibidos: {push_data}")
+                
+                # Si los datos tienen la estructura esperada, procesarlos normalmente
+                if isinstance(push_data, dict) and 'sensor_info' in push_data:
+                    result = processor.process_push_message(push_data)
+                    
+                    if result['success']:
+                        return jsonify(result), 200
+                    else:
+                        return jsonify(result), 400
+                else:
+                    # Datos JSON pero estructura desconocida - logear para análisis
+                    logger.warning(f"Estructura JSON desconocida desde {client_ip}: {push_data}")
+                    return jsonify({
+                        'status': 'received',
+                        'message': 'Datos JSON recibidos pero estructura desconocida',
+                        'timestamp': datetime.utcnow().isoformat(),
+                        'client_ip': client_ip
+                    }), 200
+                    
+            except Exception as e:
+                logger.error(f"Error procesando JSON desde {client_ip}: {str(e)}")
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Error procesando datos JSON',
+                    'timestamp': datetime.utcnow().isoformat()
+                }), 400
+        else:
+            # Datos no JSON - obtener raw data
+            try:
+                raw_data = request.get_data(as_text=True)
+                content_type = request.headers.get('Content-Type', 'unknown')
+                
+                logger.info(f"Datos RAW recibidos desde {client_ip}")
+                logger.info(f"Content-Type: {content_type}")
+                logger.info(f"Raw data (primeros 200 chars): {raw_data[:200]}")
+                
+                # Intentar parsear como diferentes formatos
+                parsed_data = None
+                
+                # Intentar JSON manual
+                if raw_data.strip().startswith('{'):
+                    try:
+                        parsed_data = json.loads(raw_data)
+                        logger.info(f"Raw data parseado como JSON: {parsed_data}")
+                    except:
+                        pass
+                
+                return jsonify({
+                    'status': 'received',
+                    'message': 'Datos raw recibidos y logueados',
+                    'timestamp': datetime.utcnow().isoformat(),
+                    'client_ip': client_ip,
+                    'content_type': content_type,
+                    'data_length': len(raw_data),
+                    'parsed_json': parsed_data is not None
+                }), 200
+                
+            except Exception as e:
+                logger.error(f"Error procesando datos raw desde {client_ip}: {str(e)}")
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Error procesando datos raw',
+                    'timestamp': datetime.utcnow().isoformat()
+                }), 500
+            
+    except Exception as e:
+        logger.error(f"Error general en endpoint raíz: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Error interno del servidor',
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
+
 @app.route('/stats', methods=['GET'])
 def get_stats():
     """Endpoint para obtener estadísticas del servicio"""
