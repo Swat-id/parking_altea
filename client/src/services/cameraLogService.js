@@ -121,5 +121,48 @@ export const cameraLogService = {
       console.error('Error obteniendo logs procesados:', error)
       throw error
     }
+  },
+
+  /**
+   * Obtener logs de cámaras con filtros avanzados (v2)
+   * @param {Object} filters - Filtros para aplicar
+   * @param {Object} pagination - Configuración de paginación
+   * @returns {Promise<Object>} Logs paginados con metadatos
+   */
+  async getCameraLogsV2(filters = {}, pagination = {}) {
+    try {
+      const params = new URLSearchParams()
+      
+      // Filtros básicos
+      if (filters.parkingId) params.append('parking_id', filters.parkingId)
+      if (filters.accessId) params.append('access_id', filters.accessId)
+      if (filters.cameraIp) params.append('camera_ip', filters.cameraIp)
+      if (filters.cameraName) params.append('camera_name', filters.cameraName)
+      if (filters.status) params.append('status', filters.status)
+      
+      // Filtros de fecha y hora
+      if (filters.dateFrom) params.append('date_from', filters.dateFrom)
+      if (filters.dateTo) params.append('date_to', filters.dateTo)
+      if (filters.timeFrom) params.append('time_from', filters.timeFrom)
+      if (filters.timeTo) params.append('time_to', filters.timeTo)
+      
+      // Filtros especiales
+      if (filters.hasChanges !== undefined) params.append('has_changes', filters.hasChanges)
+      if (filters.errorOnly !== undefined) params.append('error_only', filters.errorOnly)
+      
+      // Ordenación
+      if (filters.orderBy) params.append('order_by', filters.orderBy)
+      if (filters.orderDirection) params.append('order_direction', filters.orderDirection)
+      
+      // Paginación
+      if (pagination.page) params.append('page', pagination.page)
+      if (pagination.perPage) params.append('per_page', pagination.perPage)
+      
+      const response = await api.get(`/api/camera-logs-v2?${params.toString()}`)
+      return response.data
+    } catch (error) {
+      console.error('Error obteniendo logs de cámaras v2:', error)
+      throw error
+    }
   }
 } 
