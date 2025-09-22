@@ -35,10 +35,15 @@ const CameraLogs = () => {
   const [logLevel, setLogLevel] = useState('all')
   const [lastUpdate, setLastUpdate] = useState(null)
   const [stats, setStats] = useState({})
+  const [pagination, setPagination] = useState({
+    page: parseInt(searchParams.get('page')) || 1,
+    perPage: 100
+  })
+  const [paginationInfo, setPaginationInfo] = useState({})
 
   useEffect(() => {
     loadData()
-  }, [selectedParking, selectedCamera, dateFilter, logLevel])
+  }, [selectedParking, selectedCamera, dateFilter, logLevel, pagination])
 
   const loadData = async () => {
     try {
@@ -62,28 +67,47 @@ const CameraLogs = () => {
         setCameras([])
       }
       
-      // Cargar logs con filtros
-      const logsData = await cameraLogService.getCameraLogs({
-        parking_id: selectedParking || undefined,
-        camera_id: selectedCamera || undefined,
-        date_filter: dateFilter,
-        level: logLevel === 'all' ? undefined : logLevel,
-        limit: 100
-      })
+      // Preparar filtros para el nuevo endpoint
+      const filters = {
+        parkingId: selectedParking || undefined,
+        status: logLevel === 'all' ? undefined : logLevel
+      }
+      
+      // Convertir dateFilter a fechas específicas
+      const today = new Date()
+      const yesterday = new Date(today)
+      yesterday.setDate(yesterday.getDate() - 1)
+      
+      switch (dateFilter) {
+        case 'today':
+          filters.dateFrom = today.toISOString().split('T')[0]
+          filters.dateTo = today.toISOString().split('T')[0]
+          break
+        case 'yesterday':
+          filters.dateFrom = yesterday.toISOString().split('T')[0]
+          filters.dateTo = yesterday.toISOString().split('T')[0]
+          break
+        case 'week':
+          const weekAgo = new Date(today)
+          weekAgo.setDate(weekAgo.getDate() - 7)
+          filters.dateFrom = weekAgo.toISOString().split('T')[0]
+          filters.dateTo = today.toISOString().split('T')[0]
+          break
+        case 'month':
+          const monthAgo = new Date(today)
+          monthAgo.setMonth(monthAgo.getMonth() - 1)
+          filters.dateFrom = monthAgo.toISOString().split('T')[0]
+          filters.dateTo = today.toISOString().split('T')[0]
+          break
+        // 'all' no añade filtros de fecha
+      }
+      
+      // Cargar logs con el nuevo endpoint
+      const logsData = await cameraLogService.getCameraLogsV2(filters, pagination)
       
       setLogs(logsData.logs || [])
-      
-      // Cargar estadísticas
-      try {
-        const statsData = await cameraLogService.getCameraLogsStats({
-          parking_id: selectedParking || undefined,
-          days: 7
-        })
-        setStats(statsData || {})
-      } catch (err) {
-        console.error('Error cargando estadísticas:', err)
-        setStats({})
-      }
+      setPaginationInfo(logsData.pagination || {})
+      setStats(logsData.stats || {})
       
       setLastUpdate(new Date())
     } catch (err) {
@@ -273,27 +297,27 @@ const CameraLogs = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500">Total Logs</h3>
-          <p className="text-2xl font-bold text-gray-900">{logs.length}</p>
+          <p className="text-2xl font-bold text-gray-900">{paginationInfo.total_count || logs.length}</p>
+        </div>
+        
+        <div className="bg-white p-4 rounded-lg shadow">
+          <h3 className="text-sm font-medium text-gray-500">Procesados</h3>
+          <p className="text-2xl font-bold text-green-600">
+            {stats.processed_count || 0}
+          </p>
         </div>
         
         <div className="bg-white p-4 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500">Errores</h3>
           <p className="text-2xl font-bold text-red-600">
-            {logs.filter(log => log.level?.toLowerCase() === 'error').length}
+            {stats.error_count || 0}
           </p>
         </div>
         
         <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500">Warnings</h3>
-          <p className="text-2xl font-bold text-yellow-600">
-            {logs.filter(log => log.level?.toLowerCase() === 'warning').length}
-          </p>
-        </div>
-        
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500">Info</h3>
+          <h3 className="text-sm font-medium text-gray-500">Con Cambios</h3>
           <p className="text-2xl font-bold text-blue-600">
-            {logs.filter(log => log.level?.toLowerCase() === 'info').length}
+            {stats.total_changes || 0}
           </p>
         </div>
       </div>
@@ -301,9 +325,16 @@ const CameraLogs = () => {
       {/* Lista de Logs */}
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Registros ({logs.length})
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Registros ({paginationInfo.total_count || logs.length})
+            </h2>
+            {paginationInfo.total_pages > 1 && (
+              <div className="text-sm text-gray-600">
+                Página {paginationInfo.current_page} de {paginationInfo.total_pages}
+              </div>
+            )}
+          </div>
         </div>
         
         <div className="overflow-x-auto">
@@ -461,6 +492,51 @@ const CameraLogs = () => {
             </table>
           )}
         </div>
+        
+        {/* Paginación */}
+        {paginationInfo.total_pages > 1 && (
+          <div className="px-6 py-4 border-t border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-700">
+                Mostrando {((paginationInfo.current_page - 1) * paginationInfo.per_page) + 1} - {Math.min(paginationInfo.current_page * paginationInfo.per_page, paginationInfo.total_count)} de {paginationInfo.total_count} registros
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => {
+                    const newPage = paginationInfo.current_page - 1
+                    setPagination(prev => ({ ...prev, page: newPage }))
+                    const newSearchParams = new URLSearchParams(searchParams)
+                    newSearchParams.set('page', newPage.toString())
+                    setSearchParams(newSearchParams)
+                  }}
+                  disabled={!paginationInfo.has_prev}
+                  className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Anterior
+                </button>
+                
+                <span className="text-sm text-gray-700">
+                  {paginationInfo.current_page} / {paginationInfo.total_pages}
+                </span>
+                
+                <button
+                  onClick={() => {
+                    const newPage = paginationInfo.current_page + 1
+                    setPagination(prev => ({ ...prev, page: newPage }))
+                    const newSearchParams = new URLSearchParams(searchParams)
+                    newSearchParams.set('page', newPage.toString())
+                    setSearchParams(newSearchParams)
+                  }}
+                  disabled={!paginationInfo.has_next}
+                  className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
