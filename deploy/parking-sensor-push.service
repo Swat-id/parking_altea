@@ -1,20 +1,18 @@
 [Unit]
 Description=Parking Sensor Push Service v4.1.0
 After=network.target postgresql.service
-Requires=postgresql.service
-Documentation=https://github.com/Swat-id/parking_altea
+Wants=postgresql.service
 
 [Service]
 Type=simple
 User=root
-Group=root
-WorkingDirectory=/opt/parking_altea/src
+WorkingDirectory=/opt/parking_altea
 Environment=PATH=/opt/parking_altea/venv/bin
-Environment=PYTHONPATH=/opt/parking_altea/src
-Environment=DATABASE_URL=postgresql://parking_user:parking_pass@localhost:5432/parking_db
 ExecStart=/opt/parking_altea/venv/bin/python /opt/parking_altea/src/sensor_push_service.py
 Restart=always
 RestartSec=10
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
