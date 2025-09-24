@@ -1,4 +1,4 @@
-#!/bin/bash
+sud#!/bin/bash
 """
 Script de despliegue completo para Sistema v3.4.0
 Ejecuta migración controlada con validaciones y rollback automático

@@ -15,6 +15,13 @@ const parkingService = {
   },
 
   /**
+   * Alias para getAllParkings (compatibilidad)
+   */
+  getAllParkings() {
+    return this.getParkings()
+  },
+
+  /**
    * Obtener parkings del usuario autenticado
    */
   async getUserParkings() {
