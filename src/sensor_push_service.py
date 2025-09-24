@@ -125,10 +125,41 @@ class SensorPushProcessor:
                 
                 if not sensor:
                     self.logger.warning(f"Sensor no encontrado: {serial_number}")
-                    return {
-                        'success': False,
-                        'error': f'Sensor {serial_number} no registrado en el sistema'
-                    }
+                    # Intentar crear automáticamente el sensor si no existe
+                    try:
+                        # Extraer información básica del push para crear el sensor
+                        plaza_number = push_data.get('number', 'N/A')
+                        sensor_name = f"Sensor Plaza {plaza_number}"
+                        
+                        sensor = IndividualSensor(
+                            serial_number=serial_number,
+                            name=sensor_name,
+                            sensor_type='PMR',  # Tipo por defecto
+                            description=f'Sensor auto-creado desde push - Plaza {plaza_number}',
+                            manufacturer='Fleximodo',
+                            is_active=True
+                        )
+                        
+                        session.add(sensor)
+                        session.flush()  # Para obtener el ID
+                        
+                        # Crear estado inicial
+                        initial_status = SensorCurrentStatus(
+                            sensor_id=sensor.id,
+                            current_status='unknown',
+                            last_update=datetime.now(timezone.utc)
+                        )
+                        session.add(initial_status)
+                        session.flush()
+                        
+                        self.logger.info(f"Sensor creado automáticamente: {serial_number} (ID: {sensor.id})")
+                        
+                    except Exception as create_error:
+                        self.logger.error(f"Error creando sensor automáticamente {serial_number}: {str(create_error)}")
+                        return {
+                            'success': False,
+                            'error': f'Sensor {serial_number} no registrado y no se pudo crear automáticamente: {str(create_error)}'
+                        }
                 
                 # Procesar actualización de estado
                 result = self._update_sensor_status(sensor, push_data, session)
@@ -174,17 +205,34 @@ class SensorPushProcessor:
             elif 'serial_number' not in sensor_info:
                 errors.append("serial_number es obligatorio en sensor_info")
         
-        # Validar estado
-        valid_statuses = ['free', 'busy', 'error', 'unknown', 'notcalib']
-        if 'status' in push_data and push_data['status'] not in valid_statuses:
-            errors.append(f"Estado inválido: {push_data['status']}. Válidos: {valid_statuses}")
+        # Validar y normalizar estado
+        if 'status' in push_data:
+            # Convertir estado a minúsculas para compatibilidad con sensores reales
+            original_status = push_data['status']
+            normalized_status = original_status.lower()
+            push_data['status'] = normalized_status  # Normalizar en el propio objeto
+            
+            valid_statuses = ['free', 'busy', 'error', 'unknown', 'notcalib']
+            if normalized_status not in valid_statuses:
+                errors.append(f"Estado inválido: {original_status} (normalizado: {normalized_status}). Válidos: {valid_statuses}")
         
-        # Validar timestamp
+        # Validar y normalizar timestamp
         if 'timestamp' in push_data:
             try:
-                datetime.strptime(push_data['timestamp'], '%Y-%m-%d %H:%M:%S')
+                # Intentar primero el formato con milisegundos (formato real de sensores)
+                timestamp_str = push_data['timestamp']
+                try:
+                    # Formato: "2025-09-24 07:30:51.987"
+                    parsed_timestamp = datetime.strptime(timestamp_str.split('.')[0], '%Y-%m-%d %H:%M:%S')
+                except ValueError:
+                    # Formato: "2025-09-24 07:30:51"
+                    parsed_timestamp = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
+                
+                # Normalizar timestamp sin milisegundos
+                push_data['timestamp'] = parsed_timestamp.strftime('%Y-%m-%d %H:%M:%S')
+                
             except ValueError:
-                errors.append("Formato de timestamp inválido. Usar: YYYY-MM-DD HH:MM:SS")
+                errors.append("Formato de timestamp inválido. Formatos válidos: 'YYYY-MM-DD HH:MM:SS' o 'YYYY-MM-DD HH:MM:SS.mmm'")
         
         return {
             'valid': len(errors) == 0,
