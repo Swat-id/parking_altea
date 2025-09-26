@@ -252,7 +252,7 @@ def get_user_accessible_panel_ids(db_session: Session, user_id: int, user_role: 
     """
     Obtener IDs de paneles accesibles para un usuario
     - Superadmin: todos los paneles
-    - Usuario regular: solo paneles asignados en UserPanel
+    - Usuario regular: paneles asignados directamente + paneles de parkings asignados
     """
     try:
         if user_role == 'superadmin':
@@ -261,11 +261,23 @@ def get_user_accessible_panel_ids(db_session: Session, user_id: int, user_role: 
             result = db_session.query(Panel.id).all()
             return [row[0] for row in result]
         else:
-            # Usuario regular: solo paneles asignados
-            result = db_session.query(UserPanel.panel_id)\
-                              .filter(UserPanel.user_id == user_id)\
-                              .all()
-            return [row[0] for row in result]
+            # Usuario regular: paneles asignados directamente
+            direct_panels = db_session.query(UserPanel.panel_id)\
+                                     .filter(UserPanel.user_id == user_id)\
+                                     .all()
+            direct_panel_ids = [row[0] for row in direct_panels]
+            
+            # NUEVO: Paneles de parkings asignados al usuario
+            from models import Panel
+            parking_panels = db_session.query(Panel.id)\
+                                      .join(UserParking, Panel.parking_id == UserParking.parking_id)\
+                                      .filter(UserParking.user_id == user_id)\
+                                      .all()
+            parking_panel_ids = [row[0] for row in parking_panels]
+            
+            # Combinar ambas listas y eliminar duplicados
+            all_panel_ids = list(set(direct_panel_ids + parking_panel_ids))
+            return all_panel_ids
     except Exception as e:
         # En caso de error, devolver lista vacía para mayor seguridad
         return []
@@ -274,7 +286,7 @@ def get_user_accessible_access_ids(db_session: Session, user_id: int, user_role:
     """
     Obtener IDs de accesos/cámaras accesibles para un usuario
     - Superadmin: todos los accesos
-    - Usuario regular: solo accesos asignados en UserAccess
+    - Usuario regular: accesos asignados directamente + accesos de parkings asignados
     """
     try:
         if user_role == 'superadmin':
@@ -283,11 +295,24 @@ def get_user_accessible_access_ids(db_session: Session, user_id: int, user_role:
             result = db_session.query(Access.id).all()
             return [row[0] for row in result]
         else:
-            # Usuario regular: solo accesos asignados
-            result = db_session.query(UserAccess.access_id)\
-                              .filter(UserAccess.user_id == user_id)\
-                              .all()
-            return [row[0] for row in result]
+            # Usuario regular: accesos asignados directamente
+            direct_accesses = db_session.query(UserAccess.access_id)\
+                                       .filter(UserAccess.user_id == user_id)\
+                                       .all()
+            direct_access_ids = [row[0] for row in direct_accesses]
+            
+            # NUEVO: Accesos de parkings asignados al usuario (a través de CameraParking)
+            from models import Access, CameraParking
+            parking_accesses = db_session.query(Access.id)\
+                                        .join(CameraParking, Access.id == CameraParking.camera_id)\
+                                        .join(UserParking, CameraParking.parking_id == UserParking.parking_id)\
+                                        .filter(UserParking.user_id == user_id)\
+                                        .all()
+            parking_access_ids = [row[0] for row in parking_accesses]
+            
+            # Combinar ambas listas y eliminar duplicados
+            all_access_ids = list(set(direct_access_ids + parking_access_ids))
+            return all_access_ids
     except Exception as e:
         # En caso de error, devolver lista vacía para mayor seguridad
         return []

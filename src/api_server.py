@@ -1330,18 +1330,15 @@ def get_all_panels():
         session = Session()
         
         # FILTRAR POR PERMISOS: Solo paneles accesibles al usuario
+        # Ahora accessible_panel_ids incluye tanto paneles directos como paneles de parkings asignados
         accessible_panel_ids = getattr(request, 'accessible_panel_ids', [])
-        accessible_parking_ids = getattr(request, 'accessible_parking_ids', [])
         
         # Construir query con filtrado por permisos
         query = session.query(Panel)
         
         if accessible_panel_ids:
-            # Filtrar por paneles accesibles directamente
+            # Filtrar por paneles accesibles (incluye directos + por parking)
             query = query.filter(Panel.id.in_(accessible_panel_ids))
-        elif accessible_parking_ids:
-            # Si no hay paneles específicos, filtrar por parkings accesibles
-            query = query.filter(Panel.parking_id.in_(accessible_parking_ids))
         else:
             # Usuario no tiene acceso a ningún panel, devolver lista vacía
             session.close()
