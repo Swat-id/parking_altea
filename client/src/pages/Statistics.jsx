@@ -80,9 +80,25 @@ const Statistics = () => {
       setLoading(true)
       setError(null)
       
-      // Cargar información del parking
-      const parkingData = await parkingService.getParking(id)
-      setParking(parkingData)
+      // Cargar información del parking con manejo de permisos
+      try {
+        const parkingData = await parkingService.getParking(id)
+        setParking(parkingData)
+      } catch (parkingError) {
+        if (parkingError.response?.status === 403) {
+          // Usuario no tiene permisos para este parking, redirigir al primero disponible
+          console.warn(`Sin permisos para parking ${id}, redirigiendo...`)
+          const availableParkings = await parkingService.getParkings()
+          if (availableParkings.length > 0) {
+            navigate(`/statistics/${availableParkings[0].id}`, { replace: true })
+            return
+          } else {
+            throw new Error('No tienes acceso a ningún parking')
+          }
+        } else {
+          throw parkingError
+        }
+      }
       
       // Determinar fecha para estadísticas
       let dateParam = null
@@ -105,7 +121,7 @@ const Statistics = () => {
     } catch (err) {
       setError('Error cargando estadísticas')
       console.error('Error:', err)
-      toast.error('Error cargando estadísticas')
+      toast.error(err.message || 'Error cargando estadísticas')
     } finally {
       setLoading(false)
     }

@@ -71,10 +71,10 @@ const Panels = () => {
   })
   const [editingPanel, setEditingPanel] = useState(null)
 
-  // Obtener paneles
+  // Obtener paneles filtrados por permisos del usuario
   const { data: panels = [], isLoading, refetch } = useQuery(
-    'panels',
-    panelService.getAllPanels,
+    'userPanels',
+    panelService.getAllPanels, // Ya filtra automáticamente por permisos
     {
       refetchInterval: 30000, // Refrescar cada 30 segundos
     }

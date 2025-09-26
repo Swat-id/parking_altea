@@ -57,15 +57,20 @@ const ParkingDetail = () => {
   const [showCameraModal, setShowCameraModal] = useState(false)
   const [assignedCameras, setAssignedCameras] = useState([])
 
-  // Obtener datos del parking
+  // Obtener datos del parking con manejo de permisos
   const { data: parkingData, isLoading, error: parkingError } = useQuery(
     ['parking', id],
     () => parkingService.getParking(id),
     {
       retry: 1,
-      onError: () => {
-        toast.error('Error al cargar el parking')
-        navigate('/parkings')
+      onError: (error) => {
+        if (error.response?.status === 403) {
+          toast.error('No tienes permisos para acceder a este parking')
+          navigate('/parkings')
+        } else {
+          toast.error('Error al cargar el parking')
+          navigate('/parkings')
+        }
       }
     }
   )
@@ -260,9 +265,19 @@ const ParkingDetail = () => {
       setLoading(true)
       setError(null)
       
-      // Cargar datos del parking
-      const parkingData = await parkingService.getParking(id)
-      setParking(parkingData)
+      // Cargar datos del parking con manejo de permisos
+      try {
+        const parkingData = await parkingService.getParking(id)
+        setParking(parkingData)
+      } catch (parkingError) {
+        if (parkingError.response?.status === 403) {
+          toast.error('No tienes permisos para acceder a este parking')
+          navigate('/parkings')
+          return
+        } else {
+          throw parkingError
+        }
+      }
       
       // Cargar cámaras del parking
       try {

@@ -1320,6 +1320,8 @@ def delete_scheduled_message(pid):
 # ============================================================================
 
 @api_bp.route('/panels', methods=['GET'])
+@require_auth
+@filter_by_user_permissions
 def get_all_panels():
     """Obtener todos los paneles con su estado actual e información de programaciones activas"""
     try:
@@ -1327,10 +1329,25 @@ def get_all_panels():
         
         session = Session()
         
-        # Construir query
+        # FILTRAR POR PERMISOS: Solo paneles accesibles al usuario
+        accessible_panel_ids = getattr(request, 'accessible_panel_ids', [])
+        accessible_parking_ids = getattr(request, 'accessible_parking_ids', [])
+        
+        # Construir query con filtrado por permisos
         query = session.query(Panel)
         
-        # Filtrar por parking si se especifica
+        if accessible_panel_ids:
+            # Filtrar por paneles accesibles directamente
+            query = query.filter(Panel.id.in_(accessible_panel_ids))
+        elif accessible_parking_ids:
+            # Si no hay paneles específicos, filtrar por parkings accesibles
+            query = query.filter(Panel.parking_id.in_(accessible_parking_ids))
+        else:
+            # Usuario no tiene acceso a ningún panel, devolver lista vacía
+            session.close()
+            return jsonify([])
+        
+        # Filtrar por parking específico si se especifica
         if parking_id:
             query = query.filter(Panel.parking_id == parking_id)
         
@@ -2462,6 +2479,8 @@ def get_camera_logs():
         return jsonify({'error': 'Internal server error'}), 500
 
 @api_bp.route('/camera-logs-v2', methods=['GET'])
+@require_auth
+@filter_by_user_permissions
 def get_camera_logs_v2():
     """
     Endpoint avanzado para logs de cámaras con filtros completos
@@ -2509,10 +2528,35 @@ def get_camera_logs_v2():
         
         session = Session()
         
-        # Construir query base
+        # Construir query base con filtrado por permisos
         query = session.query(CameraLog)
         
-        # Aplicar filtros
+        # FILTRAR POR PERMISOS: Solo logs de parkings y accesos permitidos
+        accessible_parking_ids = getattr(request, 'accessible_parking_ids', [])
+        accessible_access_ids = getattr(request, 'accessible_access_ids', [])
+        
+        if accessible_parking_ids or accessible_access_ids:
+            # Filtrar por parkings O accesos accesibles
+            parking_filter = CameraLog.parking_id.in_(accessible_parking_ids) if accessible_parking_ids else False
+            access_filter = CameraLog.access_id.in_(accessible_access_ids) if accessible_access_ids else False
+            
+            if parking_filter and access_filter:
+                query = query.filter(parking_filter | access_filter)
+            elif parking_filter:
+                query = query.filter(parking_filter)
+            elif access_filter:
+                query = query.filter(access_filter)
+            else:
+                # Usuario no tiene acceso a ningún recurso, devolver lista vacía
+                session.close()
+                return jsonify({
+                    'logs': [],
+                    'pagination': {'current_page': 1, 'per_page': per_page, 'total_pages': 0, 'total_count': 0},
+                    'filters_applied': {},
+                    'stats': {'processed_count': 0, 'error_count': 0, 'discarded_count': 0, 'total_changes': 0}
+                })
+        
+        # Aplicar filtros adicionales
         filters_applied = {}
         
         if parking_id:
