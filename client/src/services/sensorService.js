@@ -2,9 +2,14 @@ import api from './api'
 
 const sensorService = {
   // ============================================================================
-  // CRUD BÁSICO DE SENSORES
+  // CRUD BÁSICO DE SENSORES (MEJORADO v4.2.0 CON FILTRADO POR PERMISOS)
   // ============================================================================
   
+  /**
+   * MEJORADO v4.2.0: Obtener todos los sensores del usuario
+   * - Ahora filtra automáticamente por parkings accesibles
+   * - Superadmin ve todos, usuario regular solo sensores de sus parkings
+   */
   async getAllSensors(filters = {}) {
     try {
       const params = new URLSearchParams()
@@ -105,12 +110,75 @@ const sensorService = {
     }
   },
 
+  /**
+   * MEJORADO v4.2.0: Obtener estado agrupado filtrado por permisos
+   */
   async getGroupedStatus() {
     try {
       const response = await api.get('/api/sensors/status/grouped')
       return response.data
     } catch (error) {
       console.error('Error obteniendo datos agrupados de sensores:', error)
+      throw error
+    }
+  },
+
+  // ============================================================================
+  // NUEVOS MÉTODOS v4.2.0: ENDPOINTS AGRUPADOS CON PERMISOS
+  // ============================================================================
+
+  /**
+   * NUEVO v4.2.0: Obtener resumen personalizado del usuario
+   */
+  async getUserSensorsSummary() {
+    try {
+      const response = await api.get('/api/sensors/summary/user')
+      return response.data
+    } catch (error) {
+      console.error('Error obteniendo resumen de sensores del usuario:', error)
+      throw error
+    }
+  },
+
+  /**
+   * NUEVO v4.2.0: Obtener sensores por tipo específico
+   */
+  async getSensorsByType(sensorType) {
+    try {
+      const response = await api.get(`/api/sensors/type/${sensorType}/summary`)
+      return response.data
+    } catch (error) {
+      console.error(`Error obteniendo sensores tipo ${sensorType}:`, error)
+      throw error
+    }
+  },
+
+  /**
+   * NUEVO v4.2.0: Obtener dashboard personalizado de sensores
+   */
+  async getUserDashboard() {
+    try {
+      const response = await api.get('/api/dashboard/user/sensors')
+      return response.data
+    } catch (error) {
+      console.error('Error obteniendo dashboard de sensores del usuario:', error)
+      throw error
+    }
+  },
+
+  /**
+   * NUEVO v4.2.0: Obtener resumen de un parking específico
+   */
+  async getParkingSummary(parkingId) {
+    try {
+      const response = await api.get(`/api/parkings/${parkingId}/sensors/summary`)
+      return response.data
+    } catch (error) {
+      if (error.response?.status === 403) {
+        console.warn(`Sin permisos para sensores del parking ${parkingId}`)
+        return null
+      }
+      console.error(`Error obteniendo resumen del parking ${parkingId}:`, error)
       throw error
     }
   },

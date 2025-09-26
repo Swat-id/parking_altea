@@ -2,7 +2,9 @@ import api from './api'
 
 const parkingService = {
   /**
-   * Obtener todos los parkings
+   * Obtener todos los parkings (FILTRADO AUTOMÁTICAMENTE POR PERMISOS)
+   * - Superadmin: ve todos los parkings
+   * - Usuario regular: solo parkings asignados
    */
   async getParkings() {
     try {
@@ -22,7 +24,8 @@ const parkingService = {
   },
 
   /**
-   * Obtener parkings del usuario autenticado
+   * Obtener parkings del usuario con información de permisos
+   * NUEVO: Usa endpoint específico que ya filtra por usuario
    */
   async getUserParkings() {
     try {
@@ -35,126 +38,36 @@ const parkingService = {
   },
 
   /**
-   * Obtener un parking específico
+   * Obtener un parking específico por ID
+   * - Solo accesible si el usuario tiene permisos
    */
-  async getParking(id) {
+  async getParking(parkingId) {
     try {
-      const response = await api.get(`/api/parkings/${id}`)
+      const response = await api.get(`/api/parkings/${parkingId}`)
       return response.data
     } catch (error) {
-      console.error('Error obteniendo parking:', error)
+      if (error.response?.status === 403) {
+        console.warn(`Sin permisos para acceder al parking ${parkingId}`)
+      }
       throw error
     }
   },
 
   /**
-   * Actualizar ocupación de un parking
+   * Obtener estado de parkings (FILTRADO POR PERMISOS)
    */
-  async updateOccupancy(parkingId, occupancy) {
+  async getParkingsStatus() {
     try {
-      const response = await api.post(`/api/parkings/${parkingId}/occupancy`, { occupancy })
+      const response = await api.get('/api/parkings/status')
       return response.data
     } catch (error) {
-      console.error('Error actualizando ocupación:', error)
+      console.error('Error obteniendo estado de parkings:', error)
       throw error
     }
   },
 
   /**
-   * Actualizar configuración de un parking
-   */
-  async updateConfig(parkingId, config) {
-    try {
-      const response = await api.post(`/api/parkings/${parkingId}/config`, config)
-      return response.data
-    } catch (error) {
-      console.error('Error actualizando configuración:', error)
-      throw error
-    }
-  },
-
-  /**
-   * Actualizar cámaras de un parking
-   */
-  async updateCameras(parkingId, cameras) {
-    try {
-      const response = await api.put(`/api/parkings/${parkingId}/cameras`, { cameras })
-      return response.data
-    } catch (error) {
-      console.error('Error actualizando cámaras:', error)
-      throw error
-    }
-  },
-
-  /**
-   * Enviar mensaje a un parking
-   */
-  async sendMessage(parkingId, message) {
-    try {
-      const response = await api.post(`/api/parkings/${parkingId}/message`, message)
-      return response.data
-    } catch (error) {
-      console.error('Error enviando mensaje:', error)
-      throw error
-    }
-  },
-
-  /**
-   * Obtener estadísticas de un parking
-   */
-  async getStatistics(parkingId) {
-    try {
-      const response = await api.get(`/api/parkings/${parkingId}/statistics`)
-      return response.data
-    } catch (error) {
-      console.error('Error obteniendo estadísticas:', error)
-      throw error
-    }
-  },
-
-  /**
-   * Obtener historial de ocupación de un parking
-   */
-  async getHistory(parkingId) {
-    try {
-      const response = await api.get(`/api/parkings/${parkingId}/history`)
-      return response.data
-    } catch (error) {
-      console.error('Error obteniendo historial:', error)
-      throw error
-    }
-  },
-
-  /**
-   * Obtener mensajes programados de un parking
-   */
-  getScheduledMessages: async (parkingId) => {
-    try {
-      const response = await api.get(`/api/parkings/${parkingId}/message`)
-      return response.data
-    } catch (error) {
-      console.error('Error obteniendo mensajes programados:', error)
-      throw error
-    }
-  },
-
-  /**
-   * Eliminar mensaje programado
-   */
-  deleteScheduledMessage: async (parkingId, messageId) => {
-    try {
-      const response = await api.delete(`/api/parkings/${parkingId}/message`, {
-        data: { message_id: messageId }
-      })
-      return response.data
-    } catch (error) {
-      console.error('Error eliminando mensaje programado:', error)
-      throw error
-    }
-  },
-
-  /**
-   * Crear un nuevo parking
+   * Crear nuevo parking (solo superadmin)
    */
   async createParking(parkingData) {
     try {
@@ -167,20 +80,20 @@ const parkingService = {
   },
 
   /**
-   * Editar información general de un parking
+   * Actualizar parking existente (solo si tiene permisos)
    */
-  async editParking(parkingId, parkingData) {
+  async updateParking(parkingId, parkingData) {
     try {
       const response = await api.put(`/api/parkings/${parkingId}`, parkingData)
       return response.data
     } catch (error) {
-      console.error('Error editando parking:', error)
+      console.error('Error actualizando parking:', error)
       throw error
     }
   },
 
   /**
-   * Eliminar un parking
+   * Eliminar parking (solo superadmin)
    */
   async deleteParking(parkingId) {
     try {
@@ -190,7 +103,158 @@ const parkingService = {
       console.error('Error eliminando parking:', error)
       throw error
     }
+  },
+
+  /**
+   * Obtener estadísticas de un parking específico
+   * - Solo si el usuario tiene acceso al parking
+   */
+  async getParkingStatistics(parkingId, days = 7) {
+    try {
+      const response = await api.get(`/api/parkings/${parkingId}/statistics?days=${days}`)
+      return response.data
+    } catch (error) {
+      if (error.response?.status === 403) {
+        console.warn(`Sin permisos para estadísticas del parking ${parkingId}`)
+      }
+      throw error
+    }
+  },
+
+  /**
+   * Obtener ocupación histórica de un parking
+   */
+  async getParkingOccupancy(parkingId, params = {}) {
+    try {
+      const queryParams = new URLSearchParams()
+      if (params.startDate) queryParams.append('start_date', params.startDate)
+      if (params.endDate) queryParams.append('end_date', params.endDate)
+      if (params.interval) queryParams.append('interval', params.interval)
+      
+      const url = `/api/parkings/${parkingId}/occupancy${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+      const response = await api.get(url)
+      return response.data
+    } catch (error) {
+      console.error('Error obteniendo ocupación del parking:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Obtener configuración de alarmas de un parking
+   */
+  async getParkingAlarms(parkingId) {
+    try {
+      const response = await api.get(`/api/parkings/${parkingId}/alarms`)
+      return response.data
+    } catch (error) {
+      if (error.response?.status === 403) {
+        console.warn(`Sin permisos para alarmas del parking ${parkingId}`)
+      }
+      throw error
+    }
+  },
+
+  /**
+   * NUEVO v4.2.0: Obtener resumen de sensores de un parking
+   * - Usa el nuevo endpoint agrupado
+   */
+  async getParkingSensorsSummary(parkingId) {
+    try {
+      const response = await api.get(`/api/parkings/${parkingId}/sensors/summary`)
+      return response.data
+    } catch (error) {
+      if (error.response?.status === 403) {
+        console.warn(`Sin permisos para sensores del parking ${parkingId}`)
+      }
+      throw error
+    }
+  },
+
+  /**
+   * NUEVO v4.2.0: Obtener sensores detallados de un parking
+   */
+  async getParkingSensorsDetailed(parkingId, filters = {}) {
+    try {
+      const params = new URLSearchParams()
+      if (filters.sensor_type) params.append('sensor_type', filters.sensor_type)
+      if (filters.status) params.append('status', filters.status)
+      
+      const url = `/api/parkings/${parkingId}/sensors/detailed${params.toString() ? `?${params.toString()}` : ''}`
+      const response = await api.get(url)
+      return response.data
+    } catch (error) {
+      console.error('Error obteniendo sensores detallados del parking:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Utilidades para el frontend
+   */
+  utils: {
+    /**
+     * Verificar si el usuario tiene acceso a un parking específico
+     */
+    async hasAccessToParking(parkingId) {
+      try {
+        await api.get(`/api/parkings/${parkingId}`)
+        return true
+      } catch (error) {
+        if (error.response?.status === 403) {
+          return false
+        }
+        throw error
+      }
+    },
+
+    /**
+     * Filtrar lista de parkings por IDs accesibles
+     */
+    async filterAccessibleParkings(parkingIds) {
+      const accessible = []
+      for (const parkingId of parkingIds) {
+        try {
+          if (await this.hasAccessToParking(parkingId)) {
+            accessible.push(parkingId)
+          }
+        } catch (error) {
+          console.warn(`Error verificando acceso al parking ${parkingId}:`, error)
+        }
+      }
+      return accessible
+    },
+
+    /**
+     * Obtener solo parkings con sensores
+     */
+    async getParkingsWithSensors() {
+      try {
+        const parkings = await parkingService.getParkings()
+        const parkingsWithSensors = []
+        
+        for (const parking of parkings) {
+          try {
+            const summary = await parkingService.getParkingSensorsSummary(parking.id)
+            if (summary.totals.total_sensors > 0) {
+              parkingsWithSensors.push({
+                ...parking,
+                sensors_count: summary.totals.total_sensors
+              })
+            }
+          } catch (error) {
+            // Si no tiene permisos o no tiene sensores, simplemente no lo incluimos
+            continue
+          }
+        }
+        
+        return parkingsWithSensors
+      } catch (error) {
+        console.error('Error obteniendo parkings con sensores:', error)
+        throw error
+      }
+    }
   }
 }
 
-export default parkingService 
+export default parkingService
