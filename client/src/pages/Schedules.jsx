@@ -64,10 +64,10 @@ const Schedules = () => {
     is_active: true
   })
 
-  // Obtener parkings
+  // Obtener parkings con filtrado por permisos
   const { data: parkings = [] } = useQuery(
-    'parkings',
-    () => fetch(`${API_BASE_URL}/api/parkings`).then(res => res.json())
+    'userParkings',
+    () => api.get('/api/parkings').then(res => res.data)
   )
 
   // Obtener programaciones

@@ -72,10 +72,10 @@ const Sensors = () => {
     }
   )
 
-  // Obtener parkings para filtros
+  // Obtener parkings con filtrado por permisos
   const { data: parkings = [] } = useQuery(
-    'parkings',
-    () => parkingService.getAllParkings()
+    'userParkings',
+    () => parkingService.getParkings()
   )
 
   // Obtener resumen para dashboard

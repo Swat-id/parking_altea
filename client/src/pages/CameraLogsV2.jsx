@@ -85,6 +85,7 @@ const CameraLogsV2 = () => {
 
   const loadParkings = async () => {
     try {
+      // Cargar parkings con filtrado por permisos
       const parkingsData = await parkingService.getParkings()
       setParkings(parkingsData || [])
     } catch (err) {

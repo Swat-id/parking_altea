@@ -50,7 +50,7 @@ const CameraLogs = () => {
       setLoading(true)
       setError(null)
       
-      // Cargar parkings
+      // Cargar parkings con filtrado por permisos
       const parkingsData = await parkingService.getParkings()
       setParkings(parkingsData || [])
       

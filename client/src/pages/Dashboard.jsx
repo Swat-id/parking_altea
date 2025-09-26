@@ -16,10 +16,10 @@ import {
 } from 'lucide-react'
 
 const Dashboard = () => {
-  // Usar la API real para obtener parkings
+  // Usar la API con filtrado por permisos
   const { data: parkings = [], isLoading: parkingsLoading, error: parkingsError } = useQuery(
-    'allParkings',
-    parkingService.getAllParkings,
+    'userParkings',
+    parkingService.getParkings,
     {
       retry: 2,
       refetchOnWindowFocus: false,

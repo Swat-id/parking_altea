@@ -34,6 +34,7 @@ import {
   Trash2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import api from '../services/api'
 
 const Panels = () => {
   const { isSuperadmin } = useAuth()
@@ -88,10 +89,10 @@ const Panels = () => {
     }
   )
 
-  // Obtener parkings para el formulario de creación
+  // Obtener parkings con filtrado por permisos
   const { data: parkings = [] } = useQuery(
-    'parkings',
-    () => fetch('/api/parkings').then(res => res.json())
+    'userParkings',
+    () => api.get('/api/parkings').then(res => res.data)
   )
 
   // NUEVO v4.1.0: Estado para validación

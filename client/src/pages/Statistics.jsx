@@ -55,6 +55,7 @@ const Statistics = () => {
   useEffect(() => {
     async function fetchParkings() {
       try {
+        // Usar parkings con filtrado por permisos
         const data = await parkingService.getParkings()
         setParkings(data)
         // Si no hay id, redirigir al primer parking
