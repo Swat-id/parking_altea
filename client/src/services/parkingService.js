@@ -190,6 +190,34 @@ const parkingService = {
   },
 
   /**
+   * Actualizar ocupación de un parking
+   */
+  async updateOccupancy(parkingId, occupancy) {
+    try {
+      const response = await api.post(`/api/parkings/${parkingId}/occupancy`, { 
+        occupancy: occupancy 
+      })
+      return response.data
+    } catch (error) {
+      console.error('Error actualizando ocupación del parking:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Actualizar configuración de un parking
+   */
+  async updateConfig(parkingId, config) {
+    try {
+      const response = await api.post(`/api/parkings/${parkingId}/config`, config)
+      return response.data
+    } catch (error) {
+      console.error('Error actualizando configuración del parking:', error)
+      throw error
+    }
+  },
+
+  /**
    * Utilidades para el frontend
    */
   utils: {
