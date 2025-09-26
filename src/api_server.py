@@ -17,7 +17,7 @@ from panel_schedule_service import PanelScheduleService
 from auth import (
     create_user, authenticate_user, delete_user, change_password, 
     get_user_permissions, assign_user_to_resources, require_auth, require_superadmin,
-    require_parking_access, require_panel_access
+    require_parking_access, require_panel_access, filter_by_user_permissions
 )
 
 # Token authentication decorator (placeholder for v4.1.0)
@@ -4316,8 +4316,9 @@ def get_alarm_statistics():
 
 @api_bp.route('/sensors', methods=['GET'])
 @require_auth
+@filter_by_user_permissions
 def get_individual_sensors():
-    """Obtener todos los sensores individuales con filtros opcionales"""
+    """Obtener todos los sensores individuales con filtros opcionales - FILTRADO POR PERMISOS"""
     try:
         session = Session()
         
@@ -4326,10 +4327,19 @@ def get_individual_sensors():
         sensor_type = request.args.get('sensor_type')
         is_active = request.args.get('is_active', type=bool)
         
-        # Query base
+        # Query base con filtrado por permisos
         query = session.query(IndividualSensor)
         
-        # Aplicar filtros
+        # Filtrar por parkings accesibles al usuario
+        accessible_parking_ids = getattr(request, 'accessible_parking_ids', [])
+        if accessible_parking_ids:
+            query = query.filter(IndividualSensor.parking_id.in_(accessible_parking_ids))
+        else:
+            # Si no tiene acceso a ningún parking, devolver vacío
+            session.close()
+            return jsonify([])
+        
+        # Aplicar filtros adicionales
         if parking_id:
             query = query.filter(IndividualSensor.parking_id == parking_id)
         if sensor_type:
@@ -4688,15 +4698,27 @@ def update_sensor_status(sensor_id):
 
 @api_bp.route('/sensors/summary', methods=['GET'])
 @require_auth
+@filter_by_user_permissions
 def get_sensors_summary():
-    """Obtener resumen de sensores agrupados por parking y tipo"""
+    """Obtener resumen de sensores agrupados por parking y tipo - FILTRADO POR PERMISOS"""
     try:
         parking_id = request.args.get('parking_id', type=int)
         
         session = Session()
         
-        # Query base para resúmenes
+        # Query base para resúmenes con filtrado por permisos
         query = session.query(ParkingSensorSummary)
+        
+        # Filtrar por parkings accesibles al usuario
+        accessible_parking_ids = getattr(request, 'accessible_parking_ids', [])
+        if accessible_parking_ids:
+            query = query.filter(ParkingSensorSummary.parking_id.in_(accessible_parking_ids))
+        else:
+            # Si no tiene acceso a ningún parking, devolver vacío
+            session.close()
+            return jsonify([])
+        
+        # Filtro adicional por parking específico si se proporciona
         if parking_id:
             query = query.filter(ParkingSensorSummary.parking_id == parking_id)
         
@@ -4729,18 +4751,28 @@ def get_sensors_summary():
 
 @api_bp.route('/sensors/status/complete', methods=['GET'])
 @require_auth
+@filter_by_user_permissions
 def get_complete_sensors_status():
-    """Endpoint autenticado para estado completo de sensores individuales"""
+    """Endpoint autenticado para estado completo de sensores individuales - FILTRADO POR PERMISOS"""
     try:
         parking_id = request.args.get('parking_id', type=int)
         sensor_type = request.args.get('sensor_type')
         
         session = Session()
         
-        # Query base
+        # Query base con filtrado por permisos
         query = session.query(IndividualSensor).filter(IndividualSensor.is_active == True)
         
-        # Aplicar filtros
+        # Filtrar por parkings accesibles al usuario
+        accessible_parking_ids = getattr(request, 'accessible_parking_ids', [])
+        if accessible_parking_ids:
+            query = query.filter(IndividualSensor.parking_id.in_(accessible_parking_ids))
+        else:
+            # Si no tiene acceso a ningún parking, devolver vacío
+            session.close()
+            return jsonify({'sensors': [], 'statistics': {'total_sensors': 0}})
+        
+        # Aplicar filtros adicionales
         if parking_id:
             query = query.filter(IndividualSensor.parking_id == parking_id)
         if sensor_type:
@@ -4807,15 +4839,25 @@ def get_complete_sensors_status():
 
 @api_bp.route('/sensors/status/grouped', methods=['GET'])
 @require_auth
+@filter_by_user_permissions
 def get_grouped_sensors_status():
-    """Endpoint autenticado para estado agrupado por parking"""
+    """Endpoint autenticado para estado agrupado por parking - FILTRADO POR PERMISOS"""
     try:
         session = Session()
         
+        # Obtener parkings accesibles
+        accessible_parking_ids = getattr(request, 'accessible_parking_ids', [])
+        if not accessible_parking_ids:
+            # Si no tiene acceso a ningún parking, devolver vacío
+            session.close()
+            return jsonify({'grouped_data': [], 'timestamp': datetime.now().isoformat()})
+        
         # Usar las vistas materializadas para datos optimizados
         try:
-            # Intentar usar la función optimizada de la base de datos
-            result = session.execute("SELECT * FROM get_sensors_dashboard_data()").fetchall()
+            # Intentar usar la función optimizada de la base de datos con filtrado
+            parking_ids_str = ','.join(map(str, accessible_parking_ids))
+            sql_query = f"SELECT * FROM get_sensors_dashboard_data() WHERE parking_id IN ({parking_ids_str})"
+            result = session.execute(sql_query).fetchall()
             
             grouped_data = []
             for row in result:
@@ -4837,8 +4879,8 @@ def get_grouped_sensors_status():
         except Exception as db_error:
             logger.warning(f"Error usando función optimizada, fallback a query manual: {db_error}")
             
-            # Fallback a query manual
-            parkings = session.query(Parking).all()
+            # Fallback a query manual con filtrado por permisos
+            parkings = session.query(Parking).filter(Parking.id.in_(accessible_parking_ids)).all()
             grouped_data = []
             
             for parking in parkings:
@@ -4883,6 +4925,418 @@ def get_grouped_sensors_status():
         
     except Exception as e:
         logger.error(f"Error obteniendo datos agrupados de sensores: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+# ============================================================================
+# NUEVOS ENDPOINTS v4.2.0: SENSORES AGRUPADOS CON CONTROL DE PERMISOS
+# ============================================================================
+
+@api_bp.route('/parkings/<int:parking_id>/sensors/summary', methods=['GET'])
+@require_parking_access('parking_id')
+def get_parking_sensors_summary(parking_id):
+    """
+    Obtener resumen de sensores de un parking específico agrupado por tipo
+    - Solo usuarios con acceso al parking pueden ver los datos
+    - Superadmin ve todos los parkings
+    """
+    try:
+        session = Session()
+        
+        # Verificar que el parking existe
+        parking = session.query(Parking).filter(Parking.id == parking_id).first()
+        if not parking:
+            session.close()
+            return jsonify({'error': 'Parking no encontrado'}), 404
+        
+        # Obtener sensores agrupados por tipo
+        sensor_types_query = session.query(IndividualSensor.sensor_type).filter(
+            IndividualSensor.parking_id == parking_id,
+            IndividualSensor.is_active == True
+        ).distinct()
+        
+        sensor_types_data = {}
+        total_sensors = 0
+        total_free = 0
+        total_busy = 0
+        total_error = 0
+        
+        for sensor_type_row in sensor_types_query:
+            sensor_type = sensor_type_row[0]
+            
+            # Obtener sensores de este tipo
+            sensors = session.query(IndividualSensor).filter(
+                IndividualSensor.parking_id == parking_id,
+                IndividualSensor.sensor_type == sensor_type,
+                IndividualSensor.is_active == True
+            ).all()
+            
+            # Contar por estado
+            type_total = len(sensors)
+            type_free = sum(1 for s in sensors if s.current_status == 'free')
+            type_busy = sum(1 for s in sensors if s.current_status == 'busy')
+            type_error = sum(1 for s in sensors if s.current_status == 'error')
+            
+            # Calcular métricas
+            occupancy_rate = round((type_busy / type_total * 100) if type_total > 0 else 0, 2)
+            health_score = round(((type_total - type_error) / type_total * 100) if type_total > 0 else 0, 2)
+            
+            sensor_types_data[sensor_type] = {
+                'total': type_total,
+                'free': type_free,
+                'busy': type_busy,
+                'error': type_error,
+                'occupancy_rate': occupancy_rate,
+                'health_score': health_score
+            }
+            
+            # Sumar a totales
+            total_sensors += type_total
+            total_free += type_free
+            total_busy += type_busy
+            total_error += type_error
+        
+        # Calcular métricas globales
+        overall_occupancy = round((total_busy / total_sensors * 100) if total_sensors > 0 else 0, 2)
+        overall_health = round(((total_sensors - total_error) / total_sensors * 100) if total_sensors > 0 else 0, 2)
+        
+        response = {
+            'parking_id': parking_id,
+            'parking_name': parking.name,
+            'sensor_types': sensor_types_data,
+            'totals': {
+                'total_sensors': total_sensors,
+                'total_free': total_free,
+                'total_busy': total_busy,
+                'total_error': total_error,
+                'overall_occupancy': overall_occupancy,
+                'overall_health': overall_health
+            },
+            'last_update': datetime.now().isoformat()
+        }
+        
+        session.close()
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo resumen de sensores del parking {parking_id}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@api_bp.route('/sensors/summary/user', methods=['GET'])
+@require_auth
+@filter_by_user_permissions
+def get_user_sensors_summary():
+    """
+    Obtener resumen de sensores de todos los parkings del usuario
+    - Filtra automáticamente por parkings asignados al usuario
+    - Agrupa por parking y tipo de sensor
+    """
+    try:
+        session = Session()
+        
+        # Obtener parkings accesibles
+        accessible_parking_ids = getattr(request, 'accessible_parking_ids', [])
+        if not accessible_parking_ids:
+            session.close()
+            return jsonify({
+                'user_parkings': [],
+                'global_totals': {'total_sensors': 0, 'total_free': 0, 'total_busy': 0, 'total_error': 0}
+            })
+        
+        # Obtener parkings del usuario
+        parkings = session.query(Parking).filter(Parking.id.in_(accessible_parking_ids)).all()
+        
+        user_parkings = []
+        global_total_sensors = 0
+        global_total_free = 0
+        global_total_busy = 0
+        global_total_error = 0
+        
+        for parking in parkings:
+            # Obtener tipos de sensores para este parking
+            sensor_types_query = session.query(IndividualSensor.sensor_type).filter(
+                IndividualSensor.parking_id == parking.id,
+                IndividualSensor.is_active == True
+            ).distinct()
+            
+            parking_sensor_types = {}
+            
+            for sensor_type_row in sensor_types_query:
+                sensor_type = sensor_type_row[0]
+                
+                # Contar sensores de este tipo
+                sensors = session.query(IndividualSensor).filter(
+                    IndividualSensor.parking_id == parking.id,
+                    IndividualSensor.sensor_type == sensor_type,
+                    IndividualSensor.is_active == True
+                ).all()
+                
+                type_total = len(sensors)
+                type_free = sum(1 for s in sensors if s.current_status == 'free')
+                type_busy = sum(1 for s in sensors if s.current_status == 'busy')
+                type_error = sum(1 for s in sensors if s.current_status == 'error')
+                
+                parking_sensor_types[sensor_type] = {
+                    'total': type_total,
+                    'free': type_free,
+                    'busy': type_busy,
+                    'error': type_error
+                }
+                
+                # Sumar a globales
+                global_total_sensors += type_total
+                global_total_free += type_free
+                global_total_busy += type_busy
+                global_total_error += type_error
+            
+            if parking_sensor_types:  # Solo agregar si tiene sensores
+                user_parkings.append({
+                    'parking_id': parking.id,
+                    'parking_name': parking.name,
+                    'sensor_types': parking_sensor_types
+                })
+        
+        response = {
+            'user_parkings': user_parkings,
+            'global_totals': {
+                'total_sensors': global_total_sensors,
+                'total_free': global_total_free,
+                'total_busy': global_total_busy,
+                'total_error': global_total_error
+            },
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        session.close()
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo resumen de sensores del usuario: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@api_bp.route('/sensors/type/<sensor_type>/summary', methods=['GET'])
+@require_auth
+@filter_by_user_permissions
+def get_sensors_by_type_summary(sensor_type):
+    """
+    Obtener resumen de sensores de un tipo específico
+    - Filtra por parkings del usuario
+    - Agrupa por parking
+    """
+    try:
+        session = Session()
+        
+        # Obtener parkings accesibles
+        accessible_parking_ids = getattr(request, 'accessible_parking_ids', [])
+        if not accessible_parking_ids:
+            session.close()
+            return jsonify({
+                'sensor_type': sensor_type,
+                'parkings': [],
+                'totals': {'total_sensors': 0, 'total_free': 0, 'total_busy': 0, 'total_error': 0}
+            })
+        
+        # Obtener parkings que tienen sensores de este tipo
+        parkings_with_sensors = session.query(Parking).join(IndividualSensor).filter(
+            Parking.id.in_(accessible_parking_ids),
+            IndividualSensor.sensor_type == sensor_type,
+            IndividualSensor.is_active == True
+        ).distinct().all()
+        
+        parkings_data = []
+        total_sensors = 0
+        total_free = 0
+        total_busy = 0
+        total_error = 0
+        
+        for parking in parkings_with_sensors:
+            # Obtener sensores de este tipo en este parking
+            sensors = session.query(IndividualSensor).filter(
+                IndividualSensor.parking_id == parking.id,
+                IndividualSensor.sensor_type == sensor_type,
+                IndividualSensor.is_active == True
+            ).all()
+            
+            parking_total = len(sensors)
+            parking_free = sum(1 for s in sensors if s.current_status == 'free')
+            parking_busy = sum(1 for s in sensors if s.current_status == 'busy')
+            parking_error = sum(1 for s in sensors if s.current_status == 'error')
+            
+            parkings_data.append({
+                'parking_id': parking.id,
+                'parking_name': parking.name,
+                'total': parking_total,
+                'free': parking_free,
+                'busy': parking_busy,
+                'error': parking_error,
+                'occupancy_rate': round((parking_busy / parking_total * 100) if parking_total > 0 else 0, 2),
+                'health_score': round(((parking_total - parking_error) / parking_total * 100) if parking_total > 0 else 0, 2)
+            })
+            
+            # Sumar a totales
+            total_sensors += parking_total
+            total_free += parking_free
+            total_busy += parking_busy
+            total_error += parking_error
+        
+        response = {
+            'sensor_type': sensor_type,
+            'parkings': parkings_data,
+            'totals': {
+                'total_sensors': total_sensors,
+                'total_free': total_free,
+                'total_busy': total_busy,
+                'total_error': total_error,
+                'overall_occupancy': round((total_busy / total_sensors * 100) if total_sensors > 0 else 0, 2),
+                'overall_health': round(((total_sensors - total_error) / total_sensors * 100) if total_sensors > 0 else 0, 2)
+            },
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        session.close()
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo resumen de sensores tipo {sensor_type}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@api_bp.route('/dashboard/user/sensors', methods=['GET'])
+@require_auth
+@filter_by_user_permissions
+def get_user_sensors_dashboard():
+    """
+    Dashboard personalizado con todos los datos de sensores del usuario
+    - Resumen por parking
+    - Alertas y notificaciones
+    - Estadísticas rápidas
+    """
+    try:
+        session = Session()
+        
+        # Obtener parkings accesibles
+        accessible_parking_ids = getattr(request, 'accessible_parking_ids', [])
+        if not accessible_parking_ids:
+            session.close()
+            return jsonify({
+                'summary': {'total_sensors': 0, 'total_free': 0, 'total_busy': 0, 'total_error': 0},
+                'parkings': [],
+                'alerts': [],
+                'statistics': {}
+            })
+        
+        # Obtener información del usuario
+        user_id = request.user_data.get('user_id')
+        user_name = request.user_data.get('name')
+        
+        # Resumen global
+        all_sensors = session.query(IndividualSensor).filter(
+            IndividualSensor.parking_id.in_(accessible_parking_ids),
+            IndividualSensor.is_active == True
+        ).all()
+        
+        summary = {
+            'total_sensors': len(all_sensors),
+            'total_free': sum(1 for s in all_sensors if s.current_status == 'free'),
+            'total_busy': sum(1 for s in all_sensors if s.current_status == 'busy'),
+            'total_error': sum(1 for s in all_sensors if s.current_status == 'error'),
+        }
+        summary['occupancy_rate'] = round((summary['total_busy'] / summary['total_sensors'] * 100) if summary['total_sensors'] > 0 else 0, 2)
+        summary['health_score'] = round(((summary['total_sensors'] - summary['total_error']) / summary['total_sensors'] * 100) if summary['total_sensors'] > 0 else 0, 2)
+        
+        # Resumen por parking
+        parkings = session.query(Parking).filter(Parking.id.in_(accessible_parking_ids)).all()
+        parkings_data = []
+        
+        for parking in parkings:
+            parking_sensors = [s for s in all_sensors if s.parking_id == parking.id]
+            if not parking_sensors:
+                continue
+                
+            parking_summary = {
+                'parking_id': parking.id,
+                'parking_name': parking.name,
+                'total_sensors': len(parking_sensors),
+                'free': sum(1 for s in parking_sensors if s.current_status == 'free'),
+                'busy': sum(1 for s in parking_sensors if s.current_status == 'busy'),
+                'error': sum(1 for s in parking_sensors if s.current_status == 'error'),
+            }
+            parking_summary['occupancy_rate'] = round((parking_summary['busy'] / parking_summary['total_sensors'] * 100) if parking_summary['total_sensors'] > 0 else 0, 2)
+            
+            parkings_data.append(parking_summary)
+        
+        # Alertas y notificaciones
+        alerts = []
+        
+        # Sensores con error
+        error_sensors = [s for s in all_sensors if s.current_status == 'error']
+        if error_sensors:
+            alerts.append({
+                'type': 'error',
+                'severity': 'high',
+                'message': f'{len(error_sensors)} sensores con error requieren atención',
+                'count': len(error_sensors)
+            })
+        
+        # Sensores con batería baja (si existe información)
+        low_battery_sensors = [s for s in all_sensors if s.battery_info and s.battery_info.get('is_low', False)]
+        if low_battery_sensors:
+            alerts.append({
+                'type': 'battery',
+                'severity': 'medium',
+                'message': f'{len(low_battery_sensors)} sensores con batería baja',
+                'count': len(low_battery_sensors)
+            })
+        
+        # Estadísticas adicionales
+        statistics = {
+            'sensor_types': {},
+            'most_occupied_parking': None,
+            'least_occupied_parking': None
+        }
+        
+        # Contar por tipo de sensor
+        for sensor in all_sensors:
+            sensor_type = sensor.sensor_type
+            if sensor_type not in statistics['sensor_types']:
+                statistics['sensor_types'][sensor_type] = {'total': 0, 'busy': 0}
+            statistics['sensor_types'][sensor_type]['total'] += 1
+            if sensor.current_status == 'busy':
+                statistics['sensor_types'][sensor_type]['busy'] += 1
+        
+        # Parking más y menos ocupado
+        if parkings_data:
+            most_occupied = max(parkings_data, key=lambda p: p['occupancy_rate'])
+            least_occupied = min(parkings_data, key=lambda p: p['occupancy_rate'])
+            statistics['most_occupied_parking'] = {
+                'name': most_occupied['parking_name'],
+                'occupancy_rate': most_occupied['occupancy_rate']
+            }
+            statistics['least_occupied_parking'] = {
+                'name': least_occupied['parking_name'],
+                'occupancy_rate': least_occupied['occupancy_rate']
+            }
+        
+        response = {
+            'user_info': {
+                'user_id': user_id,
+                'user_name': user_name,
+                'accessible_parkings': len(accessible_parking_ids)
+            },
+            'summary': summary,
+            'parkings': parkings_data,
+            'alerts': alerts,
+            'statistics': statistics,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        session.close()
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo dashboard de sensores del usuario: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 

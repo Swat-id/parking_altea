@@ -226,6 +226,109 @@ def assign_user_to_resources(db_session: Session, user_id: int, parking_ids: lis
         db_session.rollback()
         return {"success": False, "error": str(e)}
 
+def get_user_accessible_parking_ids(db_session: Session, user_id: int, user_role: str) -> list:
+    """
+    Obtener IDs de parkings accesibles para un usuario
+    - Superadmin: todos los parkings
+    - Usuario regular: solo parkings asignados en UserParking
+    """
+    try:
+        if user_role == 'superadmin':
+            # Superadmin tiene acceso a todos los parkings
+            from models import Parking
+            result = db_session.query(Parking.id).all()
+            return [row[0] for row in result]
+        else:
+            # Usuario regular: solo parkings asignados
+            result = db_session.query(UserParking.parking_id)\
+                              .filter(UserParking.user_id == user_id)\
+                              .all()
+            return [row[0] for row in result]
+    except Exception as e:
+        # En caso de error, devolver lista vacía para mayor seguridad
+        return []
+
+def get_user_accessible_panel_ids(db_session: Session, user_id: int, user_role: str) -> list:
+    """
+    Obtener IDs de paneles accesibles para un usuario
+    - Superadmin: todos los paneles
+    - Usuario regular: solo paneles asignados en UserPanel
+    """
+    try:
+        if user_role == 'superadmin':
+            # Superadmin tiene acceso a todos los paneles
+            from models import Panel
+            result = db_session.query(Panel.id).all()
+            return [row[0] for row in result]
+        else:
+            # Usuario regular: solo paneles asignados
+            result = db_session.query(UserPanel.panel_id)\
+                              .filter(UserPanel.user_id == user_id)\
+                              .all()
+            return [row[0] for row in result]
+    except Exception as e:
+        # En caso de error, devolver lista vacía para mayor seguridad
+        return []
+
+def get_user_accessible_access_ids(db_session: Session, user_id: int, user_role: str) -> list:
+    """
+    Obtener IDs de accesos/cámaras accesibles para un usuario
+    - Superadmin: todos los accesos
+    - Usuario regular: solo accesos asignados en UserAccess
+    """
+    try:
+        if user_role == 'superadmin':
+            # Superadmin tiene acceso a todos los accesos
+            from models import Access
+            result = db_session.query(Access.id).all()
+            return [row[0] for row in result]
+        else:
+            # Usuario regular: solo accesos asignados
+            result = db_session.query(UserAccess.access_id)\
+                              .filter(UserAccess.user_id == user_id)\
+                              .all()
+            return [row[0] for row in result]
+    except Exception as e:
+        # En caso de error, devolver lista vacía para mayor seguridad
+        return []
+
+# Decorador para filtrado automático por permisos de usuario
+def filter_by_user_permissions(f):
+    """
+    Decorador que automáticamente agrega los IDs de recursos accesibles al request
+    Debe usarse después de @require_auth
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        from sqlalchemy.orm import sessionmaker
+        from config import DB_URL
+        from sqlalchemy import create_engine
+        
+        user_id = request.user_data.get('user_id')
+        user_role = request.user_data.get('role')
+        
+        # Crear sesión de BD para consultar permisos
+        engine = create_engine(DB_URL, echo=False)
+        SessionLocal = sessionmaker(bind=engine)
+        db_session = SessionLocal()
+        
+        try:
+            # Obtener recursos accesibles
+            parking_ids = get_user_accessible_parking_ids(db_session, user_id, user_role)
+            panel_ids = get_user_accessible_panel_ids(db_session, user_id, user_role)
+            access_ids = get_user_accessible_access_ids(db_session, user_id, user_role)
+            
+            # Agregar al request para uso en la función
+            request.accessible_parking_ids = parking_ids
+            request.accessible_panel_ids = panel_ids
+            request.accessible_access_ids = access_ids
+            
+            return f(*args, **kwargs)
+        finally:
+            db_session.close()
+    
+    return decorated_function
+
 # Decorador para proteger endpoints
 def require_auth(f):
     @wraps(f)
