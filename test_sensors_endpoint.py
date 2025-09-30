@@ -11,7 +11,13 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import requests
 import json
 from src.models import User, IndividualSensor, UserParking
-from src.config import Session
+from src.config import DB_URL
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+# Crear sesión de BD
+engine = create_engine(DB_URL, echo=False)
+Session = sessionmaker(bind=engine)
 from src.auth import create_token
 
 def test_sensors_endpoint():

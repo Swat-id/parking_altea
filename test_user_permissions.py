@@ -9,7 +9,13 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.models import User, Parking, Panel, IndividualSensor, UserParking, UserPanel
-from src.config import Session
+from src.config import DB_URL
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+# Crear sesión de BD
+engine = create_engine(DB_URL, echo=False)
+Session = sessionmaker(bind=engine)
 from src.auth import get_user_accessible_parking_ids, get_user_accessible_panel_ids
 
 def test_user_permissions():
