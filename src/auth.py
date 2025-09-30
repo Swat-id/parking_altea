@@ -343,6 +343,14 @@ def filter_by_user_permissions(f):
             panel_ids = get_user_accessible_panel_ids(db_session, user_id, user_role)
             access_ids = get_user_accessible_access_ids(db_session, user_id, user_role)
             
+            # DEBUG: Log de permisos obtenidos
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"PERMISOS - Usuario {user_id} (rol: {user_role})")
+            logger.info(f"  Parkings: {len(parking_ids)} - {parking_ids}")
+            logger.info(f"  Paneles: {len(panel_ids)} - {panel_ids}")
+            logger.info(f"  Accesos: {len(access_ids)} - {access_ids}")
+            
             # Agregar al request para uso en la función
             request.accessible_parking_ids = parking_ids
             request.accessible_panel_ids = panel_ids

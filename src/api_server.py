@@ -3043,9 +3043,12 @@ def get_parking_hourly_statistics(pid):
                 total_vehicles_out_hour += hour_vehicles_out
                 total_messages_hour += hour_messages
                 
-                # Debug adicional
-                if hour_vehicles_in > 0 or hour_vehicles_out > 0:
-                    logger.info(f"Hora {hour:02d}:00 - Entradas: {hour_vehicles_in}, Salidas: {hour_vehicles_out}, Mensajes: {hour_messages}")
+                # Debug adicional - mostrar siempre para las primeras horas
+                if hour < 3 or hour_vehicles_in > 0 or hour_vehicles_out > 0:
+                    logger.info(f"Hora {hour:02d}:00 del {current_date} - Entradas: {hour_vehicles_in}, Salidas: {hour_vehicles_out}, Mensajes: {hour_messages}")
+                    if hour_messages > 0:
+                        logger.info(f"  Rango: {hour_start} a {hour_end}")
+                        logger.info(f"  Query: parking_id={pid}, status='processed'")
                 
                 # Obtener ocupación de esta hora
                 occupancy_data = session.query(OccupancyHistory).filter(
@@ -3134,6 +3137,19 @@ def get_parking_hourly_statistics(pid):
                 'total_vehicles_out': total_vehicles_out,
                 'last_message': camera.last_message_received.isoformat() if camera.last_message_received else None
             })
+        
+        # Debug final: Resumen de estadísticas generadas
+        hours_with_traffic = [h for h in hourly_stats if h['total_vehicles_in'] > 0 or h['total_vehicles_out'] > 0]
+        total_traffic_in = sum(h['total_vehicles_in'] for h in hourly_stats)
+        total_traffic_out = sum(h['total_vehicles_out'] for h in hourly_stats)
+        total_messages = sum(h['message_count'] for h in hourly_stats)
+        
+        logger.info(f"=== RESUMEN ESTADÍSTICAS PARKING {pid} ===")
+        logger.info(f"Horas con tráfico: {len(hours_with_traffic)}/24")
+        logger.info(f"Total entradas: {total_traffic_in}")
+        logger.info(f"Total salidas: {total_traffic_out}")
+        logger.info(f"Total mensajes: {total_messages}")
+        logger.info(f"Cámaras con estadísticas: {len(camera_stats)}")
         
         session.close()
         
@@ -4481,8 +4497,20 @@ def get_individual_sensors():
         
         logger.info(f"DEBUG Sensores - Usuario {user_id} (rol: {user_role}): {len(accessible_parking_ids)} parkings accesibles: {accessible_parking_ids}")
         
+        # CRÍTICO: Verificar si el filtrado se está aplicando
+        total_sensors_before = session.query(IndividualSensor).count()
+        logger.info(f"DEBUG - Total sensores en BD antes del filtro: {total_sensors_before}")
+        
         if accessible_parking_ids:
-            query = query.filter(IndividualSensor.parking_id.in_(accessible_parking_ids))
+            # Filtrar solo sensores de parkings accesibles (excluyendo sensores sin parking)
+            query = query.filter(
+                IndividualSensor.parking_id.in_(accessible_parking_ids)
+            )
+            
+            # Debug: contar sensores después del filtro
+            sensors_after_filter = query.count()
+            logger.info(f"DEBUG - Sensores después del filtro por parking: {sensors_after_filter}")
+            
         else:
             # Si no tiene acceso a ningún parking, devolver vacío
             logger.warning(f"Usuario {user_id} no tiene acceso a ningún parking - devolviendo lista vacía")
