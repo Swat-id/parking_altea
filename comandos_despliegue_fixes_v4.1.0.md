@@ -374,6 +374,24 @@ sudo systemctl restart parking-api
 curl "http://localhost:6001/api/parkings/1/hourly-statistics?days=7"
 ```
 
+### 🔧 CORRECCIÓN TSCONFIG.JSON (Commit 7d74354):
+
+Si hay problemas de compilación con "Unexpected \xff in JSON":
+
+```bash
+# El tsconfig.json ya está corregido en el repositorio
+# Solo hacer pull para obtener la versión limpia
+git pull origin v4.1.0
+
+# Verificar que no hay caracteres BOM
+head -c 10 tsconfig.json
+# Debería mostrar: {"compiler
+
+# Si persiste el problema, recompilar frontend
+cd client
+npm run build
+```
+
 ### 📊 VERIFICACIÓN DE ESTADÍSTICAS:
 
 1. **Ir a**: http://157.180.91.63:5789/statistics/1
