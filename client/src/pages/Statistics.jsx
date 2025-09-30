@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import parkingService from '../services/parkingService'
 import { statisticsService } from '../services/statisticsService'
+import HourlyOccupancyGrid from '../components/HourlyOccupancyGrid'
 import { 
   BarChart3, 
   TrendingUp, 
@@ -304,59 +305,11 @@ const Statistics = () => {
         </div>
       </div>
 
-      {/* Gráfico de Ocupación por Horas */}
-      <div className="bg-white rounded-lg shadow mb-6">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">
-            📈 Ocupación por Horas
-          </h2>
-        </div>
-        
-        <div className="p-6">
-          {hourlyStats.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500">No hay datos de ocupación para mostrar</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {hourlyStats.map((stat) => (
-                <div key={stat.hour} className="flex items-center space-x-4">
-                  <div className="w-16 text-sm font-medium text-gray-700">
-                    {stat.hour_label}
-                  </div>
-                  
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <div className="flex-1 bg-gray-200 rounded-full h-4">
-                        <div 
-                          className="bg-blue-600 h-4 rounded-full"
-                          style={{ 
-                            width: `${Math.min((stat.avg_occupancy / (parking?.max_capacity || 100)) * 100, 100)}%` 
-                          }}
-                        ></div>
-                      </div>
-                      <span className="text-sm font-medium text-gray-900">
-                        {stat.avg_occupancy}
-                      </span>
-                    </div>
-                    
-                    <div className="flex justify-between text-xs text-gray-500">
-                      <span>Min: {stat.min_occupancy}</span>
-                      <span>Max: {stat.max_occupancy}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="text-right text-sm">
-                    <div className="text-green-600">+{stat.total_vehicles_in}</div>
-                    <div className="text-red-600">-{stat.total_vehicles_out}</div>
-                    <div className="text-gray-600">{stat.message_count} msgs</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      {/* Ocupación por Horas - Visualización Mejorada */}
+      <HourlyOccupancyGrid 
+        hourlyStats={hourlyStats} 
+        parkingName={parking?.name || 'Parking'} 
+      />
 
       {/* Estadísticas de Cámaras */}
       <div className="bg-white rounded-lg shadow">

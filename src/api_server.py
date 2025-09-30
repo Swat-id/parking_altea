@@ -2972,50 +2972,85 @@ def get_parking_hourly_statistics(pid):
         
         # Obtener estadísticas por horas
         hourly_stats = []
+        
+        # Si se especifica una fecha, usar solo ese día; si no, usar el rango completo
+        if date:
+            # Para una fecha específica, calcular por horas de ese día
+            date_range = [start_date.date()]
+        else:
+            # Para múltiples días, promediar por hora a través de todos los días
+            date_range = [(start_date + timedelta(days=i)).date() for i in range(days)]
+        
+        logger.info(f"Calculando estadísticas para {len(date_range)} días: {date_range}")
+        
         for hour in range(24):
-            hour_start = start_date.replace(hour=hour, minute=0, second=0, microsecond=0)
-            hour_end = hour_start + timedelta(hours=1)
+            total_vehicles_in_hour = 0
+            total_vehicles_out_hour = 0
+            total_messages_hour = 0
+            occupancy_values = []
             
-            # Obtener logs de cámaras para esta hora
-            camera_logs = session.query(CameraLog).filter(
-                CameraLog.parking_id == pid,
-                CameraLog.received_at >= hour_start,
-                CameraLog.received_at < hour_end,
-                CameraLog.status == 'processed'
-            ).all()
+            # Procesar cada día en el rango
+            for current_date in date_range:
+                hour_start = datetime.combine(current_date, datetime.min.time()).replace(hour=hour)
+                hour_end = hour_start + timedelta(hours=1)
+                
+                # Obtener logs de cámaras para esta hora específica
+                camera_logs = session.query(CameraLog).filter(
+                    CameraLog.parking_id == pid,
+                    CameraLog.received_at >= hour_start,
+                    CameraLog.received_at < hour_end,
+                    CameraLog.status == 'processed'
+                ).all()
+                
+                # Sumar métricas del día
+                total_vehicles_in_hour += sum(log.delta_in or 0 for log in camera_logs)
+                total_vehicles_out_hour += sum(log.delta_out or 0 for log in camera_logs)
+                total_messages_hour += len(camera_logs)
+                
+                # Obtener ocupación de esta hora
+                occupancy_data = session.query(OccupancyHistory).filter(
+                    OccupancyHistory.parking_id == pid,
+                    OccupancyHistory.timestamp >= hour_start,
+                    OccupancyHistory.timestamp < hour_end
+                ).all()
+                
+                if occupancy_data:
+                    hour_occupancies = [data.occupancy for data in occupancy_data]
+                    if hour_occupancies:
+                        occupancy_values.extend(hour_occupancies)
             
-            # Calcular métricas
-            total_vehicles_in = sum(log.delta_in or 0 for log in camera_logs)
-            total_vehicles_out = sum(log.delta_out or 0 for log in camera_logs)
-            message_count = len(camera_logs)
-            
-            # Obtener ocupación promedio de la hora (si hay datos)
-            occupancy_data = session.query(OccupancyHistory).filter(
-                OccupancyHistory.parking_id == pid,
-                OccupancyHistory.timestamp >= hour_start,
-                OccupancyHistory.timestamp < hour_end
-            ).all()
-            
+            # Calcular métricas finales para esta hora
             avg_occupancy = 0
             max_occupancy = 0
             min_occupancy = 0
             
-            if occupancy_data:
-                occupancies = [data.occupancy for data in occupancy_data]
-                avg_occupancy = sum(occupancies) / len(occupancies)
-                max_occupancy = max(occupancies)
-                min_occupancy = min(occupancies)
+            if occupancy_values:
+                avg_occupancy = sum(occupancy_values) / len(occupancy_values)
+                max_occupancy = max(occupancy_values)
+                min_occupancy = min(occupancy_values)
+            
+            # Promediar por número de días si es necesario
+            if not date and len(date_range) > 1:
+                avg_vehicles_in = total_vehicles_in_hour / len(date_range)
+                avg_vehicles_out = total_vehicles_out_hour / len(date_range)
+                avg_messages = total_messages_hour / len(date_range)
+            else:
+                avg_vehicles_in = total_vehicles_in_hour
+                avg_vehicles_out = total_vehicles_out_hour
+                avg_messages = total_messages_hour
             
             hourly_stats.append({
                 'hour': hour,
                 'hour_label': f'{hour:02d}:00',
-                'total_vehicles_in': total_vehicles_in,
-                'total_vehicles_out': total_vehicles_out,
-                'net_change': total_vehicles_in - total_vehicles_out,
-                'message_count': message_count,
+                'total_vehicles_in': round(avg_vehicles_in, 1),
+                'total_vehicles_out': round(avg_vehicles_out, 1),
+                'net_change': round(avg_vehicles_in - avg_vehicles_out, 1),
+                'message_count': round(avg_messages, 1),
                 'avg_occupancy': round(avg_occupancy, 1),
                 'max_occupancy': max_occupancy,
-                'min_occupancy': min_occupancy
+                'min_occupancy': min_occupancy,
+                'occupancy_percentage': round(avg_occupancy, 1),  # Para la visualización
+                'traffic_intensity': round(avg_vehicles_in + avg_vehicles_out, 1)  # Para el tab de tráfico
             })
         
         # Obtener estadísticas de cámaras para el período
