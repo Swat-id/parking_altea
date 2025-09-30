@@ -302,7 +302,7 @@ def get_user_accessible_access_ids(db_session: Session, user_id: int, user_role:
             direct_access_ids = [row[0] for row in direct_accesses]
             
             # NUEVO: Accesos de parkings asignados al usuario (a través de CameraParking)
-            from models import Access, CameraParking
+            from models import Access, CameraParking, UserParking
             parking_accesses = db_session.query(Access.id)\
                                         .join(CameraParking, Access.id == CameraParking.camera_id)\
                                         .join(UserParking, CameraParking.parking_id == UserParking.parking_id)\
