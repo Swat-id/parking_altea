@@ -404,6 +404,66 @@ npm run build
 
 ---
 
+## 🔐 CORRECCIÓN PERMISOS USUARIOS (Commit b24ffbe)
+
+### ⚠️ PROBLEMA CRÍTICO IDENTIFICADO:
+
+**Usuarios regulares ven todos los sensores cuando deberían ver solo los de sus parkings asignados**
+
+### ✅ CORRECCIONES APLICADAS:
+
+#### BACKEND - Logging y debug:
+- **Logging detallado**: Agregado en decorador `@filter_by_user_permissions`
+- **Debug sensores**: Contar sensores antes/después del filtro
+- **Verificación permisos**: Log de parkings, paneles y accesos por usuario
+- **Endpoint /user/panels**: Corregido para usar filtrado automático
+
+#### FRONTEND - Botones por rol:
+- **Sensores**: Botón "Nuevo Sensor" solo para superadmin
+- **Paneles**: Botón "Crear Panel" solo para superadmin
+- **Verificación rol**: Usar `isSuperadmin` del contexto de auth
+
+### 🚀 PARA APLICAR Y DEBUGGEAR:
+
+```bash
+# Actualizar servidor
+ssh root@ubuntu-16gb-hel1-1
+cd /opt/parking_altea
+git pull origin v4.1.0
+
+# Reiniciar API para aplicar logging
+sudo systemctl restart parking-api
+
+# Ver logs en tiempo real para debug
+sudo journalctl -u parking-api -f
+
+# En otra terminal, probar endpoint de sensores
+curl -H "Authorization: Bearer <token_usuario_regular>" \
+     "http://localhost:6001/api/sensors"
+```
+
+### 🔍 SCRIPTS DE DEBUG INCLUIDOS:
+
+```bash
+# Probar permisos generales
+python3 test_user_permissions.py
+
+# Probar endpoint específico de sensores  
+python3 test_sensors_endpoint.py
+```
+
+### 📊 VERIFICACIÓN EN INTERFAZ:
+
+1. **Login como usuario regular**
+2. **Ir a Sensores**: Verificar que solo ve sensores de sus parkings
+3. **Verificar botones**: No debe ver "Nuevo Sensor"
+4. **Ir a Paneles**: Solo debe ver paneles de sus parkings
+5. **Verificar botones**: No debe ver "Crear Panel"
+
+**IMPORTANTE**: El logging detallado ayudará a identificar exactamente dónde falla el filtrado de permisos.
+
+---
+
 ## 🔧 COMANDOS FRONTEND CORREGIDOS (Commit bc0773a+)
 
 ### ⚠️ CORRECCIÓN DE WARNINGS JSX:
