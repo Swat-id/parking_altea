@@ -2540,15 +2540,18 @@ def get_camera_logs_v2():
         
         if accessible_parking_ids or accessible_access_ids:
             # Filtrar por parkings O accesos accesibles
-            parking_filter = CameraLog.parking_id.in_(accessible_parking_ids) if accessible_parking_ids else False
-            access_filter = CameraLog.access_id.in_(accessible_access_ids) if accessible_access_ids else False
+            filters = []
             
-            if parking_filter and access_filter:
-                query = query.filter(parking_filter | access_filter)
-            elif parking_filter:
-                query = query.filter(parking_filter)
-            elif access_filter:
-                query = query.filter(access_filter)
+            if accessible_parking_ids:
+                filters.append(CameraLog.parking_id.in_(accessible_parking_ids))
+            
+            if accessible_access_ids:
+                filters.append(CameraLog.access_id.in_(accessible_access_ids))
+            
+            if filters:
+                # Combinar filtros con OR
+                from sqlalchemy import or_
+                query = query.filter(or_(*filters))
             else:
                 # Usuario no tiene acceso a ningún recurso, devolver lista vacía
                 session.close()
@@ -2938,9 +2941,14 @@ def get_all_cameras_status():
         return jsonify({'error': 'Internal server error'}), 500
 
 @api_bp.route('/parkings/<int:pid>/hourly-statistics', methods=['GET'])
+@require_auth
+@require_parking_access('pid')
 def get_parking_hourly_statistics(pid):
     """Obtener estadísticas por horas de un parking"""
     try:
+        logger.info(f"=== INICIO hourly-statistics para parking {pid} ===")
+        logger.info(f"Parámetros: date={request.args.get('date')}, days={request.args.get('days', 7)}")
+        
         # Parámetros
         date = request.args.get('date')  # YYYY-MM-DD
         days = request.args.get('days', 7, type=int)
@@ -3062,8 +3070,11 @@ def get_parking_hourly_statistics(pid):
         })
         
     except Exception as e:
+        import traceback
         logger.error(f"Error obteniendo estadísticas por horas del parking {pid}: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
+        logger.error(f"Traceback completo: {traceback.format_exc()}")
+        logger.error(f"Tipo de error: {type(e).__name__}")
+        return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
 
 @api_bp.route('/panels/verify', methods=['POST'])
 def verify_all_panels():
