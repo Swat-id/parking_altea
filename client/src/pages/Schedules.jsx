@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
+import { useAuth } from '../context/AuthContext'
+import scheduleService from '../services/scheduleService'
+import parkingService from '../services/parkingService'
 import { 
   Calendar, 
   Clock, 
@@ -27,11 +30,9 @@ import {
   PlayCircle
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import api from '../services/api'
-
-const API_BASE_URL = 'http://157.180.91.63:6001'
 
 const Schedules = () => {
+  const { isSuperadmin } = useAuth()
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState(null)
@@ -67,7 +68,7 @@ const Schedules = () => {
   // Obtener parkings con filtrado por permisos
   const { data: parkings = [] } = useQuery(
     'userParkings',
-    () => api.get('/api/parkings').then(res => res.data)
+    () => parkingService.getParkings()
   )
 
   // Obtener programaciones
@@ -77,7 +78,10 @@ const Schedules = () => {
       const params = new URLSearchParams()
       if (selectedParking) params.append('parking_id', selectedParking)
       if (filterActive !== null) params.append('active_only', filterActive.toString())
-      return fetch(`${API_BASE_URL}/api/schedules?${params}`).then(res => res.json())
+      return scheduleService.getAllSchedules({
+        parking_id: selectedParking || undefined,
+        active_only: filterActive
+      })
     },
     {
       refetchInterval: 30000, // Refrescar cada 30 segundos
@@ -86,11 +90,7 @@ const Schedules = () => {
 
   // Mutaciones
   const createScheduleMutation = useMutation(
-    (data) => fetch(`${API_BASE_URL}/api/schedules`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    }).then(res => res.json()),
+    (data) => scheduleService.createSchedule(data),
     {
       onSuccess: (data) => {
         if (data.success) {
@@ -109,11 +109,7 @@ const Schedules = () => {
   )
 
   const updateScheduleMutation = useMutation(
-    ({ id, data }) => fetch(`${API_BASE_URL}/api/schedules/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    }).then(res => res.json()),
+    ({ id, data }) => scheduleService.updateSchedule(id, data),
     {
       onSuccess: (data) => {
         if (data.success) {
@@ -141,7 +137,7 @@ const Schedules = () => {
   )
 
   const deleteScheduleMutation = useMutation(
-    (id) => fetch(`${API_BASE_URL}/api/schedules/${id}`, { method: 'DELETE' }).then(res => res.json()),
+    (id) => scheduleService.deleteSchedule(id),
     {
       onSuccess: (data) => {
         if (data.success) {
@@ -158,7 +154,7 @@ const Schedules = () => {
   )
 
   const toggleScheduleMutation = useMutation(
-    (id) => fetch(`${API_BASE_URL}/api/schedules/${id}/toggle`, { method: 'POST' }).then(res => res.json()),
+    ({ id, isActive }) => scheduleService.toggleSchedule(id, isActive),
     {
       onSuccess: (data) => {
         if (data.success) {
@@ -367,17 +363,19 @@ const Schedules = () => {
             <PlayCircle className="h-5 w-5" />
             {executeAllSchedulesMutation.isLoading ? 'Ejecutando...' : 'Ejecutar Todas las Programaciones'}
           </button>
-          <button
-            onClick={() => {
-              setShowForm(true)
-              setEditingSchedule(null)
-              resetForm()
-            }}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-          >
-            <Plus className="h-5 w-5" />
-            Nueva Programación
-          </button>
+          {isSuperadmin && (
+            <button
+              onClick={() => {
+                setShowForm(true)
+                setEditingSchedule(null)
+                resetForm()
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+            >
+              <Plus className="h-5 w-5" />
+              Nueva Programación
+            </button>
+          )}
         </div>
       </div>
 

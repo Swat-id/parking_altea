@@ -3276,21 +3276,53 @@ def verify_all_panels():
 # ============================================================================
 
 @api_bp.route('/schedules', methods=['GET'])
+@require_auth
+@filter_by_user_permissions
 def get_schedules():
-    """Obtener todas las programaciones"""
+    """Obtener programaciones filtradas por permisos de usuario"""
     try:
         parking_id = request.args.get('parking_id', type=int)
         active_only = request.args.get('active_only', 'true').lower() == 'true'
         
+        # Obtener parkings accesibles al usuario
+        accessible_parking_ids = getattr(request, 'accessible_parking_ids', [])
+        user_role = request.user_data.get('role', 'user')
+        user_id = request.user_data.get('user_id')
+        
+        logger.info(f"DEBUG Schedules - Usuario {user_id} (rol: {user_role}): {len(accessible_parking_ids)} parkings accesibles")
+        
+        if not accessible_parking_ids:
+            # Usuario no tiene acceso a ningún parking
+            logger.warning(f"Usuario {user_id} no tiene acceso a ningún parking - devolviendo lista vacía")
+            return jsonify({'success': True, 'schedules': []})
+        
         session = Session()
         schedule_service = PanelScheduleService(session)
-        result = schedule_service.get_schedules(parking_id, active_only)
-        session.close()
         
-        if result['success']:
-            return jsonify(result)
+        # Si se especifica un parking_id, verificar que el usuario tenga acceso
+        if parking_id and parking_id not in accessible_parking_ids:
+            session.close()
+            return jsonify({'error': 'No tienes permisos para ver programaciones de este parking'}), 403
+        
+        # Si no se especifica parking_id, obtener programaciones de todos los parkings accesibles
+        if not parking_id:
+            all_schedules = []
+            for pid in accessible_parking_ids:
+                result = schedule_service.get_schedules(pid, active_only)
+                if result['success']:
+                    all_schedules.extend(result.get('schedules', []))
+            
+            session.close()
+            return jsonify({'success': True, 'schedules': all_schedules})
         else:
-            return jsonify({'error': result['error']}), 400
+            # Obtener programaciones del parking específico
+            result = schedule_service.get_schedules(parking_id, active_only)
+            session.close()
+            
+            if result['success']:
+                return jsonify(result)
+            else:
+                return jsonify({'error': result['error']}), 400
             
     except Exception as e:
         logger.error(f"Error obteniendo programaciones: {e}")
