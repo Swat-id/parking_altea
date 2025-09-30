@@ -337,3 +337,49 @@ kill %1
 - El despliegue es de bajo riesgo
 - Se recomienda hacer las pruebas funcionales después del despliegue
 - **IMPORTANTE**: Aplicar las correcciones adicionales antes de las pruebas finales
+
+---
+
+## 🆕 ACTUALIZACIÓN ESTADÍSTICAS MEJORADAS (Commit 8484d57)
+
+### ✅ CAMBIOS INCLUIDOS:
+
+#### BACKEND - Correcciones en cálculos:
+- **Cálculos corregidos**: Estadísticas por horas ahora muestran datos reales (no más valores en 0)
+- **Soporte multi-día**: Promedios correctos cuando se consultan múltiples días  
+- **Nuevos campos**: `occupancy_percentage` y `traffic_intensity` para mejor visualización
+- **Logging mejorado**: Debug detallado para estadísticas por horas
+
+#### FRONTEND - Nueva visualización:
+- **HourlyOccupancyGrid**: Nuevo componente con cuadrícula visual intuitiva
+- **Código de colores**: 24 horas con colores (blanco 0% → verde → amarillo → naranja → rojo 100%+)
+- **Tab de tráfico**: Visualización de intensidad de tráfico en tonos azules
+- **Interactividad**: Clic en cualquier hora para ver detalles (entradas, salidas, cambio neto)
+- **UX mejorada**: Reemplaza el gráfico de barras poco intuitivo anterior
+
+### 🚀 DESPLIEGUE RÁPIDO (Solo estadísticas):
+
+```bash
+# Conectar al servidor
+ssh root@ubuntu-16gb-hel1-1
+cd /opt/parking_altea
+
+# Actualizar código
+git pull origin v4.1.0
+
+# Reiniciar solo API (el frontend ya está actualizado)
+sudo systemctl restart parking-api
+
+# Verificar funcionamiento
+curl "http://localhost:6001/api/parkings/1/hourly-statistics?days=7"
+```
+
+### 📊 VERIFICACIÓN DE ESTADÍSTICAS:
+
+1. **Ir a**: http://157.180.91.63:5789/statistics/1
+2. **Verificar**: Los totales ya no están en 0
+3. **Probar**: Nueva visualización con cuadrícula de colores
+4. **Interactuar**: Hacer clic en diferentes horas para ver detalles
+5. **Cambiar tabs**: Probar "Ocupación" y "Tráfico"
+
+**Resultado esperado**: ✅ Datos reales + Visualización intuitiva con colores
