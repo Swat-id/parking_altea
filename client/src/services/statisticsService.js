@@ -192,6 +192,24 @@ export const statisticsService = {
   },
 
   /**
+   * NUEVO: Obtener estadísticas por horas de un parking
+   */
+  getHourlyStatistics: async (parkingId, params = {}) => {
+    try {
+      const queryParams = new URLSearchParams()
+      
+      if (params.date) queryParams.append('date', params.date)
+      if (params.days) queryParams.append('days', params.days)
+      
+      const response = await api.get(`/api/parkings/${parkingId}/hourly-statistics?${queryParams.toString()}`)
+      return response.data
+    } catch (error) {
+      console.error('Error obteniendo estadísticas por horas:', error)
+      throw error
+    }
+  },
+
+  /**
    * Utilidades para procesamiento de estadísticas
    */
   utils: {
