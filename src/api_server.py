@@ -2983,6 +2983,29 @@ def get_parking_hourly_statistics(pid):
         
         logger.info(f"Calculando estadísticas para {len(date_range)} días: {date_range}")
         
+        # Debug: Verificar si hay datos de CameraLog para este parking
+        total_logs_parking = session.query(CameraLog).filter(CameraLog.parking_id == pid).count()
+        processed_logs_parking = session.query(CameraLog).filter(
+            CameraLog.parking_id == pid,
+            CameraLog.status == 'processed'
+        ).count()
+        recent_logs = session.query(CameraLog).filter(
+            CameraLog.parking_id == pid,
+            CameraLog.received_at >= start_date,
+            CameraLog.received_at < end_date
+        ).count()
+        
+        logger.info(f"DEBUG - Parking {pid}: {total_logs_parking} logs totales, {processed_logs_parking} procesados, {recent_logs} en rango de fechas")
+        
+        # Debug: Mostrar algunos logs recientes
+        sample_logs = session.query(CameraLog).filter(
+            CameraLog.parking_id == pid,
+            CameraLog.status == 'processed'
+        ).order_by(CameraLog.received_at.desc()).limit(5).all()
+        
+        for log in sample_logs:
+            logger.info(f"  Sample log: ID={log.id}, fecha={log.received_at}, delta_in={log.delta_in}, delta_out={log.delta_out}")
+        
         for hour in range(24):
             total_vehicles_in_hour = 0
             total_vehicles_out_hour = 0
@@ -3002,10 +3025,24 @@ def get_parking_hourly_statistics(pid):
                     CameraLog.status == 'processed'
                 ).all()
                 
+                # Debug: Log detalles de esta hora si hay datos
+                if camera_logs:
+                    logger.info(f"Hora {hour:02d}:00 - {len(camera_logs)} logs encontrados")
+                    for log in camera_logs[:3]:  # Solo los primeros 3 para no saturar
+                        logger.info(f"  Log ID {log.id}: delta_in={log.delta_in}, delta_out={log.delta_out}")
+                
                 # Sumar métricas del día
-                total_vehicles_in_hour += sum(log.delta_in or 0 for log in camera_logs)
-                total_vehicles_out_hour += sum(log.delta_out or 0 for log in camera_logs)
-                total_messages_hour += len(camera_logs)
+                hour_vehicles_in = sum(log.delta_in or 0 for log in camera_logs)
+                hour_vehicles_out = sum(log.delta_out or 0 for log in camera_logs)
+                hour_messages = len(camera_logs)
+                
+                total_vehicles_in_hour += hour_vehicles_in
+                total_vehicles_out_hour += hour_vehicles_out
+                total_messages_hour += hour_messages
+                
+                # Debug adicional
+                if hour_vehicles_in > 0 or hour_vehicles_out > 0:
+                    logger.info(f"Hora {hour:02d}:00 - Entradas: {hour_vehicles_in}, Salidas: {hour_vehicles_out}, Mensajes: {hour_messages}")
                 
                 # Obtener ocupación de esta hora
                 occupancy_data = session.query(OccupancyHistory).filter(
@@ -3058,13 +3095,18 @@ def get_parking_hourly_statistics(pid):
         # Usar la nueva relación muchos a muchos para obtener cámaras del parking
         camera_parkings = session.query(CameraParking).filter(CameraParking.parking_id == pid).all()
         
+        logger.info(f"Encontradas {len(camera_parkings)} relaciones cámara-parking para parking {pid}")
+        
         for cp in camera_parkings:
             camera = cp.camera
+            # Corregir la consulta: usar camera_ip en lugar de access_id
             camera_logs = session.query(CameraLog).filter(
-                CameraLog.access_id == camera.id,
+                CameraLog.camera_ip == camera.ip,
                 CameraLog.received_at >= start_date,
                 CameraLog.received_at < end_date
             ).all()
+            
+            logger.info(f"Cámara {camera.name} ({camera.ip}): {len(camera_logs)} logs encontrados")
             
             total_messages = len(camera_logs)
             processed_messages = len([log for log in camera_logs if log.status == 'processed'])
