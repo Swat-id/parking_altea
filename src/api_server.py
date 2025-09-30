@@ -2500,6 +2500,9 @@ def get_camera_logs_v2():
     - per_page: elementos por página (máx 500)
     """
     try:
+        logger.info("=== INICIO camera-logs-v2 ===")
+        logger.info(f"Parámetros recibidos: {dict(request.args)}")
+        
         from datetime import datetime, time
         
         # Parámetros de filtrado
@@ -2531,6 +2534,9 @@ def get_camera_logs_v2():
         # FILTRAR POR PERMISOS: Solo logs de parkings y accesos permitidos
         accessible_parking_ids = getattr(request, 'accessible_parking_ids', [])
         accessible_access_ids = getattr(request, 'accessible_access_ids', [])
+        
+        logger.info(f"Permisos obtenidos - Parkings: {len(accessible_parking_ids)}, Accesos: {len(accessible_access_ids)}")
+        logger.info(f"Usuario: {getattr(request, 'user_data', {}).get('email', 'N/A')}")
         
         if accessible_parking_ids or accessible_access_ids:
             # Filtrar por parkings O accesos accesibles
@@ -2635,7 +2641,9 @@ def get_camera_logs_v2():
             query = query.order_by(order_field.desc())
         
         # Calcular estadísticas antes de paginar
+        logger.info("Calculando total_count")
         total_count = query.count()
+        logger.info(f"Total count obtenido: {total_count}")
         
         stats_query = query
         processed_count = stats_query.filter(CameraLog.status == 'processed').count()
@@ -2708,8 +2716,12 @@ def get_camera_logs_v2():
         return jsonify(response)
         
     except Exception as e:
+        import traceback
         logger.error(f"Error obteniendo logs de cámaras v2: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
+        logger.error(f"Traceback completo: {traceback.format_exc()}")
+        logger.error(f"Tipo de error: {type(e).__name__}")
+        logger.error(f"Argumentos del error: {e.args}")
+        return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
 
 @api_bp.route('/camera/logs/stats', methods=['GET'])
 def get_camera_logs_stats():
