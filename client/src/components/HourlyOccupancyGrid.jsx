@@ -66,10 +66,10 @@ const HourlyOccupancyGrid = ({ hourlyStats, parkingName }) => {
               <div className="w-3 h-3 bg-red-400 border"></div>
               <span>80-100%</span>
             </div>
-            <div className="flex items-center space-x-1">
-              <div className="w-3 h-3 bg-red-600 border"></div>
-              <span>>100%</span>
-            </div>
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 bg-red-600 border"></div>
+                <span>&gt;100%</span>
+              </div>
           </div>
         </div>
       </div>
@@ -236,7 +236,7 @@ const HourlyOccupancyGrid = ({ hourlyStats, parkingName }) => {
           <div className="text-sm text-blue-800">
             <p className="font-medium mb-1">Cómo interpretar la visualización:</p>
             <ul className="space-y-1 text-xs">
-              <li>• <strong>Ocupación:</strong> Colores desde blanco (0%) hasta rojo intenso (>100%)</li>
+                <li>• <strong>Ocupación:</strong> Colores desde blanco (0%) hasta rojo intenso (&gt;100%)</li>
               <li>• <strong>Tráfico:</strong> Intensidad de azul según el volumen de entradas + salidas</li>
               <li>• <strong>Interacción:</strong> Haz clic en cualquier hora para ver detalles</li>
             </ul>

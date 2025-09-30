@@ -401,3 +401,47 @@ npm run build
 5. **Cambiar tabs**: Probar "Ocupación" y "Tráfico"
 
 **Resultado esperado**: ✅ Datos reales + Visualización intuitiva con colores
+
+---
+
+## 🔧 COMANDOS FRONTEND CORREGIDOS (Commit bc0773a+)
+
+### ⚠️ CORRECCIÓN DE WARNINGS JSX:
+
+Los warnings de JSX han sido corregidos en el código. Para aplicar:
+
+```bash
+# Actualizar código con correcciones JSX
+git pull origin v4.1.0
+
+# Ir al directorio del cliente
+cd /opt/parking_altea/client
+
+# Instalar dependencias si es necesario
+npm install react-bootstrap bootstrap @popperjs/core
+
+# Construir el proyecto (ahora sin warnings)
+npm run build
+
+# Crear directorio estático de nginx si no existe
+sudo mkdir -p /opt/parking_altea/static
+
+# Copiar build a directorio de nginx con permisos correctos
+sudo cp -r dist/* /opt/parking_altea/static/
+sudo chown -R www-data:www-data /opt/parking_altea/static
+sudo chmod -R 644 /opt/parking_altea/static/*
+sudo find /opt/parking_altea/static -type d -exec chmod 755 {} \;
+
+# Recargar nginx
+sudo systemctl reload nginx
+
+# Verificar que funciona
+curl -I http://localhost:5789
+```
+
+### ✅ CORRECCIONES APLICADAS:
+
+- **JSX escapado**: Caracteres `>` cambiados a `&gt;` en HourlyOccupancyGrid
+- **Comandos separados**: Cada comando en línea individual para evitar errores
+- **Permisos correctos**: Directorios con 755, archivos con 644
+- **Verificación incluida**: curl para comprobar funcionamiento
