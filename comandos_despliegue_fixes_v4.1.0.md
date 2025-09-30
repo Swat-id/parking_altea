@@ -306,13 +306,26 @@ mv client/src/services/panelService.js.tmp client/src/services/panelService.js
 node -c client/src/services/panelService.js
 ```
 
-### 3. Verificar error 500 en camera-logs-v2
+### 3. Verificar error 500 en camera-logs-v2 (CON LOGGING DETALLADO)
 ```bash
-# Verificar logs en tiempo real
+# IMPORTANTE: Primero actualizar el código con logging detallado
+git pull origin v4.1.0
+
+# Reiniciar el servicio API para aplicar cambios
+sudo systemctl restart parking-api
+
+# Verificar logs en tiempo real (en una terminal)
 sudo journalctl -u parking-api -f &
 
 # En otra terminal, probar el endpoint directamente
 curl -v "http://localhost:6001/api/camera-logs-v2?date_from=$(date +%Y-%m-%d)&date_to=$(date +%Y-%m-%d)&page=1&per_page=10"
+
+# Los logs ahora mostrarán información detallada:
+# - Parámetros recibidos
+# - Permisos obtenidos (parkings y accesos)
+# - Usuario actual
+# - Progreso de la consulta
+# - Traceback completo si hay error
 
 # Detener el seguimiento de logs
 kill %1
