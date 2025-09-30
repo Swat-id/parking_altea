@@ -244,22 +244,25 @@ def get_user_parkings():
 
 @api_bp.route('/user/panels', methods=['GET'])
 @require_auth
+@filter_by_user_permissions
 def get_user_panels():
     """Obtener paneles a los que tiene acceso el usuario autenticado"""
     try:
-        user_id = request.user_data['user_id']
-        user_role = request.user_data.get('role', 'user')
-        
         session = Session()
         
-        if user_role == 'superadmin':
-            # Superadmin ve todos los paneles
-            panels = session.query(Panel).all()
+        # Usar el filtrado automático por permisos
+        accessible_panel_ids = getattr(request, 'accessible_panel_ids', [])
+        user_role = request.user_data.get('role', 'user')
+        user_id = request.user_data.get('user_id')
+        
+        logger.info(f"DEBUG Paneles - Usuario {user_id} (rol: {user_role}): {len(accessible_panel_ids)} paneles accesibles: {accessible_panel_ids}")
+        
+        if accessible_panel_ids:
+            panels = session.query(Panel).filter(Panel.id.in_(accessible_panel_ids)).all()
         else:
-            # Usuario normal solo ve sus paneles asignados
-            user_panels = session.query(UserPanel).filter(UserPanel.user_id == user_id).all()
-            panel_ids = [up.panel_id for up in user_panels]
-            panels = session.query(Panel).filter(Panel.id.in_(panel_ids)).all()
+            # Usuario no tiene acceso a ningún panel
+            logger.warning(f"Usuario {user_id} no tiene acceso a ningún panel - devolviendo lista vacía")
+            panels = []
         
         data = [
             {
@@ -4473,10 +4476,16 @@ def get_individual_sensors():
         
         # Filtrar por parkings accesibles al usuario
         accessible_parking_ids = getattr(request, 'accessible_parking_ids', [])
+        user_role = request.user_data.get('role', 'user')
+        user_id = request.user_data.get('user_id')
+        
+        logger.info(f"DEBUG Sensores - Usuario {user_id} (rol: {user_role}): {len(accessible_parking_ids)} parkings accesibles: {accessible_parking_ids}")
+        
         if accessible_parking_ids:
             query = query.filter(IndividualSensor.parking_id.in_(accessible_parking_ids))
         else:
             # Si no tiene acceso a ningún parking, devolver vacío
+            logger.warning(f"Usuario {user_id} no tiene acceso a ningún parking - devolviendo lista vacía")
             session.close()
             return jsonify([])
         

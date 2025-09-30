@@ -365,13 +365,15 @@ const Sensors = () => {
             <span>Actualizar</span>
           </button>
 
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center space-x-2"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Nuevo Sensor</span>
-          </button>
+          {isSuperadmin && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center space-x-2"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Nuevo Sensor</span>
+            </button>
+          )}
         </div>
       </div>
 
