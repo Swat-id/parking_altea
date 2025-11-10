@@ -152,18 +152,22 @@ class PacketBuilder:
         # Tiempo de espera (2 bytes, little-endian)
         command_data += struct.pack('<H', stay_time)
         
-        # Según el ejemplo, hay un byte de color_font y un byte reservado antes del primer carácter
-        # Luego cada carácter tiene: carácter + color_font + 0x00
-        # Y el último carácter tiene: carácter + 0x00 + 0x00 + 0x00 (sin color_font)
+        # Según el ejemplo exacto de la documentación:
+        # - color_font + 0x00 (reservado) antes del primer carácter
+        # - Cada carácter (incluido el primero): carácter + color_font + 0x00
+        # - Último carácter: carácter + 0x00 + 0x00 + 0x00 (sin color_font después)
         if len(text) > 0:
-            # Primer byte: color_font (para el primer carácter)
+            # Primer byte: color_font + 0x00 (reservado) antes del primer carácter
             command_data += bytes([color_font, 0x00])
             
-            # Caracteres intermedios (todos menos el último)
-            for char in text[:-1]:
+            # Todos los caracteres: carácter + color_font + 0x00
+            for char in text:
                 command_data += bytes([ord(char), color_font, 0x00])
             
-            # Último carácter: carácter + 0x00 + 0x00 + 0x00 (sin color_font)
+            # Reemplazar los últimos 3 bytes (del último carácter) con: carácter + 0x00 + 0x00 + 0x00
+            # Eliminar los últimos 3 bytes (color_font + 0x00 del último carácter)
+            command_data = command_data[:-3]
+            # Agregar el último carácter con terminación: carácter + 0x00 + 0x00 + 0x00
             command_data += bytes([ord(text[-1]), 0x00, 0x00, 0x00])
         else:
             # Si no hay texto, solo fin de texto
