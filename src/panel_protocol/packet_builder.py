@@ -152,12 +152,22 @@ class PacketBuilder:
         # Tiempo de espera (2 bytes, little-endian)
         command_data += struct.pack('<H', stay_time)
         
-        # Para cada carácter: carácter + color_font + 0x00
-        for char in text:
-            command_data += bytes([ord(char), color_font, 0x00])
-        
-        # Fin de texto: 3 bytes a 0x00
-        command_data += b'\x00\x00\x00'
+        # Según el ejemplo, hay un byte de color_font y un byte reservado antes del primer carácter
+        # Luego cada carácter tiene: carácter + color_font + 0x00
+        # Y el último carácter tiene: carácter + 0x00 + 0x00 + 0x00 (sin color_font)
+        if len(text) > 0:
+            # Primer byte: color_font (para el primer carácter)
+            command_data += bytes([color_font, 0x00])
+            
+            # Caracteres intermedios (todos menos el último)
+            for char in text[:-1]:
+                command_data += bytes([ord(char), color_font, 0x00])
+            
+            # Último carácter: carácter + 0x00 + 0x00 + 0x00 (sin color_font)
+            command_data += bytes([ord(text[-1]), 0x00, 0x00, 0x00])
+        else:
+            # Si no hay texto, solo fin de texto
+            command_data += b'\x00\x00\x00'
         
         # Según el ejemplo, el packet_data debe incluir la longitud del comando CC (4 bytes, little-endian)
         # al inicio, antes de los datos del comando
