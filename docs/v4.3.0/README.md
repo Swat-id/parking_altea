@@ -23,9 +23,10 @@ Esta rama implementa un nuevo servicio de bajo nivel para comunicación directa 
 ## 📚 Documentación
 
 ### Documentos Principales
+- **[Desarrollo Completo](./DESARROLLO_COMPLETO.md)** ⭐ - **Documento principal con resumen completo, puerto fijo y uso**
 - **[Análisis del Protocolo](./analisis_protocolo_paneles.md)** - Análisis exhaustivo del protocolo de comunicación
-- **[Desarrollo del Servicio Asíncrono](./desarrollo_servicio_asincrono.md)** - Documentación del servicio implementado
-- **[Configuración de Puerto](./configuracion_puerto.md)** - Configuración del puerto 7000
+- **[Desarrollo del Servicio Asíncrono](./desarrollo_servicio_asincrono.md)** - Documentación técnica del servicio implementado
+- **[Configuración de Puerto](./configuracion_puerto.md)** - Configuración del puerto 7000 (FIJO)
 - **[Integración con Backend](./integracion_backend.md)** - Cómo usar el servicio desde el backend
 - **[Autenticación](./autenticacion.md)** - Sistema de autenticación JWT integrado
 

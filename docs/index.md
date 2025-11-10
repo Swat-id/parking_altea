@@ -26,7 +26,10 @@ Documentación general del proyecto con descripción, arquitectura, componentes 
 
 ### v4.3.0 (En desarrollo)
 - [README v4.3.0](v4.3.0/README.md) - Información general y objetivos de la versión
+- [Desarrollo Completo v4.3.0](v4.3.0/DESARROLLO_COMPLETO.md) ⭐ - **Documento principal: desarrollo completo, puerto 7000 fijo y uso del servicio**
 - [Análisis del Protocolo de Paneles](v4.3.0/analisis_protocolo_paneles.md) - Análisis exhaustivo del protocolo de comunicación con paneles LED
+- [Integración con Backend](v4.3.0/integracion_backend.md) - Cómo usar el servicio desde el backend
+- [Autenticación](v4.3.0/autenticacion.md) - Sistema de autenticación JWT integrado
 
 ### v3.3.0
 - [README v3.3.0](v3.3.0/README.md) - Información general y objetivos de la versión
