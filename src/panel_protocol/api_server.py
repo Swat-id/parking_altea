@@ -32,7 +32,7 @@ except ImportError:
     logger.warning("No se pudo importar auth.py, el servicio funcionará sin autenticación")
 
 # Puerto por defecto para el servicio HTTP
-PANEL_PROTOCOL_SERVICE_PORT = 7000
+PANEL_PROTOCOL_SERVICE_PORT = 7110
 
 
 class PanelProtocolAPIServer:
@@ -52,7 +52,7 @@ class PanelProtocolAPIServer:
         Inicializa el servidor API.
         
         Args:
-            port: Puerto donde escuchará el servidor (default: 7000)
+            port: Puerto donde escuchará el servidor (default: 7110)
             host: Host donde escuchará (default: 0.0.0.0)
             max_concurrent_tasks: Máximo de tareas concurrentes
             max_connections_per_panel: Máximo de conexiones por panel

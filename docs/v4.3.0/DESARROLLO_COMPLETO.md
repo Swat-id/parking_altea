@@ -8,7 +8,7 @@ Se ha desarrollado un **servicio completo de comunicación asíncrona con panele
 
 ### ✅ Objetivos Principales
 - ✅ Comunicación TCP/IP directa con paneles (puerto 5200)
-- ✅ Servicio HTTP/REST en puerto fijo **7000**
+- ✅ Servicio HTTP/REST en puerto fijo **7110**
 - ✅ Gestión asíncrona y paralela de múltiples operaciones
 - ✅ Almacenamiento de resultados y estadísticas
 - ✅ Integración con sistema de autenticación del backend
@@ -18,13 +18,13 @@ Se ha desarrollado un **servicio completo de comunicación asíncrona con panele
 
 ## 🔌 Puerto Fijo del Servicio
 
-### Puerto 7000 (FIJO)
+### Puerto 7110 (FIJO)
 
-El servicio **Panel Protocol Service** se ejecuta en el **puerto 7000** de forma fija.
+El servicio **Panel Protocol Service** se ejecuta en el **puerto 7110** de forma fija.
 
-- **Puerto**: `7000`
+- **Puerto**: `7110`
 - **Protocolo**: HTTP/REST
-- **URL Base**: `http://localhost:7000`
+- **URL Base**: `http://localhost:7110`
 - **Configuración**: Definido en `src/panel_protocol/constants.py` y `src/config.py`
 
 **Importante**: Este puerto está fijado y no debe cambiarse sin actualizar la documentación.

@@ -2,13 +2,13 @@
 
 ## Puerto Asignado
 
-### Puerto 7000 (FIJO)
+### Puerto 7110 (FIJO)
 
-El servicio **Panel Protocol Service** se ejecuta en el **puerto 7000** de forma fija.
+El servicio **Panel Protocol Service** se ejecuta en el **puerto 7110** de forma fija.
 
-- **Puerto**: `7000`
+- **Puerto**: `7110`
 - **Protocolo**: HTTP/REST
-- **URL Base**: `http://localhost:7000`
+- **URL Base**: `http://localhost:7110`
 - **Configuración**: Definido en `src/panel_protocol/constants.py`
 
 ## Configuración
@@ -18,13 +18,13 @@ El servicio **Panel Protocol Service** se ejecuta en el **puerto 7000** de forma
 El puerto puede configurarse mediante variable de entorno:
 
 ```bash
-export PANEL_PROTOCOL_SERVICE_PORT=7000
+export PANEL_PROTOCOL_SERVICE_PORT=7110
 ```
 
 O en el archivo `.env`:
 
 ```env
-PANEL_PROTOCOL_SERVICE_PORT=7000
+PANEL_PROTOCOL_SERVICE_PORT=7110
 ```
 
 ### Código
@@ -33,12 +33,12 @@ El puerto está definido en:
 
 1. **`src/panel_protocol/constants.py`**:
    ```python
-   PANEL_PROTOCOL_SERVICE_PORT = 7000
+   PANEL_PROTOCOL_SERVICE_PORT = 7110
    ```
 
 2. **`src/config.py`**:
    ```python
-   PANEL_PROTOCOL_SERVICE_PORT = int(os.getenv('PANEL_PROTOCOL_SERVICE_PORT', 7000))
+   PANEL_PROTOCOL_SERVICE_PORT = int(os.getenv('PANEL_PROTOCOL_SERVICE_PORT', 7110))
    ```
 
 ## Puertos del Sistema
@@ -47,7 +47,7 @@ El puerto está definido en:
 
 | Puerto | Servicio | Descripción |
 |--------|----------|-------------|
-| **7000** | **Panel Protocol Service** | Servicio HTTP/REST para paneles LED (v4.3.0) |
+| **7110** | **Panel Protocol Service** | Servicio HTTP/REST para paneles LED (v4.3.0) |
 | 5789 | Frontend | Interfaz web (nginx) |
 | 6001 | API Backend | API principal del sistema |
 | 6400 | Camera Service | Servicio de cámaras |
@@ -100,15 +100,15 @@ sudo systemctl status parking-panel-protocol
 ### Verificar que el puerto está libre
 
 ```bash
-sudo netstat -tlnp | grep 7000
+sudo netstat -tlnp | grep 7110
 # o
-sudo lsof -i :7000
+sudo lsof -i :7110
 ```
 
 ### Verificar que el servicio está escuchando
 
 ```bash
-curl http://localhost:7000/health
+curl http://localhost:7110/health
 ```
 
 Respuesta esperada:
@@ -118,7 +118,7 @@ Respuesta esperada:
   "status": "ok",
   "service": "panel-protocol-service",
   "version": "4.3.0",
-  "port": 7000
+  "port": 7110
 }
 ```
 
@@ -154,8 +154,8 @@ Ver documentación completa en: [Autenticación](./autenticacion.md)
 
 ## Notas Importantes
 
-1. **Puerto fijo**: El puerto 7000 está fijado y no debe cambiarse sin actualizar la documentación
-2. **Firewall**: Asegurarse de que el puerto 7000 esté abierto si se necesita acceso externo
+1. **Puerto fijo**: El puerto 7110 está fijado y no debe cambiarse sin actualizar la documentación
+2. **Firewall**: Asegurarse de que el puerto 7110 esté abierto si se necesita acceso externo
 3. **Proxy**: Si se usa nginx como proxy, configurar redirección desde el puerto 80/443
 4. **Concurrencia**: El servicio maneja múltiples conexiones simultáneamente
 5. **Autenticación**: Usa el mismo sistema JWT del backend, no requiere configuración adicional
@@ -164,5 +164,5 @@ Ver documentación completa en: [Autenticación](./autenticacion.md)
 
 **Fecha**: 2025-10-02  
 **Versión**: 4.3.0  
-**Puerto**: 7000 (FIJO)
+**Puerto**: 7110 (FIJO)
 

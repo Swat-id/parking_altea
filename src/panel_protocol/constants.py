@@ -78,7 +78,7 @@ DEFAULT_TIMEOUT = 10.0  # segundos
 DEFAULT_CONNECTION_TIMEOUT = 5.0  # segundos
 
 # Puerto del servicio HTTP/REST
-PANEL_PROTOCOL_SERVICE_PORT = 7000  # Puerto fijo para el servicio HTTP
+PANEL_PROTOCOL_SERVICE_PORT = 7110  # Puerto fijo para el servicio HTTP
 
 # Flags de confirmación
 CONFIRMATION_REQUESTED = 0x01

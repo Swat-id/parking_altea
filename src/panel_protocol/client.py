@@ -1,6 +1,6 @@
 """
 Cliente HTTP para el Panel Protocol Service
-Permite al backend comunicarse con el servicio en puerto 7000
+Permite al backend comunicarse con el servicio en puerto 7110
 """
 
 import requests
@@ -19,7 +19,7 @@ class PanelProtocolClient:
     
     def __init__(
         self,
-        base_url: str = "http://localhost:7000",
+        base_url: str = "http://localhost:7110",
         timeout: int = 30,
         token: Optional[str] = None
     ):
@@ -27,7 +27,7 @@ class PanelProtocolClient:
         Inicializa el cliente.
         
         Args:
-            base_url: URL base del servicio (default: http://localhost:7000)
+            base_url: URL base del servicio (default: http://localhost:7110)
             timeout: Timeout para peticiones HTTP (segundos)
             token: Token JWT para autenticación (opcional, usa el mismo sistema del backend)
         """
