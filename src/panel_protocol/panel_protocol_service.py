@@ -101,8 +101,8 @@ class PanelProtocolService:
             # Todos los argumentos para la operación se pasan como kwargs
             packet=packet,
             operation_type="create_window",
-            panel_ip=panel_ip,
-            panel_port=panel_port
+            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
+            panel_port=panel_port  # Pasar panel_port como kwarg para la operación
         )
         
         if wait_for_response:
@@ -183,8 +183,8 @@ class PanelProtocolService:
             # Todos los argumentos para la operación se pasan como kwargs
             packet=packet,
             operation_type="send_text",
-            panel_ip=panel_ip,
-            panel_port=panel_port
+            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
+            panel_port=panel_port  # Pasar panel_port como kwarg para la operación
         )
         
         logger.info(f"✅ Tarea {task_id} creada para enviar texto a ventana {window_id}")
@@ -252,8 +252,8 @@ class PanelProtocolService:
             # Todos los argumentos para la operación se pasan como kwargs
             packet=packet,
             operation_type="send_image",
-            panel_ip=panel_ip,
-            panel_port=panel_port
+            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
+            panel_port=panel_port  # Pasar panel_port como kwarg para la operación
         )
         
         if wait_for_response:
@@ -303,8 +303,8 @@ class PanelProtocolService:
             # Todos los argumentos para la operación se pasan como kwargs
             packet=packet,
             operation_type="execute_program",
-            panel_ip=panel_ip,
-            panel_port=panel_port
+            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
+            panel_port=panel_port  # Pasar panel_port como kwarg para la operación
         )
         
         if wait_for_response:
