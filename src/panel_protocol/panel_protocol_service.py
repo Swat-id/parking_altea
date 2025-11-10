@@ -157,20 +157,21 @@ class PanelProtocolService:
             try:
                 logger.info(f"Creando ventana {window_id} automáticamente en {panel_ip}:{panel_port} antes de enviar texto")
                 # Crear ventana antes de enviar texto (según protocolo)
-                # Crear la tarea de forma asíncrona sin esperar
-                create_window_task_id = await self.create_window(
-                    panel_ip=panel_ip,
-                    panel_port=panel_port,
-                    windows=[window_size],
-                    card_id=card_id,
-                    request_confirmation=request_confirmation,
-                    wait_for_response=False  # No esperar, solo crear la tarea
-                )
-                logger.info(f"✅ Tarea de creación de ventana {window_id} iniciada (task: {create_window_task_id})")
-                # Dar un pequeño delay para que la ventana se cree antes de enviar texto
-                # Pero no bloquear si falla
+                # Crear la tarea de forma asíncrona sin esperar - usar create_task para no bloquear
                 import asyncio
-                await asyncio.sleep(0.1)  # Pequeño delay para permitir que la tarea se inicie
+                asyncio.create_task(
+                    self.create_window(
+                        panel_ip=panel_ip,
+                        panel_port=panel_port,
+                        windows=[window_size],
+                        card_id=card_id,
+                        request_confirmation=request_confirmation,
+                        wait_for_response=False  # No esperar, solo crear la tarea
+                    )
+                )
+                logger.info(f"✅ Tarea de creación de ventana {window_id} iniciada en background")
+                # Pequeño delay para permitir que la tarea se inicie
+                await asyncio.sleep(0.1)
             except Exception as e:
                 logger.warning(f"⚠️ No se pudo crear ventana automáticamente: {e}. Continuando con envío de texto...")
                 import traceback

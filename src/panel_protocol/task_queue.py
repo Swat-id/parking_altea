@@ -90,7 +90,7 @@ class TaskQueue:
         # Ejecutar tarea en background
         asyncio.create_task(self._execute_task(task))
         
-        logger.debug(f"Tarea {task_id} añadida a la cola para {panel_ip}:{panel_port}")
+        logger.info(f"✅ Tarea {task_id} añadida a la cola para {panel_ip}:{panel_port} (tipo: {metadata.get('operation_type', 'unknown')})")
         return task_id
     
     async def _execute_task(self, task: Task):
