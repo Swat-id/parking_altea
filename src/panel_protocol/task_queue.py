@@ -98,7 +98,7 @@ class TaskQueue:
         await self._semaphore.acquire()
         
         try:
-            logger.debug(f"Ejecutando tarea {task.task_id}")
+            logger.info(f"Ejecutando tarea {task.task_id} para {task.panel_ip}:{task.panel_port} (tipo: {task.metadata.get('operation_type', 'unknown')})")
             
             # Ejecutar operación
             if asyncio.iscoroutinefunction(task.operation):
@@ -110,10 +110,13 @@ class TaskQueue:
             if not task.future.done():
                 task.future.set_result(result)
             
-            logger.debug(f"Tarea {task.task_id} completada exitosamente")
+            logger.info(f"✅ Tarea {task.task_id} completada exitosamente")
             
         except Exception as e:
-            logger.error(f"Error ejecutando tarea {task.task_id}: {e}")
+            import traceback
+            error_msg = f"Error ejecutando tarea {task.task_id}: {e}"
+            logger.error(error_msg)
+            logger.debug(f"Traceback: {traceback.format_exc()}")
             if not task.future.done():
                 task.future.set_exception(e)
         
