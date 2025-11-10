@@ -94,14 +94,15 @@ class PanelProtocolService:
             panel_ip=panel_ip,
             panel_port=panel_port,
             operation=self._send_packet_operation,
-            packet,  # Argumento posicional
-            "create_window",  # Argumento posicional (operation_type)
+            packet,  # Argumento posicional (va en *args)
+            "create_window",  # Argumento posicional (va en *args)
             metadata={
                 'windows': windows,
                 'card_id': card_id
             },
-            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
-            panel_port=panel_port  # Pasar panel_port como kwarg para la operación
+            # panel_ip y panel_port se pasan como kwargs para la operación (van en **kwargs)
+            panel_ip=panel_ip,
+            panel_port=panel_port
         )
         
         if wait_for_response:
@@ -172,8 +173,8 @@ class PanelProtocolService:
             panel_ip=panel_ip,
             panel_port=panel_port,
             operation=self._send_packet_operation,
-            packet,  # Argumento posicional
-            "send_text",  # Argumento posicional (operation_type)
+            packet,  # Argumento posicional (va en *args)
+            "send_text",  # Argumento posicional (va en *args)
             metadata={
                 'window_id': window_id,
                 'text': text,
@@ -181,8 +182,9 @@ class PanelProtocolService:
                 'font_size': font_size,
                 'effect': effect
             },
-            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
-            panel_port=panel_port  # Pasar panel_port como kwarg para la operación
+            # panel_ip y panel_port se pasan como kwargs para la operación (van en **kwargs)
+            panel_ip=panel_ip,
+            panel_port=panel_port
         )
         
         logger.info(f"✅ Tarea {task_id} creada para enviar texto a ventana {window_id}")
@@ -243,14 +245,15 @@ class PanelProtocolService:
             panel_ip=panel_ip,
             panel_port=panel_port,
             operation=self._send_packet_operation,
-            packet,  # Argumento posicional
-            "send_image",  # Argumento posicional (operation_type)
+            packet,  # Argumento posicional (va en *args)
+            "send_image",  # Argumento posicional (va en *args)
             metadata={
                 'window_id': window_id,
                 'filename': filename
             },
-            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
-            panel_port=panel_port  # Pasar panel_port como kwarg para la operación
+            # panel_ip y panel_port se pasan como kwargs para la operación (van en **kwargs)
+            panel_ip=panel_ip,
+            panel_port=panel_port
         )
         
         if wait_for_response:
@@ -294,13 +297,14 @@ class PanelProtocolService:
             panel_ip=panel_ip,
             panel_port=panel_port,
             operation=self._send_packet_operation,
-            packet,  # Argumento posicional
-            "execute_program",  # Argumento posicional (operation_type)
+            packet,  # Argumento posicional (va en *args)
+            "execute_program",  # Argumento posicional (va en *args)
             metadata={
                 'program_number': program_number
             },
-            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
-            panel_port=panel_port  # Pasar panel_port como kwarg para la operación
+            # panel_ip y panel_port se pasan como kwargs para la operación (van en **kwargs)
+            panel_ip=panel_ip,
+            panel_port=panel_port
         )
         
         if wait_for_response:
