@@ -225,7 +225,7 @@ class PanelProtocolAPIServer:
                 panel_ip = data.get('panel_ip')
                 panel_port = data.get('panel_port', DEFAULT_PORT)
                 windows = data.get('windows', [])
-                card_id = data.get('card_id', 0xFF)
+                card_id = data.get('card_id', 0x01)  # Por defecto 0x01 según ejemplos (0xFF para broadcast)
                 wait_for_response = data.get('wait_for_response', False)
                 
                 if not panel_ip:
@@ -286,8 +286,8 @@ class PanelProtocolAPIServer:
                 alignment = data.get('alignment', Alignment.CENTER_CENTER)
                 speed = data.get('speed', 0x00)
                 stay_time = data.get('stay_time', 3)
-                card_id = data.get('card_id', 0xFF)
-                request_confirmation = data.get('request_confirmation', True)
+                card_id = data.get('card_id', 0x01)  # Por defecto 0x01 según ejemplos (0xFF para broadcast)
+                request_confirmation = data.get('request_confirmation', True)  # Por defecto True para recibir confirmación
                 wait_for_response = data.get('wait_for_response', False)
                 
                 if not panel_ip:
@@ -391,7 +391,7 @@ class PanelProtocolAPIServer:
                 stay_time = data.get('stay_time', 3)
                 x = data.get('x', 0)
                 y = data.get('y', 0)
-                card_id = data.get('card_id', 0xFF)
+                card_id = data.get('card_id', 0x01)  # Por defecto 0x01 según ejemplos (0xFF para broadcast)
                 wait_for_response = data.get('wait_for_response', False)
                 
                 if not panel_ip:
