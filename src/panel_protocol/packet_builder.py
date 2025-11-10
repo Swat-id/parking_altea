@@ -20,7 +20,9 @@ class PacketBuilder:
         card_id: int,
         command: int,
         packet_data: bytes,
-        request_confirmation: bool = True
+        request_confirmation: bool = True,
+        packet_number: int = 0x00,
+        last_packet_number: int = 0x00
     ) -> bytes:
         """
         Construye un paquete completo de red según el protocolo.
@@ -28,8 +30,10 @@ class PacketBuilder:
         Args:
             card_id: ID de la tarjeta (0x01-0xFE) o 0xFF para broadcast
             command: Código de comando
-            packet_data: Datos del paquete (sin incluir headers)
+            packet_data: Datos del comando CC (sin incluir headers adicionales)
             request_confirmation: Si True, solicita confirmación (bit 0 = 1)
+            packet_number: Número de secuencia del paquete (0x00-0xFF)
+            last_packet_number: Número total de paquetes - 1 (0x00 para un solo paquete)
             
         Returns:
             bytes: Paquete completo listo para enviar
@@ -37,37 +41,47 @@ class PacketBuilder:
         # Additional info: bit 0 = confirmación, bits 1-7 = 0
         additional_info = CONFIRMATION_REQUESTED if request_confirmation else NO_CONFIRMATION
         
-        # Construir parte del paquete desde Packet Type hasta Packet Data
+        # Construir parte del paquete desde Packet Type hasta Additional Info
         packet_header = bytes([
-            PACKET_TYPE_SEND,
-            CARD_TYPE,
-            card_id,
-            command,
-            additional_info
+            PACKET_TYPE_SEND,      # 0x68
+            CARD_TYPE,             # 0x32
+            card_id,               # 0x01-0xFE o 0xFF
+            command,               # 0x7B
+            additional_info        # 0x01 o 0x00
         ])
         
-        # Datos completos para calcular checksum
-        data_for_checksum = packet_header + packet_data
+        # Según la documentación, después de Additional Info vienen:
+        # - Packet data length (2 bytes) - Longitud de la parte "CC..."
+        # - Packet number (1 byte)
+        # - Last packet number (1 byte)
+        packet_data_length = len(packet_data)
+        packet_info = (
+            struct.pack('<H', packet_data_length) +  # Packet data length (2 bytes, little-endian)
+            bytes([packet_number]) +                  # Packet number (1 byte)
+            bytes([last_packet_number])               # Last packet number (1 byte)
+        )
         
-        # Calcular checksum
+        # Datos completos para calcular checksum (desde Packet Type hasta Packet Data)
+        data_for_checksum = packet_header + packet_info + packet_data
+        
+        # Calcular checksum (suma desde Packet Type hasta Packet Data)
         checksum = calculate_checksum(data_for_checksum)
         
         # Calcular longitud de red (desde Packet Type hasta Checksum)
         # Según el protocolo, la longitud es de 2 bytes (little-endian)
         network_length = len(data_for_checksum) + len(checksum)
         
-        # Construir paquete completo
-        # Formato según documentación:
+        # Construir paquete completo según documentación:
         # - ID Code: 4 bytes (0xFF, 0xFF, 0xFF, 0xFF)
         # - Network Length: 2 bytes (little-endian) - desde Packet Type hasta Checksum
         # - Reserved: 2 bytes (0x00, 0x00)
         # - Packet Type hasta Checksum
         packet = (
-            ID_CODE +                                    # 4 bytes
-            struct.pack('<H', network_length) +          # 2 bytes (little-endian)
-            b'\x00\x00' +                                # 2 bytes reservados
-            data_for_checksum +                          # Packet Type + Card Type + Card ID + CMD + Info + Data
-            checksum                                     # 2 bytes
+            ID_CODE +                                    # 4 bytes: ID Code
+            struct.pack('<H', network_length) +          # 2 bytes: Network Length (little-endian)
+            b'\x00\x00' +                                # 2 bytes: Reserved
+            data_for_checksum +                          # Packet Type + Card Type + Card ID + CMD + Info + Packet Data Length + Packet Number + Last Packet Number + Packet Data
+            checksum                                     # 2 bytes: Checksum
         )
         
         return packet
