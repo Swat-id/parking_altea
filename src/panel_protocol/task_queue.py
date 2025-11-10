@@ -75,13 +75,21 @@ class TaskQueue:
         task_id = str(uuid.uuid4())
         future = asyncio.Future()
         
+        # Añadir panel_ip y panel_port a los kwargs para que la operación los reciba
+        # (a menos que ya estén en kwargs)
+        operation_kwargs = kwargs.copy()
+        if 'panel_ip' not in operation_kwargs:
+            operation_kwargs['panel_ip'] = panel_ip
+        if 'panel_port' not in operation_kwargs:
+            operation_kwargs['panel_port'] = panel_port
+        
         task = Task(
             task_id=task_id,
             panel_ip=panel_ip,
             panel_port=panel_port,
             operation=operation,
             args=args,
-            kwargs=kwargs,
+            kwargs=operation_kwargs,  # Usar kwargs con panel_ip y panel_port incluidos
             created_at=datetime.now(),
             future=future,
             metadata=metadata or {}

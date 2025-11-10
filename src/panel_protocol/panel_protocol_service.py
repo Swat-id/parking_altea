@@ -99,10 +99,9 @@ class PanelProtocolService:
                 'card_id': card_id
             },
             # Todos los argumentos para la operación se pasan como kwargs
+            # panel_ip y panel_port se añaden automáticamente en add_task
             packet=packet,
-            operation_type="create_window",
-            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
-            panel_port=panel_port  # Pasar panel_port como kwarg para la operación
+            operation_type="create_window"
         )
         
         if wait_for_response:
@@ -181,10 +180,9 @@ class PanelProtocolService:
                 'effect': effect
             },
             # Todos los argumentos para la operación se pasan como kwargs
+            # panel_ip y panel_port se añaden automáticamente en add_task
             packet=packet,
-            operation_type="send_text",
-            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
-            panel_port=panel_port  # Pasar panel_port como kwarg para la operación
+            operation_type="send_text"
         )
         
         logger.info(f"✅ Tarea {task_id} creada para enviar texto a ventana {window_id}")
@@ -250,10 +248,9 @@ class PanelProtocolService:
                 'filename': filename
             },
             # Todos los argumentos para la operación se pasan como kwargs
+            # panel_ip y panel_port se añaden automáticamente en add_task
             packet=packet,
-            operation_type="send_image",
-            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
-            panel_port=panel_port  # Pasar panel_port como kwarg para la operación
+            operation_type="send_image"
         )
         
         if wait_for_response:
@@ -301,10 +298,9 @@ class PanelProtocolService:
                 'program_number': program_number
             },
             # Todos los argumentos para la operación se pasan como kwargs
+            # panel_ip y panel_port se añaden automáticamente en add_task
             packet=packet,
-            operation_type="execute_program",
-            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
-            panel_port=panel_port  # Pasar panel_port como kwarg para la operación
+            operation_type="execute_program"
         )
         
         if wait_for_response:
