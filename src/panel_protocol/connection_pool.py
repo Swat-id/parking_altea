@@ -233,19 +233,21 @@ class ConnectionPool:
         
         try:
             # Enviar datos
-            logger.debug(f"Enviando {len(data)} bytes a {ip}:{port}")
+            logger.info(f"📤 Enviando {len(data)} bytes a {ip}:{port}")
+            logger.debug(f"Datos a enviar (hex): {data.hex()}")
             conn.sendall(data)
-            logger.debug(f"Datos enviados exitosamente a {ip}:{port}")
+            logger.info(f"✅ Datos enviados exitosamente a {ip}:{port}")
             
             # Leer respuesta con timeout
-            logger.debug(f"Esperando respuesta de {ip}:{port} (timeout: {self.read_timeout}s)")
+            logger.info(f"⏳ Esperando respuesta de {ip}:{port} (timeout: {self.read_timeout}s)")
             loop = asyncio.get_event_loop()
             response = await asyncio.wait_for(
                 self._read_response(conn),
                 timeout=self.read_timeout
             )
             
-            logger.debug(f"Respuesta recibida de {ip}:{port} ({len(response)} bytes)")
+            logger.info(f"📥 Respuesta recibida de {ip}:{port} ({len(response)} bytes)")
+            logger.debug(f"Respuesta recibida (hex): {response.hex()}")
             return response
             
         except asyncio.TimeoutError:

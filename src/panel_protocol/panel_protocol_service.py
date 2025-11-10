@@ -333,6 +333,9 @@ class PanelProtocolService:
         metadata = kwargs.get('metadata', {})
         
         try:
+            logger.info(f"📦 Enviando paquete de {len(packet)} bytes para operación '{operation_type}' a {panel_ip}:{panel_port}")
+            logger.debug(f"Paquete completo (hex): {packet.hex()}")
+            
             # Enviar paquete y recibir respuesta
             response = await self.connection_pool.send_data(
                 ip=panel_ip,
@@ -341,13 +344,20 @@ class PanelProtocolService:
             )
             
             if response is None:
+                logger.error(f"❌ No se recibió respuesta del panel {panel_ip}:{panel_port}")
                 raise Exception("No se recibió respuesta del panel")
+            
+            logger.info(f"✅ Respuesta recibida del panel {panel_ip}:{panel_port} ({len(response)} bytes)")
             
             # Parsear respuesta
             parsed = PacketParser.parse_response(response)
             
             if parsed is None:
+                logger.error(f"❌ Respuesta inválida del panel {panel_ip}:{panel_port}")
+                logger.debug(f"Respuesta recibida (hex): {response.hex()}")
                 raise Exception("Respuesta inválida del panel")
+            
+            logger.info(f"✅ Respuesta parseada: success={parsed['success']}, return_value={parsed['return_value']}")
             
             # Crear resultado
             result = OperationResult(
