@@ -114,12 +114,15 @@ class ConnectionPool:
         """
         loop = asyncio.get_event_loop()
         
+        logger.info(f"Intentando conectar a {ip}:{port} (timeout: {self.connection_timeout}s)")
+        
         # Crear socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setblocking(False)
         
         try:
             # Conectar con timeout
+            logger.debug(f"Conectando socket a {ip}:{port}...")
             await asyncio.wait_for(
                 loop.sock_connect(sock, (ip, port)),
                 timeout=self.connection_timeout
@@ -129,21 +132,29 @@ class ConnectionPool:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             
-            logger.info(f"Conexión establecida a {ip}:{port}")
+            logger.info(f"✅ Conexión establecida exitosamente a {ip}:{port}")
             return sock
             
         except asyncio.TimeoutError:
             sock.close()
-            raise Exception(f"Timeout conectando a {ip}:{port} (timeout: {self.connection_timeout}s)")
-        except ConnectionRefusedError:
+            error_msg = f"Timeout conectando a {ip}:{port} (timeout: {self.connection_timeout}s). El panel puede no tener el puerto {port} abierto."
+            logger.error(error_msg)
+            raise Exception(error_msg)
+        except ConnectionRefusedError as e:
             sock.close()
-            raise Exception(f"Conexión rechazada por {ip}:{port}. Verificar que el panel esté encendido y el puerto esté abierto.")
+            error_msg = f"Conexión rechazada por {ip}:{port}. Verificar que el panel esté encendido y el puerto {port} esté abierto."
+            logger.error(f"{error_msg} Error: {e}")
+            raise Exception(error_msg)
         except OSError as e:
             sock.close()
-            raise Exception(f"Error de red conectando a {ip}:{port}: {e}")
+            error_msg = f"Error de red conectando a {ip}:{port}: {e}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
         except Exception as e:
             sock.close()
-            raise Exception(f"No se pudo conectar a {ip}:{port}: {e}")
+            error_msg = f"No se pudo conectar a {ip}:{port}: {e}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
     
     def _is_connection_alive(self, conn: socket.socket) -> bool:
         """
@@ -214,28 +225,36 @@ class ConnectionPool:
         Returns:
             bytes: Respuesta recibida o None si falla
         """
+        logger.debug(f"Obteniendo conexión para enviar datos a {ip}:{port}")
         conn = await self.get_connection(ip, port)
         if conn is None:
+            logger.error(f"No se pudo obtener conexión a {ip}:{port}")
             return None
         
         try:
             # Enviar datos
+            logger.debug(f"Enviando {len(data)} bytes a {ip}:{port}")
             conn.sendall(data)
+            logger.debug(f"Datos enviados exitosamente a {ip}:{port}")
             
             # Leer respuesta con timeout
+            logger.debug(f"Esperando respuesta de {ip}:{port} (timeout: {self.read_timeout}s)")
             loop = asyncio.get_event_loop()
             response = await asyncio.wait_for(
                 self._read_response(conn),
                 timeout=self.read_timeout
             )
             
+            logger.debug(f"Respuesta recibida de {ip}:{port} ({len(response)} bytes)")
             return response
             
         except asyncio.TimeoutError:
-            logger.warning(f"Timeout leyendo respuesta de {ip}:{port}")
+            logger.warning(f"Timeout leyendo respuesta de {ip}:{port} (timeout: {self.read_timeout}s)")
             return None
         except Exception as e:
             logger.error(f"Error enviando datos a {ip}:{port}: {e}")
+            import traceback
+            logger.debug(traceback.format_exc())
             return None
         finally:
             # Devolver conexión al pool
