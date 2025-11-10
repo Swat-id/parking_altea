@@ -303,8 +303,9 @@ class PanelProtocolAPIServer:
                 elif not isinstance(window_size, tuple):
                     window_size = (0, 0, 128, 32)  # Default
                 
-                # Ejecutar operación asíncrona
-                task_id = asyncio.run_coroutine_threadsafe(
+                # Ejecutar operación asíncrona con timeout
+                # Usar timeout corto para evitar bloqueos (5 segundos máximo para obtener task_id)
+                future = asyncio.run_coroutine_threadsafe(
                     self.service.send_text(
                         panel_ip=panel_ip,
                         panel_port=panel_port,
@@ -317,12 +318,19 @@ class PanelProtocolAPIServer:
                         speed=speed,
                         stay_time=stay_time,
                         card_id=card_id,
-                        wait_for_response=wait_for_response,
+                        wait_for_response=False,  # Nunca esperar en el endpoint, siempre retornar task_id
                         auto_create_window=auto_create_window,
                         window_size=window_size
                     ),
                     self.loop
-                ).result()
+                )
+                
+                # Esperar task_id con timeout corto (5 segundos)
+                try:
+                    task_id = future.result(timeout=5.0)
+                except Exception as e:
+                    logger.error(f"Error obteniendo task_id: {e}")
+                    return jsonify({'error': f'Error iniciando tarea: {str(e)}'}), 500
                 
                 return jsonify({
                     'success': True,

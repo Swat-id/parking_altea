@@ -155,15 +155,16 @@ class PanelProtocolService:
         if auto_create_window:
             try:
                 # Crear ventana antes de enviar texto (según protocolo)
+                # No esperar respuesta para no bloquear
                 create_window_task_id = await self.create_window(
                     panel_ip=panel_ip,
                     panel_port=panel_port,
                     windows=[window_size],
                     card_id=card_id,
                     request_confirmation=request_confirmation,
-                    wait_for_response=wait_for_response
+                    wait_for_response=False  # No esperar, solo crear la tarea
                 )
-                logger.debug(f"Ventana {window_id} creada automáticamente (task: {create_window_task_id})")
+                logger.info(f"Ventana {window_id} creada automáticamente (task: {create_window_task_id})")
             except Exception as e:
                 logger.warning(f"No se pudo crear ventana automáticamente: {e}. Continuando con envío de texto...")
         
