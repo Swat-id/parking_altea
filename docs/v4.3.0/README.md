@@ -24,8 +24,10 @@ Esta rama implementa un nuevo servicio de bajo nivel para comunicación directa 
 
 ### Documentos Principales
 - **[Análisis del Protocolo](./analisis_protocolo_paneles.md)** - Análisis exhaustivo del protocolo de comunicación
-- **[Arquitectura del Servicio](./arquitectura_servicio.md)** - Diseño detallado de la arquitectura (pendiente)
-- **[Plan de Implementación](./plan_implementacion.md)** - Plan detallado por fases (pendiente)
+- **[Desarrollo del Servicio Asíncrono](./desarrollo_servicio_asincrono.md)** - Documentación del servicio implementado
+- **[Configuración de Puerto](./configuracion_puerto.md)** - Configuración del puerto 7000
+- **[Integración con Backend](./integracion_backend.md)** - Cómo usar el servicio desde el backend
+- **[Autenticación](./autenticacion.md)** - Sistema de autenticación JWT integrado
 
 ### Documentos de Referencia
 - `docs/Rotulosv147/protocol/` - Documentación oficial del protocolo
@@ -39,17 +41,24 @@ Esta rama implementa un nuevo servicio de bajo nivel para comunicación directa 
 - [x] Creación de rama v4.3.0
 - [x] Análisis exhaustivo de la documentación del protocolo
 - [x] Documento de análisis del protocolo
+- [x] Diseño de arquitectura asíncrona
+- [x] Implementación de infraestructura base
+- [x] Pool de conexiones TCP
+- [x] Cola de tareas asíncrona
+- [x] Almacenamiento de resultados
+- [x] Construcción y análisis de paquetes
+- [x] Servicio principal integrado
+- [x] Ejemplos de uso
 
 ### ⏳ En Progreso
-- [ ] Diseño de arquitectura del servicio
-- [ ] Plan de implementación detallado
+- [ ] Tests unitarios
+- [ ] Integración con sistema existente
 
 ### 📅 Pendiente
-- [ ] Implementación Fase 1: Infraestructura Base
-- [ ] Implementación Fase 2: Comandos Básicos
-- [ ] Implementación Fase 3: Texto Avanzado
-- [ ] Implementación Fase 4: Imágenes
-- [ ] Implementación Fase 5: Testing y Documentación
+- [ ] API REST para exponer el servicio
+- [ ] Persistencia en base de datos
+- [ ] Documentación de API completa
+- [ ] Tests de integración
 
 ## 🏗️ Arquitectura Propuesta
 
@@ -96,31 +105,64 @@ Packet Data (variable) + Checksum (2 bytes)
 - **ID Code**: 0xFFFFFFFF (255.255.255.255)
 - **Timeout**: 5-10 segundos
 
-## 🚀 Uso Previsto
+## 🔌 Configuración de Puertos
+
+### Puerto 7000 - Panel Protocol Service (FIJO)
+- **Propósito**: Servicio HTTP/REST para comunicación con paneles LED
+- **Tecnología**: Flask + Python asyncio
+- **Protocolo**: REST API
+- **URL Base**: `http://localhost:7000`
+- **Endpoints**: `/api/v1/panels/*`
+
+### Puerto 5200 - Comunicación TCP con Paneles
+- **Propósito**: Puerto TCP para comunicación directa con paneles LED
+- **Protocolo**: TCP/IP (protocolo Rotuloselectronicos.net)
+- **Uso**: Interno del servicio (no expuesto directamente)
+
+## 🚀 Uso del Servicio
+
+### Uso Directo (Python)
 
 ```python
-# Ejemplo de uso futuro
-from src.panel_protocol_service import PanelProtocolClient
-from src.panel_protocol.colors import Color
-from src.panel_protocol.fonts import FontSize
-from src.panel_protocol.effects import Effect
+import asyncio
+from src.panel_protocol import PanelProtocolService
+from src.panel_protocol.constants import Color, FontSize, Effect
 
-client = PanelProtocolClient(ip="192.168.1.221", port=5200)
-client.connect()
+async def ejemplo():
+    service = PanelProtocolService()
+    
+    # Enviar texto
+    task_id = await service.send_text(
+        panel_ip="192.168.1.221",
+        window_id=0,
+        text="PARKING LLIURE",
+        color=Color.GREEN,
+        font_size=FontSize.SIZE_16,
+        effect=Effect.SCROLL_LEFT
+    )
+    
+    await service.close()
 
-# Crear ventana
-window = client.create_window(0, 0, 64, 8)
+asyncio.run(ejemplo())
+```
 
-# Enviar texto
-window.send_text(
-    text="PARKING LLIURE",
-    color=Color.GREEN,
-    font_size=FontSize.SIZE_16,
-    effect=Effect.SCROLL_LEFT,
-    alignment=Alignment.CENTER
-)
+### Uso a través de API REST
 
-client.disconnect()
+```bash
+# Enviar texto a un panel
+curl -X POST http://localhost:7000/api/v1/panels/send-text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "panel_ip": "192.168.1.221",
+    "window_id": 0,
+    "text": "PARKING LLIURE",
+    "color": 2,
+    "font_size": 2,
+    "effect": 11
+  }'
+
+# Verificar salud del servicio
+curl http://localhost:7000/health
 ```
 
 ## 📊 Comparación con Sistema Actual
