@@ -24,7 +24,11 @@ Documentación general del proyecto con descripción, arquitectura, componentes 
 
 ## 📚 Documentación por Versiones
 
-### v3.3.0 (En desarrollo)
+### v4.3.0 (En desarrollo)
+- [README v4.3.0](v4.3.0/README.md) - Información general y objetivos de la versión
+- [Análisis del Protocolo de Paneles](v4.3.0/analisis_protocolo_paneles.md) - Análisis exhaustivo del protocolo de comunicación con paneles LED
+
+### v3.3.0
 - [README v3.3.0](v3.3.0/README.md) - Información general y objetivos de la versión
 - [Gestión de Sensores](v3.3.0/sensor-management.md) - Sistema completo de gestión de sensores IoT
 - [Evolución de Alarmas](v3.3.0/alarm-evolution.md) - Mejoras y nuevas funcionalidades de alarmas

@@ -1,0 +1,38 @@
+                ENVIO TEXTO ESTATICO NETWORK
+EJEMPLO:
+
+Texto “hola” en coordenadas x=32, y=0, en una ventana de x=64 , y=8:
+
+Trama de envío:
+
+ffffffff 2000 0000 68 32 01 7b 01 1500 00 00 04 00 01 00 0020 0000 0020 0008 00 ff ff 00
+686f6c6100 1b05
+
+Explicación:
+
+ffffffff (4 bytes) : ID Code
+2000 (2 bytes) : Network data length
+0000 (2 bytes) : Reservation
+68 (1 byte) : Packet type
+32 (1 byte) : Card type
+01 (1 byte) : Card ID
+7b (1 byte) : Protocol code
+01 (1 byte) : return a confirmation
+1500 (2 bytes) : Packed data length
+00 (1 byte) : Packet number PO
+00 (1 byte) : Last packet number
+04 (1 byte) : (Packet data) Static text data
+00 (1 byte) : (Packet data) Window NO
+01 (1 byte) : (Packet data) Data type
+00 (1 byte) : (Packet data) alignment
+0020 (2 bytes) : (Packet data) Display area X
+0000 (2 bytes) : (Packet data) Display area Y
+0020 (2 bytes) : (Packet data) Display area width
+0008 (2 bytes) : (Packet data) Display area height
+00 (1 byte) : (Packet data) Font
+ff (1 byte) : (Packet data) Text color R
+ff (1 byte) : (Packet data) Text color G
+00 (1 byte) : (Packet data) Text color B
+686f6c6100 : (Packet data) Texto “hola”
+1b05 (2 bytes) : checksum
+

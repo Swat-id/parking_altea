@@ -1,0 +1,82 @@
+                     EJEMPLO COMANDO CAMBIAR PROGRAMA
+
+                                          A TRAVÉS DE TCP
+
+
+COMANDO CC= 0x08
+
+Reproducir programa o fase 1 del playlist:
+
+FF FF FF FF 0F 00 00 00 68 32 01 7B 01 04 00 00 00 08 00 01 01 25 01
+
+
+
+
+      Dato             Valor Hex / Dec       Longitud                  Descripción
+                         FF FF FF FF
+     Id code                                  4 bytes          Código id único. Valor fijo
+                      (255.255.255.255)
+                                                            Longitud de bytes desde Tipo de
+                                                             Paquete de Datos hasta Datos
+                                                               Checksum en formato:
+Longitud trama           0F 00 / 15 00        2 Bytes
+                                                                  Low Byte High Byte
+
+                                                                   En total 15 Bytes
+
+    Reservado           0x00 0x00 / 0 0       2 Bytes                   Valor fijo
+
+ Tipo de paquete
+                          0x68 / 104          1 Byte                    Valor fijo
+    de datos
+
+Tipo controladora          0x32 / 50          1 Byte                    Valor fijo
+
+
+ ID controladora            0x01 / 1          1 Byte                    Valor fijo
+
+
+Código Protocolo          0x7B / 123          1 Byte                    Valor fijo
+
+    Devolver
+  comprobación              0x01 / 1          1 Byte                    Valor fijo
+    checksum
+                                                    Longitud Comando Seleccionar
+                                                              programa
+
+                                                      4 Parámetros del comando
+                                                    0x08: Tipo comando Reproducir
+                                                    0x00: Reservado
+   Longitud
+                    0x04 0x00 / 4 0     2 Byte      0x01: Cantidad de programas
+   Comando
+                                                    0x0X: El número de programa
+
+                                                    En orden Low Byte High Byte
+
+                                                  Valor fijo si siempre mandamos solo
+                                                      un programa a reproducir.
+
+  Número de
+                       0x00 / 0         1 Byte                 Valor fijo
+   paquete
+
+ Último paquete        0x00 / 0         1 Byte                 Valor fijo
+
+                                                         Reproducir programa 1
+ Comando para
+                                                    0x08: Tipo comando Reproducir
+   reproducir     0x08 0x00 0x01 0x01   4 Bytes
+                                                    0x00: Reservado
+programa o Fase
+                                                    0x01: Cantidad de programas
+                                                    0x0X: El número de programa
+
+                                                  Suma de bytes desde Tipo de Paquete
+                                                    de Datos hasta Comando para
+                                                              Reproducir
+   Checksum         0x25 0x01 / 293     2 Bytes
+                                                     En orden Low Byte High Byte
+
+                                                    En total la suma es 293 / 0x125
+
