@@ -157,7 +157,11 @@ class PanelProtocolAPIServer:
                 return jsonify({'error': 'Autenticación no disponible'}), 503
             
             try:
-                data = request.json
+                # Usar get_json() que es más robusto que request.json
+                data = request.get_json(force=True)
+                if not data:
+                    return jsonify({'error': 'JSON inválido o vacío'}), 400
+                
                 email = data.get('email')
                 password = data.get('password')
                 
