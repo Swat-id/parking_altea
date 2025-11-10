@@ -171,6 +171,8 @@ class PanelProtocolService:
             panel_port=panel_port,
             operation=self._send_packet_operation,
             packet=packet,
+            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
+            panel_port=panel_port,  # Pasar panel_port como kwarg para la operación
             operation_type="send_text",
             metadata={
                 'window_id': window_id,
@@ -240,6 +242,8 @@ class PanelProtocolService:
             panel_port=panel_port,
             operation=self._send_packet_operation,
             packet=packet,
+            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
+            panel_port=panel_port,  # Pasar panel_port como kwarg para la operación
             operation_type="send_image",
             metadata={
                 'window_id': window_id,
@@ -289,6 +293,8 @@ class PanelProtocolService:
             panel_port=panel_port,
             operation=self._send_packet_operation,
             packet=packet,
+            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
+            panel_port=panel_port,  # Pasar panel_port como kwarg para la operación
             operation_type="execute_program",
             metadata={
                 'program_number': program_number
