@@ -308,6 +308,74 @@ class PanelProtocolService:
         
         return task_id
     
+    async def _send_raw_packet(
+        self,
+        panel_ip: str,
+        panel_port: int,
+        packet: bytes
+    ) -> Dict[str, Any]:
+        """
+        Envía un paquete hexadecimal directamente al panel (para pruebas).
+        
+        Args:
+            panel_ip: IP del panel
+            panel_port: Puerto del panel
+            packet: Paquete completo en bytes
+            
+        Returns:
+            Dict con el resultado de la operación
+        """
+        logger.info(f"Enviando paquete crudo de {len(packet)} bytes a {panel_ip}:{panel_port}")
+        logger.debug(f"Paquete completo (hex): {packet.hex()}")
+        
+        try:
+            # Enviar paquete y recibir respuesta
+            response = await self.connection_pool.send_data(
+                ip=panel_ip,
+                port=panel_port,
+                data=packet
+            )
+            
+            if response is None:
+                logger.error(f"❌ No se recibió respuesta del panel {panel_ip}:{panel_port}")
+                return {
+                    'success': False,
+                    'error': 'No se recibió respuesta del panel'
+                }
+            
+            logger.info(f"✅ Respuesta recibida del panel {panel_ip}:{panel_port} ({len(response)} bytes)")
+            logger.debug(f"Respuesta recibida (hex): {response.hex()}")
+            
+            # Intentar parsear respuesta
+            parsed = PacketParser.parse_response(response)
+            
+            if parsed is None:
+                logger.warning(f"⚠️  Respuesta no parseable del panel {panel_ip}:{panel_port}")
+                return {
+                    'success': True,
+                    'response_received': True,
+                    'response_hex': response.hex(),
+                    'parsed': False
+                }
+            
+            logger.info(f"✅ Respuesta parseada: success={parsed['success']}, return_value={parsed['return_value']}")
+            
+            return {
+                'success': parsed['success'],
+                'return_value': parsed['return_value'],
+                'response_hex': response.hex(),
+                'parsed': True
+            }
+            
+        except Exception as e:
+            logger.error(f"Error enviando paquete crudo: {e}")
+            import traceback
+            logger.debug(traceback.format_exc())
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
     async def _send_packet_operation(
         self,
         packet: bytes = None,

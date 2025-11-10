@@ -428,6 +428,85 @@ class PanelProtocolAPIServer:
                 logger.error(f"Error enviando imagen: {e}")
                 return jsonify({'error': str(e)}), 500
         
+        @self.app.route('/api/v1/panels/send-raw', methods=['POST'])
+        @self._check_auth
+        def send_raw_packet():
+            """
+            Enviar un paquete hexadecimal directamente al panel (para pruebas).
+            
+            Request:
+            {
+                "panel_ip": "172.20.4.52",
+                "panel_port": 5200,
+                "packet_hex": "ffffffff210000006832017b01160000000200000000030003100000681000006f1000006c10000061000000001903"
+            }
+            """
+            try:
+                data = request.get_json(force=True)
+                if not data:
+                    return jsonify({'error': 'JSON inválido o vacío'}), 400
+                
+                panel_ip = data.get('panel_ip')
+                panel_port = data.get('panel_port', DEFAULT_PORT)
+                packet_hex = data.get('packet_hex', '')
+                
+                if not panel_ip:
+                    return jsonify({'error': 'panel_ip es requerido'}), 400
+                
+                if not packet_hex:
+                    return jsonify({'error': 'packet_hex es requerido'}), 400
+                
+                # Convertir hexadecimal a bytes
+                try:
+                    packet_bytes = bytes.fromhex(packet_hex.replace(' ', '').replace('0x', '').replace(',', ''))
+                except ValueError as e:
+                    return jsonify({'error': f'Formato hexadecimal inválido: {e}'}), 400
+                
+                logger.info(f"Enviando paquete hexadecimal crudo a {panel_ip}:{panel_port} ({len(packet_bytes)} bytes)")
+                logger.info(f"Paquete (hex): {packet_bytes.hex()}")
+                
+                # Inicializar event loop si es necesario
+                if self.loop is None or not self.loop.is_running():
+                    logger.info("Event loop no está disponible, inicializando...")
+                    if self.loop_thread is None or not self.loop_thread.is_alive():
+                        self.loop_thread = threading.Thread(target=self._run_event_loop, daemon=True)
+                        self.loop_thread.start()
+                        import time
+                        timeout = 5
+                        elapsed = 0
+                        while (self.loop is None or not self.loop.is_running()) and elapsed < timeout:
+                            time.sleep(0.1)
+                            elapsed += 0.1
+                        
+                        if self.loop is None or not self.loop.is_running():
+                            return jsonify({'error': 'No se pudo inicializar el event loop'}), 500
+                
+                # Enviar paquete directamente usando el servicio
+                try:
+                    coro = self.service._send_raw_packet(
+                        panel_ip=panel_ip,
+                        panel_port=panel_port,
+                        packet=packet_bytes
+                    )
+                    future = asyncio.run_coroutine_threadsafe(coro, self.loop)
+                    result = future.result(timeout=15.0)  # Timeout más largo para esperar respuesta
+                    
+                    return jsonify({
+                        'success': True,
+                        'message': 'Paquete enviado',
+                        'result': result
+                    })
+                except asyncio.TimeoutError:
+                    return jsonify({'error': 'Timeout esperando respuesta del panel'}), 500
+                except Exception as e:
+                    import traceback
+                    logger.error(f"Error enviando paquete crudo: {e}\n{traceback.format_exc()}")
+                    return jsonify({'error': f'Error enviando paquete: {str(e)}'}), 500
+                
+            except Exception as e:
+                logger.error(f"Error en send_raw_packet: {e}")
+                return jsonify({'error': str(e)}), 500
+        
         @self.app.route('/api/v1/tasks/<task_id>', methods=['GET'])
         def get_task_result(task_id):
             """Obtener resultado de una tarea"""
