@@ -265,9 +265,17 @@ class PanelProtocolAPIServer:
         @self.app.route('/api/v1/panels/send-text', methods=['POST'])
         @self._check_auth
         def send_text():
-            """Enviar texto a un panel"""
+            """
+            Enviar texto a un panel.
+            
+            Según el protocolo, primero debe existir una ventana antes de enviar texto.
+            Si auto_create_window=True (por defecto), crea la ventana automáticamente.
+            """
             try:
-                data = request.json
+                data = request.get_json(force=True)
+                if not data:
+                    return jsonify({'error': 'JSON inválido o vacío'}), 400
+                
                 panel_ip = data.get('panel_ip')
                 panel_port = data.get('panel_port', DEFAULT_PORT)
                 window_id = data.get('window_id', 0)
@@ -280,12 +288,20 @@ class PanelProtocolAPIServer:
                 stay_time = data.get('stay_time', 3)
                 card_id = data.get('card_id', 0xFF)
                 wait_for_response = data.get('wait_for_response', False)
+                auto_create_window = data.get('auto_create_window', True)  # Por defecto True
+                window_size = data.get('window_size', [0, 0, 128, 32])  # [x, y, width, height]
                 
                 if not panel_ip:
                     return jsonify({'error': 'panel_ip es requerido'}), 400
                 
                 if not text:
                     return jsonify({'error': 'text es requerido'}), 400
+                
+                # Convertir window_size a tupla si es lista
+                if isinstance(window_size, list) and len(window_size) == 4:
+                    window_size = tuple(window_size)
+                elif not isinstance(window_size, tuple):
+                    window_size = (0, 0, 128, 32)  # Default
                 
                 # Ejecutar operación asíncrona
                 task_id = asyncio.run_coroutine_threadsafe(
@@ -301,7 +317,9 @@ class PanelProtocolAPIServer:
                         speed=speed,
                         stay_time=stay_time,
                         card_id=card_id,
-                        wait_for_response=wait_for_response
+                        wait_for_response=wait_for_response,
+                        auto_create_window=auto_create_window,
+                        window_size=window_size
                     ),
                     self.loop
                 ).result()
@@ -309,7 +327,8 @@ class PanelProtocolAPIServer:
                 return jsonify({
                     'success': True,
                     'task_id': task_id,
-                    'message': 'Texto enviado' if not wait_for_response else 'Texto enviado y confirmado'
+                    'message': 'Texto enviado' if not wait_for_response else 'Texto enviado y confirmado',
+                    'window_created': auto_create_window
                 })
                 
             except Exception as e:

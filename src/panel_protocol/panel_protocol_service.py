@@ -121,10 +121,15 @@ class PanelProtocolService:
         stay_time: int = 3,
         card_id: int = CARD_ID_BROADCAST,
         request_confirmation: bool = True,
-        wait_for_response: bool = False
+        wait_for_response: bool = False,
+        auto_create_window: bool = True,
+        window_size: Tuple[int, int, int, int] = (0, 0, 128, 32)  # (x, y, width, height)
     ) -> str:
         """
         Envía texto a una ventana del panel (operación asíncrona).
+        
+        Según el protocolo, primero debe existir una ventana antes de enviar texto.
+        Si auto_create_window=True, crea la ventana automáticamente si no existe.
         
         Args:
             panel_ip: IP del panel
@@ -140,10 +145,28 @@ class PanelProtocolService:
             card_id: ID de la tarjeta
             request_confirmation: Si solicita confirmación
             wait_for_response: Si True, espera la respuesta antes de retornar
+            auto_create_window: Si True, crea la ventana automáticamente antes de enviar texto
+            window_size: Tamaño de la ventana (x, y, width, height) si se crea automáticamente
             
         Returns:
             str: ID de la tarea
         """
+        # Si auto_create_window está activado, crear la ventana primero
+        if auto_create_window:
+            try:
+                # Crear ventana antes de enviar texto (según protocolo)
+                create_window_task_id = await self.create_window(
+                    panel_ip=panel_ip,
+                    panel_port=panel_port,
+                    windows=[window_size],
+                    card_id=card_id,
+                    request_confirmation=request_confirmation,
+                    wait_for_response=wait_for_response
+                )
+                logger.debug(f"Ventana {window_id} creada automáticamente (task: {create_window_task_id})")
+            except Exception as e:
+                logger.warning(f"No se pudo crear ventana automáticamente: {e}. Continuando con envío de texto...")
+        
         packet = PacketBuilder.build_send_text_packet(
             card_id=card_id,
             window_id=window_id,
