@@ -287,6 +287,7 @@ class PanelProtocolAPIServer:
                 speed = data.get('speed', 0x00)
                 stay_time = data.get('stay_time', 3)
                 card_id = data.get('card_id', 0xFF)
+                request_confirmation = data.get('request_confirmation', True)
                 wait_for_response = data.get('wait_for_response', False)
                 
                 if not panel_ip:
