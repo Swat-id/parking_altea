@@ -328,9 +328,14 @@ class PanelProtocolAPIServer:
                 # Esperar task_id con timeout corto (5 segundos)
                 try:
                     task_id = future.result(timeout=5.0)
+                except asyncio.TimeoutError:
+                    logger.error("Timeout obteniendo task_id (más de 5 segundos)")
+                    return jsonify({'error': 'Timeout iniciando tarea. El panel puede no estar accesible.'}), 500
                 except Exception as e:
-                    logger.error(f"Error obteniendo task_id: {e}")
-                    return jsonify({'error': f'Error iniciando tarea: {str(e)}'}), 500
+                    import traceback
+                    error_msg = str(e) if str(e) else type(e).__name__
+                    logger.error(f"Error obteniendo task_id: {e}\n{traceback.format_exc()}")
+                    return jsonify({'error': f'Error iniciando tarea: {error_msg}'}), 500
                 
                 return jsonify({
                     'success': True,

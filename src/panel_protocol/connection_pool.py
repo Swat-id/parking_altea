@@ -132,6 +132,15 @@ class ConnectionPool:
             logger.info(f"Conexión establecida a {ip}:{port}")
             return sock
             
+        except asyncio.TimeoutError:
+            sock.close()
+            raise Exception(f"Timeout conectando a {ip}:{port} (timeout: {self.connection_timeout}s)")
+        except ConnectionRefusedError:
+            sock.close()
+            raise Exception(f"Conexión rechazada por {ip}:{port}. Verificar que el panel esté encendido y el puerto esté abierto.")
+        except OSError as e:
+            sock.close()
+            raise Exception(f"Error de red conectando a {ip}:{port}: {e}")
         except Exception as e:
             sock.close()
             raise Exception(f"No se pudo conectar a {ip}:{port}: {e}")
