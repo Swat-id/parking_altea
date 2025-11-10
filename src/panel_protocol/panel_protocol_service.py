@@ -337,10 +337,14 @@ class PanelProtocolService:
             )
             
             if response is None:
-                logger.error(f"❌ No se recibió respuesta del panel {panel_ip}:{panel_port}")
+                logger.warning(f"⚠️  No se recibió respuesta del panel {panel_ip}:{panel_port} (timeout o panel no responde)")
+                logger.info(f"ℹ️  El paquete fue enviado correctamente. El panel puede no estar configurado para responder, o la ventana puede no existir.")
+                logger.info(f"ℹ️  Verificar manualmente si el texto aparece en el panel.")
                 return {
-                    'success': False,
-                    'error': 'No se recibió respuesta del panel'
+                    'success': True,  # Consideramos éxito si el paquete se envió
+                    'packet_sent': True,
+                    'response_received': False,
+                    'message': 'Paquete enviado correctamente, pero el panel no respondió. Verificar manualmente si el texto aparece en el panel.'
                 }
             
             logger.info(f"✅ Respuesta recibida del panel {panel_ip}:{panel_port} ({len(response)} bytes)")
@@ -355,7 +359,8 @@ class PanelProtocolService:
                     'success': True,
                     'response_received': True,
                     'response_hex': response.hex(),
-                    'parsed': False
+                    'parsed': False,
+                    'message': 'Respuesta recibida pero no parseable'
                 }
             
             logger.info(f"✅ Respuesta parseada: success={parsed['success']}, return_value={parsed['return_value']}")
@@ -364,7 +369,8 @@ class PanelProtocolService:
                 'success': parsed['success'],
                 'return_value': parsed['return_value'],
                 'response_hex': response.hex(),
-                'parsed': True
+                'parsed': True,
+                'message': 'Respuesta recibida y parseada correctamente'
             }
             
         except Exception as e:
