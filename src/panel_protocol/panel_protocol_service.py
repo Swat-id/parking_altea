@@ -94,13 +94,13 @@ class PanelProtocolService:
             panel_ip=panel_ip,
             panel_port=panel_port,
             operation=self._send_packet_operation,
-            packet,  # Argumento posicional (va en *args)
-            "create_window",  # Argumento posicional (va en *args)
             metadata={
                 'windows': windows,
                 'card_id': card_id
             },
-            # panel_ip y panel_port se pasan como kwargs para la operación (van en **kwargs)
+            # Todos los argumentos para la operación se pasan como kwargs
+            packet=packet,
+            operation_type="create_window",
             panel_ip=panel_ip,
             panel_port=panel_port
         )
@@ -173,8 +173,6 @@ class PanelProtocolService:
             panel_ip=panel_ip,
             panel_port=panel_port,
             operation=self._send_packet_operation,
-            packet,  # Argumento posicional (va en *args)
-            "send_text",  # Argumento posicional (va en *args)
             metadata={
                 'window_id': window_id,
                 'text': text,
@@ -182,7 +180,9 @@ class PanelProtocolService:
                 'font_size': font_size,
                 'effect': effect
             },
-            # panel_ip y panel_port se pasan como kwargs para la operación (van en **kwargs)
+            # Todos los argumentos para la operación se pasan como kwargs
+            packet=packet,
+            operation_type="send_text",
             panel_ip=panel_ip,
             panel_port=panel_port
         )
@@ -245,13 +245,13 @@ class PanelProtocolService:
             panel_ip=panel_ip,
             panel_port=panel_port,
             operation=self._send_packet_operation,
-            packet,  # Argumento posicional (va en *args)
-            "send_image",  # Argumento posicional (va en *args)
             metadata={
                 'window_id': window_id,
                 'filename': filename
             },
-            # panel_ip y panel_port se pasan como kwargs para la operación (van en **kwargs)
+            # Todos los argumentos para la operación se pasan como kwargs
+            packet=packet,
+            operation_type="send_image",
             panel_ip=panel_ip,
             panel_port=panel_port
         )
@@ -297,12 +297,12 @@ class PanelProtocolService:
             panel_ip=panel_ip,
             panel_port=panel_port,
             operation=self._send_packet_operation,
-            packet,  # Argumento posicional (va en *args)
-            "execute_program",  # Argumento posicional (va en *args)
             metadata={
                 'program_number': program_number
             },
-            # panel_ip y panel_port se pasan como kwargs para la operación (van en **kwargs)
+            # Todos los argumentos para la operación se pasan como kwargs
+            packet=packet,
+            operation_type="execute_program",
             panel_ip=panel_ip,
             panel_port=panel_port
         )
@@ -314,21 +314,24 @@ class PanelProtocolService:
     
     async def _send_packet_operation(
         self,
-        packet: bytes,
-        operation_type: str,
+        packet: bytes = None,
+        operation_type: str = None,
         **kwargs
     ) -> Dict[str, Any]:
         """
         Operación interna para enviar un paquete y procesar la respuesta.
         
         Args:
-            packet: Paquete a enviar
-            operation_type: Tipo de operación
-            **kwargs: Debe incluir panel_ip y panel_port
+            packet: Paquete a enviar (puede venir como kwarg)
+            operation_type: Tipo de operación (puede venir como kwarg)
+            **kwargs: Debe incluir panel_ip, panel_port, packet y operation_type
             
         Returns:
             Dict con resultado de la operación
         """
+        # Obtener valores de kwargs si no vienen como argumentos posicionales
+        packet = packet or kwargs.get('packet')
+        operation_type = operation_type or kwargs.get('operation_type')
         panel_ip = kwargs.get('panel_ip')
         panel_port = kwargs.get('panel_port', DEFAULT_PORT)
         metadata = kwargs.get('metadata', {})
