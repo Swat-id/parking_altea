@@ -234,7 +234,7 @@ class ConnectionPool:
         try:
             # Enviar datos
             logger.info(f"📤 Enviando {len(data)} bytes a {ip}:{port}")
-            logger.debug(f"Datos a enviar (hex): {data.hex()}")
+            logger.info(f"📦 Datos a enviar (hex): {data.hex()}")
             conn.sendall(data)
             logger.info(f"✅ Datos enviados exitosamente a {ip}:{port}")
             

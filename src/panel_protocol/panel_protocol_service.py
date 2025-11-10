@@ -334,7 +334,7 @@ class PanelProtocolService:
         
         try:
             logger.info(f"📦 Enviando paquete de {len(packet)} bytes para operación '{operation_type}' a {panel_ip}:{panel_port}")
-            logger.debug(f"Paquete completo (hex): {packet.hex()}")
+            logger.info(f"📦 Paquete completo (hex): {packet.hex()}")
             
             # Enviar paquete y recibir respuesta
             response = await self.connection_pool.send_data(
