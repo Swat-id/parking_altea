@@ -296,7 +296,26 @@ class PanelProtocolAPIServer:
                 if not text:
                     return jsonify({'error': 'text es requerido'}), 400
                 
-                # Verificar que el event loop esté disponible
+                # Inicializar event loop de forma lazy si no está disponible
+                if self.loop is None or not self.loop.is_running():
+                    logger.info("Event loop no está disponible o no está ejecutándose, inicializando...")
+                    if self.loop_thread is None or not self.loop_thread.is_alive():
+                        self.loop_thread = threading.Thread(target=self._run_event_loop, daemon=True)
+                        self.loop_thread.start()
+                        # Esperar a que el loop esté listo (máximo 5 segundos)
+                        import time
+                        timeout = 5
+                        elapsed = 0
+                        while (self.loop is None or not self.loop.is_running()) and elapsed < timeout:
+                            time.sleep(0.1)
+                            elapsed += 0.1
+                        
+                        if self.loop is None or not self.loop.is_running():
+                            logger.error(f"Timeout inicializando event loop después de {timeout} segundos")
+                            return jsonify({'error': 'No se pudo inicializar el event loop'}), 500
+                        logger.info("Event loop inicializado correctamente")
+                
+                # Verificar que el event loop esté disponible y ejecutándose
                 if self.loop is None:
                     logger.error("Event loop no está disponible")
                     return jsonify({'error': 'Event loop no está disponible'}), 500
