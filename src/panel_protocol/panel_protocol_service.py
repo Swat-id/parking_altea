@@ -153,13 +153,15 @@ class PanelProtocolService:
         """
         # Si auto_create_window está activado, crear la ventana primero
         # IMPORTANTE: Crear la ventana de forma asíncrona sin bloquear
+        # Usar el event loop actual para crear la tarea correctamente
         if auto_create_window:
             try:
                 logger.info(f"Creando ventana {window_id} automáticamente en {panel_ip}:{panel_port} antes de enviar texto")
                 # Crear ventana antes de enviar texto (según protocolo)
-                # Crear la tarea de forma asíncrona sin esperar - usar create_task para no bloquear
+                # Crear la tarea de forma asíncrona sin esperar - usar el loop actual
                 import asyncio
-                asyncio.create_task(
+                loop = asyncio.get_event_loop()
+                loop.create_task(
                     self.create_window(
                         panel_ip=panel_ip,
                         panel_port=panel_port,
@@ -170,8 +172,7 @@ class PanelProtocolService:
                     )
                 )
                 logger.info(f"✅ Tarea de creación de ventana {window_id} iniciada en background")
-                # Pequeño delay para permitir que la tarea se inicie
-                await asyncio.sleep(0.1)
+                # NO hacer await sleep aquí - retornar inmediatamente el task_id
             except Exception as e:
                 logger.warning(f"⚠️ No se pudo crear ventana automáticamente: {e}. Continuando con envío de texto...")
                 import traceback
