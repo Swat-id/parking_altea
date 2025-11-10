@@ -53,9 +53,15 @@ class PacketBuilder:
         checksum = calculate_checksum(data_for_checksum)
         
         # Calcular longitud de red (desde Packet Type hasta Checksum)
+        # Según el protocolo, la longitud es de 2 bytes (little-endian)
         network_length = len(data_for_checksum) + len(checksum)
         
         # Construir paquete completo
+        # Formato según documentación:
+        # - ID Code: 4 bytes (0xFF, 0xFF, 0xFF, 0xFF)
+        # - Network Length: 2 bytes (little-endian) - desde Packet Type hasta Checksum
+        # - Reserved: 2 bytes (0x00, 0x00)
+        # - Packet Type hasta Checksum
         packet = (
             ID_CODE +                                    # 4 bytes
             struct.pack('<H', network_length) +          # 2 bytes (little-endian)
@@ -133,9 +139,9 @@ class PacketBuilder:
         # Calcular byte de color + tamaño: (color << 4) | font_size
         color_font = (color << 4) | font_size
         
-        # Construir datos del comando
+        # Construir datos del comando CC (sin incluir la longitud)
         # Comando CC: 0x02 (enviar texto)
-        packet_data = bytes([
+        command_data = bytes([
             SUB_CMD_SEND_TEXT,
             window_id,
             effect,
@@ -144,14 +150,18 @@ class PacketBuilder:
         ])
         
         # Tiempo de espera (2 bytes, little-endian)
-        packet_data += struct.pack('<H', stay_time)
+        command_data += struct.pack('<H', stay_time)
         
         # Para cada carácter: carácter + color_font + 0x00
         for char in text:
-            packet_data += bytes([ord(char), color_font, 0x00])
+            command_data += bytes([ord(char), color_font, 0x00])
         
         # Fin de texto: 3 bytes a 0x00
-        packet_data += b'\x00\x00\x00'
+        command_data += b'\x00\x00\x00'
+        
+        # Según el ejemplo, el packet_data debe incluir la longitud del comando CC (4 bytes, little-endian)
+        # al inicio, antes de los datos del comando
+        packet_data = struct.pack('<I', len(command_data)) + command_data
         
         return PacketBuilder.build_network_packet(
             card_id=card_id,
