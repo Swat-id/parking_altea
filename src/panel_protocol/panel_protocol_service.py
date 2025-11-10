@@ -96,12 +96,12 @@ class PanelProtocolService:
             operation=self._send_packet_operation,
             packet,  # Argumento posicional
             "create_window",  # Argumento posicional (operation_type)
-            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
-            panel_port=panel_port,  # Pasar panel_port como kwarg para la operación
             metadata={
                 'windows': windows,
                 'card_id': card_id
-            }
+            },
+            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
+            panel_port=panel_port  # Pasar panel_port como kwarg para la operación
         )
         
         if wait_for_response:
@@ -174,15 +174,15 @@ class PanelProtocolService:
             operation=self._send_packet_operation,
             packet,  # Argumento posicional
             "send_text",  # Argumento posicional (operation_type)
-            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
-            panel_port=panel_port,  # Pasar panel_port como kwarg para la operación
             metadata={
                 'window_id': window_id,
                 'text': text,
                 'color': color,
                 'font_size': font_size,
                 'effect': effect
-            }
+            },
+            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
+            panel_port=panel_port  # Pasar panel_port como kwarg para la operación
         )
         
         logger.info(f"✅ Tarea {task_id} creada para enviar texto a ventana {window_id}")
@@ -245,12 +245,12 @@ class PanelProtocolService:
             operation=self._send_packet_operation,
             packet,  # Argumento posicional
             "send_image",  # Argumento posicional (operation_type)
-            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
-            panel_port=panel_port,  # Pasar panel_port como kwarg para la operación
             metadata={
                 'window_id': window_id,
                 'filename': filename
-            }
+            },
+            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
+            panel_port=panel_port  # Pasar panel_port como kwarg para la operación
         )
         
         if wait_for_response:
@@ -296,11 +296,11 @@ class PanelProtocolService:
             operation=self._send_packet_operation,
             packet,  # Argumento posicional
             "execute_program",  # Argumento posicional (operation_type)
-            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
-            panel_port=panel_port,  # Pasar panel_port como kwarg para la operación
             metadata={
                 'program_number': program_number
-            }
+            },
+            panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
+            panel_port=panel_port  # Pasar panel_port como kwarg para la operación
         )
         
         if wait_for_response:
