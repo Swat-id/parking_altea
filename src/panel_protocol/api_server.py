@@ -296,30 +296,48 @@ class PanelProtocolAPIServer:
                 if not text:
                     return jsonify({'error': 'text es requerido'}), 400
                 
+                # Verificar que el event loop esté disponible
+                if self.loop is None:
+                    logger.error("Event loop no está disponible")
+                    return jsonify({'error': 'Event loop no está disponible'}), 500
+                
+                if not self.loop.is_running():
+                    logger.error(f"Event loop no está ejecutándose. Estado: {self.loop.is_closed()}")
+                    return jsonify({'error': 'Event loop no está ejecutándose'}), 500
+                
+                logger.debug(f"Ejecutando send_text en event loop (thread: {threading.current_thread().name})")
+                
                 # Ejecutar operación asíncrona con timeout
                 # Usar timeout corto para evitar bloqueos (5 segundos máximo para obtener task_id)
-                future = asyncio.run_coroutine_threadsafe(
-                    self.service.send_text(
-                        panel_ip=panel_ip,
-                        panel_port=panel_port,
-                        window_id=window_id,
-                        text=text,
-                        color=color,
-                        font_size=font_size,
-                        effect=effect,
-                        alignment=alignment,
-                        speed=speed,
-                        stay_time=stay_time,
-                        card_id=card_id,
-                        wait_for_response=False,  # Nunca esperar en el endpoint, siempre retornar task_id
-                        request_confirmation=request_confirmation
-                    ),
-                    self.loop
-                )
+                try:
+                    future = asyncio.run_coroutine_threadsafe(
+                        self.service.send_text(
+                            panel_ip=panel_ip,
+                            panel_port=panel_port,
+                            window_id=window_id,
+                            text=text,
+                            color=color,
+                            font_size=font_size,
+                            effect=effect,
+                            alignment=alignment,
+                            speed=speed,
+                            stay_time=stay_time,
+                            card_id=card_id,
+                            wait_for_response=False,  # Nunca esperar en el endpoint, siempre retornar task_id
+                            request_confirmation=request_confirmation
+                        ),
+                        self.loop
+                    )
+                    logger.debug("Corrutina enviada al event loop, esperando resultado...")
+                except Exception as e:
+                    import traceback
+                    logger.error(f"Error enviando corrutina al event loop: {e}\n{traceback.format_exc()}")
+                    return jsonify({'error': f'Error enviando tarea al event loop: {str(e)}'}), 500
                 
                 # Esperar task_id con timeout corto (5 segundos)
                 try:
                     task_id = future.result(timeout=5.0)
+                    logger.debug(f"Task_id obtenido: {task_id}")
                 except asyncio.TimeoutError:
                     logger.error("Timeout obteniendo task_id (más de 5 segundos)")
                     return jsonify({'error': 'Timeout iniciando tarea. El panel puede no estar accesible.'}), 500

@@ -69,6 +69,7 @@ class TaskQueue:
         Returns:
             str: ID de la tarea
         """
+        logger.debug(f"Iniciando add_task para {panel_ip}:{panel_port}")
         task_id = str(uuid.uuid4())
         future = asyncio.Future()
         
@@ -84,11 +85,15 @@ class TaskQueue:
             metadata=metadata or {}
         )
         
+        logger.debug(f"Adquiriendo lock para añadir tarea {task_id}")
         async with self._lock:
             self._tasks[task_id] = task
+        logger.debug(f"Lock liberado, tarea {task_id} añadida al diccionario")
         
         # Ejecutar tarea en background
+        logger.debug(f"Creando task en background para {task_id}")
         asyncio.create_task(self._execute_task(task))
+        logger.debug(f"Task creada en background para {task_id}")
         
         logger.info(f"✅ Tarea {task_id} añadida a la cola para {panel_ip}:{panel_port} (tipo: {metadata.get('operation_type', 'unknown')})")
         return task_id
