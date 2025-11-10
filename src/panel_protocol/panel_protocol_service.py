@@ -147,8 +147,10 @@ class PanelProtocolService:
             str: ID de la tarea
         """
         logger.info(f"Enviando texto '{text}' a ventana {window_id} en {panel_ip}:{panel_port}")
+        logger.debug(f"send_text iniciado en event loop: {asyncio.get_event_loop()}")
         
         # Construir paquete para enviar texto
+        logger.debug("Construyendo paquete...")
         packet = PacketBuilder.build_send_text_packet(
             card_id=card_id,
             window_id=window_id,
@@ -163,6 +165,7 @@ class PanelProtocolService:
         )
         
         # Crear tarea de envío de texto y obtener task_id inmediatamente
+        logger.debug("Llamando a add_task...")
         task_id = await self.task_queue.add_task(
             panel_ip=panel_ip,
             panel_port=panel_port,

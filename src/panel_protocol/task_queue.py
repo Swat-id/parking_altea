@@ -9,7 +9,9 @@ from dataclasses import dataclass
 from datetime import datetime
 import uuid
 
+# Configurar logger con nivel DEBUG
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 @dataclass
