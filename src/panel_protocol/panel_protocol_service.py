@@ -94,10 +94,10 @@ class PanelProtocolService:
             panel_ip=panel_ip,
             panel_port=panel_port,
             operation=self._send_packet_operation,
-            packet=packet,
+            packet,  # Argumento posicional
+            "create_window",  # Argumento posicional (operation_type)
             panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
             panel_port=panel_port,  # Pasar panel_port como kwarg para la operación
-            operation_type="create_window",
             metadata={
                 'windows': windows,
                 'card_id': card_id
@@ -172,10 +172,10 @@ class PanelProtocolService:
             panel_ip=panel_ip,
             panel_port=panel_port,
             operation=self._send_packet_operation,
-            packet=packet,
+            packet,  # Argumento posicional
+            "send_text",  # Argumento posicional (operation_type)
             panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
             panel_port=panel_port,  # Pasar panel_port como kwarg para la operación
-            operation_type="send_text",
             metadata={
                 'window_id': window_id,
                 'text': text,
@@ -243,10 +243,10 @@ class PanelProtocolService:
             panel_ip=panel_ip,
             panel_port=panel_port,
             operation=self._send_packet_operation,
-            packet=packet,
+            packet,  # Argumento posicional
+            "send_image",  # Argumento posicional (operation_type)
             panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
             panel_port=panel_port,  # Pasar panel_port como kwarg para la operación
-            operation_type="send_image",
             metadata={
                 'window_id': window_id,
                 'filename': filename
@@ -294,10 +294,10 @@ class PanelProtocolService:
             panel_ip=panel_ip,
             panel_port=panel_port,
             operation=self._send_packet_operation,
-            packet=packet,
+            packet,  # Argumento posicional
+            "execute_program",  # Argumento posicional (operation_type)
             panel_ip=panel_ip,  # Pasar panel_ip como kwarg para la operación
             panel_port=panel_port,  # Pasar panel_port como kwarg para la operación
-            operation_type="execute_program",
             metadata={
                 'program_number': program_number
             }
