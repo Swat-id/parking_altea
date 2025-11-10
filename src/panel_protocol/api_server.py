@@ -288,20 +288,12 @@ class PanelProtocolAPIServer:
                 stay_time = data.get('stay_time', 3)
                 card_id = data.get('card_id', 0xFF)
                 wait_for_response = data.get('wait_for_response', False)
-                auto_create_window = data.get('auto_create_window', True)  # Por defecto True
-                window_size = data.get('window_size', [0, 0, 128, 32])  # [x, y, width, height]
                 
                 if not panel_ip:
                     return jsonify({'error': 'panel_ip es requerido'}), 400
                 
                 if not text:
                     return jsonify({'error': 'text es requerido'}), 400
-                
-                # Convertir window_size a tupla si es lista
-                if isinstance(window_size, list) and len(window_size) == 4:
-                    window_size = tuple(window_size)
-                elif not isinstance(window_size, tuple):
-                    window_size = (0, 0, 128, 32)  # Default
                 
                 # Ejecutar operación asíncrona con timeout
                 # Usar timeout corto para evitar bloqueos (5 segundos máximo para obtener task_id)
@@ -319,8 +311,7 @@ class PanelProtocolAPIServer:
                         stay_time=stay_time,
                         card_id=card_id,
                         wait_for_response=False,  # Nunca esperar en el endpoint, siempre retornar task_id
-                        auto_create_window=auto_create_window,
-                        window_size=window_size
+                        request_confirmation=request_confirmation
                     ),
                     self.loop
                 )
@@ -340,8 +331,7 @@ class PanelProtocolAPIServer:
                 return jsonify({
                     'success': True,
                     'task_id': task_id,
-                    'message': 'Texto enviado' if not wait_for_response else 'Texto enviado y confirmado',
-                    'window_created': auto_create_window
+                    'message': 'Texto enviado' if not wait_for_response else 'Texto enviado y confirmado'
                 })
                 
             except Exception as e:

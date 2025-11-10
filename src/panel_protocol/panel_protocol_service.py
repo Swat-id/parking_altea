@@ -121,20 +121,17 @@ class PanelProtocolService:
         stay_time: int = 3,
         card_id: int = CARD_ID_BROADCAST,
         request_confirmation: bool = True,
-        wait_for_response: bool = False,
-        auto_create_window: bool = True,
-        window_size: Tuple[int, int, int, int] = (0, 0, 128, 32)  # (x, y, width, height)
+        wait_for_response: bool = False
     ) -> str:
         """
-        Envía texto a una ventana del panel (operación asíncrona).
+        Envía texto directamente a una ventana del panel (operación asíncrona).
         
-        Según el protocolo, primero debe existir una ventana antes de enviar texto.
-        Si auto_create_window=True, crea la ventana automáticamente si no existe.
+        La ventana debe existir previamente en el panel.
         
         Args:
             panel_ip: IP del panel
             panel_port: Puerto del panel
-            window_id: ID de la ventana
+            window_id: ID de la ventana (debe existir previamente)
             text: Texto a enviar
             color: Color del texto (Color.RED, Color.GREEN, etc.)
             font_size: Tamaño de fuente (FontSize.SIZE_8, etc.)
@@ -145,39 +142,13 @@ class PanelProtocolService:
             card_id: ID de la tarjeta
             request_confirmation: Si solicita confirmación
             wait_for_response: Si True, espera la respuesta antes de retornar
-            auto_create_window: Si True, crea la ventana automáticamente antes de enviar texto
-            window_size: Tamaño de la ventana (x, y, width, height) si se crea automáticamente
             
         Returns:
             str: ID de la tarea
         """
-        # Si auto_create_window está activado, crear la ventana primero
-        # IMPORTANTE: Crear la ventana de forma asíncrona sin bloquear
-        # Usar el event loop actual para crear la tarea correctamente
-        if auto_create_window:
-            try:
-                logger.info(f"Creando ventana {window_id} automáticamente en {panel_ip}:{panel_port} antes de enviar texto")
-                # Crear ventana antes de enviar texto (según protocolo)
-                # Crear la tarea de forma asíncrona sin esperar - usar el loop actual
-                import asyncio
-                loop = asyncio.get_event_loop()
-                loop.create_task(
-                    self.create_window(
-                        panel_ip=panel_ip,
-                        panel_port=panel_port,
-                        windows=[window_size],
-                        card_id=card_id,
-                        request_confirmation=request_confirmation,
-                        wait_for_response=False  # No esperar, solo crear la tarea
-                    )
-                )
-                logger.info(f"✅ Tarea de creación de ventana {window_id} iniciada en background")
-                # NO hacer await sleep aquí - retornar inmediatamente el task_id
-            except Exception as e:
-                logger.warning(f"⚠️ No se pudo crear ventana automáticamente: {e}. Continuando con envío de texto...")
-                import traceback
-                logger.debug(traceback.format_exc())
+        logger.info(f"Enviando texto '{text}' a ventana {window_id} en {panel_ip}:{panel_port}")
         
+        # Construir paquete para enviar texto
         packet = PacketBuilder.build_send_text_packet(
             card_id=card_id,
             window_id=window_id,
@@ -191,6 +162,7 @@ class PanelProtocolService:
             request_confirmation=request_confirmation
         )
         
+        # Crear tarea de envío de texto y obtener task_id inmediatamente
         task_id = await self.task_queue.add_task(
             panel_ip=panel_ip,
             panel_port=panel_port,
@@ -205,6 +177,8 @@ class PanelProtocolService:
                 'effect': effect
             }
         )
+        
+        logger.info(f"✅ Tarea {task_id} creada para enviar texto a ventana {window_id}")
         
         if wait_for_response:
             await self.task_queue.get_task_result(task_id)
