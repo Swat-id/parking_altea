@@ -760,6 +760,7 @@ class ParkingPanelWindow(Base):
     display_type = Column(String(20), default='parking')  # 'parking', 'sensor_group', 'mixed'
     priority = Column(Integer, default=0)
     texto_fijo_previo = Column(String(50), nullable=True)  # Texto fijo previo para sensores (ej: "PMR", "ELÉCTRICO")
+    color = Column(Integer, nullable=True)  # Color para sensores (1=Rojo, 2=Verde, 3=Amarillo/Naranja, etc.)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -789,8 +790,10 @@ class PanelWindowConfiguration(Base):
     window_id = Column(Integer, nullable=False)  # 0-15
     company_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=True)  # NULL = usuario, ID = superadmin para empresa
     rotation_enabled = Column(Boolean, default=True)
-    rotation_order = Column(JSON, nullable=True)  # JSONB: [{"type": "parking", "percentage": 50, "sensor_type": null, "texto_fijo_previo": "PMR"}, ...]
+    rotation_order = Column(JSON, nullable=True)  # JSONB: [{"type": "parking", "percentage": 50, "sensor_type": null, "texto_fijo_previo": "PMR", "color": 2}, ...]
     refresh_time_seconds = Column(Integer, default=5)  # Tiempo total de ciclo (debe ser múltiplo de 30)
+    parking_status_config = Column(JSON, nullable=True)  # JSONB: Configuración de colores y textos para estados de parking
+    # Ejemplo: {"LLIURE": {"color": 2, "text": "LLIURE"}, "DENS": {"color": 3, "text": "DENS"}, "COMPLET": {"color": 1, "text": "COMPLET"}}
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

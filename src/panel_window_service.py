@@ -34,7 +34,8 @@ class PanelWindowService:
         window_id: int,
         parking_id: int,
         sensor_type: Optional[str] = None,
-        texto_fijo_previo: Optional[str] = None
+        texto_fijo_previo: Optional[str] = None,
+        color: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Asigna un parking o grupo de sensores a una ventana
@@ -119,6 +120,7 @@ class PanelWindowService:
                 sensor_type=sensor_type,
                 display_type=display_type,
                 texto_fijo_previo=texto_fijo_previo,
+                color=color,
                 is_active=True
             )
             
@@ -404,6 +406,8 @@ class PanelWindowService:
                 config_obj.refresh_time_seconds = config['refresh_time_seconds']
             if 'company_id' in config:
                 config_obj.company_id = config['company_id']
+            if 'parking_status_config' in config:
+                config_obj.parking_status_config = config['parking_status_config']
             
             self.db_session.commit()
             
@@ -475,6 +479,7 @@ class PanelWindowService:
                 'rotation_enabled': config.rotation_enabled,
                 'rotation_order': config.rotation_order,
                 'refresh_time_seconds': config.refresh_time_seconds,
+                'parking_status_config': config.parking_status_config,
                 'is_active': config.is_active,
                 'created_at': config.created_at.isoformat() if config.created_at else None,
                 'updated_at': config.updated_at.isoformat() if config.updated_at else None

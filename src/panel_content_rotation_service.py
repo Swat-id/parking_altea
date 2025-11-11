@@ -147,6 +147,7 @@ class PanelContentRotationService:
                 'parking_name': parking.name if parking else None,
                 'sensor_type': assignment.sensor_type,
                 'texto_fijo_previo': assignment.texto_fijo_previo,
+                'color': assignment.color if assignment.color else 2,  # Verde por defecto
                 'content': {
                     'total_sensors': sensor_summary.total_sensors,
                     'free_sensors': sensor_summary.free_sensors,
@@ -214,9 +215,12 @@ class PanelContentRotationService:
                         item_type,
                         sensor_type
                     )
-                    # Agregar texto_fijo_previo si existe en rotation_item
-                    if content and 'texto_fijo_previo' in rotation_item:
-                        content['texto_fijo_previo'] = rotation_item['texto_fijo_previo']
+                    # Agregar texto_fijo_previo y color si existen en rotation_item
+                    if content:
+                        if 'texto_fijo_previo' in rotation_item:
+                            content['texto_fijo_previo'] = rotation_item['texto_fijo_previo']
+                        if 'color' in rotation_item:
+                            content['color'] = rotation_item['color']
                     return content
                 
                 cumulative_time += item_duration
@@ -322,20 +326,37 @@ class PanelContentRotationService:
     def format_message_for_panel(
         self,
         content: Dict[str, Any],
-        parking_message_type: str = 'ESTADO'  # 'ESTADO' o 'PLAZAS_LIBRES'
-    ) -> str:
+        parking_message_type: str = 'ESTADO',  # 'ESTADO' o 'PLAZAS_LIBRES'
+        status_config: Optional[Dict[str, Any]] = None
+    ) -> tuple[str, int]:
         """
-        Formatea el contenido como mensaje para el panel
+        Formatea el contenido como mensaje para el panel y devuelve el color
         
         Args:
             content: Dict con contenido
             parking_message_type: Tipo de mensaje para parking ('ESTADO' o 'PLAZAS_LIBRES')
+            status_config: Configuración de colores y textos para estados (opcional)
             
         Returns:
-            String formateado para mostrar en el panel
+            Tupla (mensaje, color) donde color es el código numérico (1=Rojo, 2=Verde, 3=Amarillo/Naranja)
         """
         if not content:
-            return ""
+            return "", 2  # Verde por defecto
+        
+        # Valores por defecto para estados de parking
+        default_status_config = {
+            'LLIURE': {'color': 2, 'text': 'LLIURE'},  # Verde
+            'DENS': {'color': 3, 'text': 'DENS'},  # Amarillo/Naranja
+            'COMPLET': {'color': 1, 'text': 'COMPLET'}  # Rojo
+        }
+        
+        if status_config:
+            # Combinar con valores por defecto
+            for key in default_status_config:
+                if key not in status_config:
+                    status_config[key] = default_status_config[key]
+        else:
+            status_config = default_status_config
         
         if content.get('type') == 'parking':
             parking_data = content.get('content', {})
@@ -344,12 +365,31 @@ class PanelContentRotationService:
             status = parking_data.get('status', 'LIBRE')
             parking_name = content.get('parking_name', 'Parking')
             
+            # Normalizar estado a mayúsculas
+            status_upper = status.upper()
+            if status_upper not in status_config:
+                # Intentar mapear estados comunes
+                if 'LIBRE' in status_upper or 'FREE' in status_upper:
+                    status_upper = 'LLIURE'
+                elif 'DENSO' in status_upper or 'DENS' in status_upper:
+                    status_upper = 'DENS'
+                elif 'COMPLETO' in status_upper or 'COMPLET' in status_upper or 'FULL' in status_upper:
+                    status_upper = 'COMPLET'
+                else:
+                    status_upper = 'LLIURE'  # Por defecto
+            
+            status_info = status_config.get(status_upper, status_config['LLIURE'])
+            color = status_info.get('color', 2)
+            status_text = status_info.get('text', status_upper)
+            
             if parking_message_type == 'PLAZAS_LIBRES':
-                # Mostrar número de plazas libres
-                return f"{parking_name}: {free_spaces}/{max_capacity} libres"
+                # Mostrar número de plazas libres con color según estado
+                message = f"{parking_name}: {free_spaces}/{max_capacity} libres"
+                return message, color
             else:
-                # Mostrar estado (LIBRE, DENSO, COMPLETO)
-                return f"{parking_name}: {status}"
+                # Mostrar estado con texto y color configurados
+                message = f"{parking_name}: {status_text}"
+                return message, color
         
         elif content.get('type') == 'sensor_group':
             sensor_data = content.get('content', {})
@@ -358,8 +398,12 @@ class PanelContentRotationService:
             # Usar texto_fijo_previo si existe, sino usar sensor_type
             prefix_text = content.get('texto_fijo_previo') or content.get('sensor_type', 'Sensores')
             
+            # Obtener color de la asignación o del rotation_item
+            color = content.get('color', 2)  # Verde por defecto para sensores
+            
             # Para sensores siempre mostrar número de plazas libres
-            return f"{prefix_text}: {free_sensors}/{total_sensors} libres"
+            message = f"{prefix_text}: {free_sensors}/{total_sensors} libres"
+            return message, color
         
-        return content.get('message', '')
+        return content.get('message', ''), 2  # Verde por defecto
 

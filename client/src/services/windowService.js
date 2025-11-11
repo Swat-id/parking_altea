@@ -8,15 +8,17 @@ const windowService = {
    * @param {number} parkingId - ID del parking
    * @param {string|null} sensorType - Tipo de sensor ('PMR', 'Electrico', 'Caravanas', etc.) o null para parking general
    * @param {string|null} textoFijoPrevio - Texto fijo previo para sensores (ej: "PMR", "ELÉCTRICO")
+   * @param {number|null} color - Color para sensores (1=Rojo, 2=Verde, 3=Amarillo/Naranja, etc.)
    */
-  async assignParkingToWindow(panelId, windowId, parkingId, sensorType = null, textoFijoPrevio = null) {
+  async assignParkingToWindow(panelId, windowId, parkingId, sensorType = null, textoFijoPrevio = null, color = null) {
     try {
       const response = await api.post(
         `/api/v1/panels/${panelId}/windows/${windowId}/assign`,
         {
           parking_id: parkingId,
           sensor_type: sensorType,
-          texto_fijo_previo: textoFijoPrevio
+          texto_fijo_previo: textoFijoPrevio,
+          color: color
         }
       )
       return response.data

@@ -138,23 +138,26 @@ class PanelType4UpdateService:
                     if not content:
                         continue  # No hay contenido configurado para esta ventana
                     
-                    # Formatear mensaje
-                    message = rotation_service.format_message_for_panel(
+                    # Obtener configuración de status si existe
+                    status_config = content.get('status_config')
+                    
+                    # Formatear mensaje y obtener color
+                    message, color = rotation_service.format_message_for_panel(
                         content,
-                        parking_message_type=message_type
+                        parking_message_type=message_type,
+                        status_config=status_config
                     )
                     
                     if not message:
                         continue
                     
                     # Enviar mensaje al panel usando protocolo v4
-                    # Usar color verde (2) y tamaño de fuente medio (2) por defecto
                     result = protocol_service.send_text_v4(
                         panel_ip=panel.ip,
                         panel_port=panel.port or 5200,
                         window_id=window_id,
                         text=message,
-                        color=2,  # Verde
+                        color=color,  # Color dinámico según configuración
                         font_size=2,  # Tamaño medio
                         effect=0,  # Sin efecto
                         alignment=0  # Izquierda arriba

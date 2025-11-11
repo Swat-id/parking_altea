@@ -12,6 +12,7 @@ const WindowAssignmentModal = ({ isOpen, onClose, panelId, windowId, onSuccess }
   const [selectedSensorType, setSelectedSensorType] = useState(null)
   const [displayType, setDisplayType] = useState('parking') // 'parking' o 'sensor_group'
   const [textoFijoPrevio, setTextoFijoPrevio] = useState('')
+  const [color, setColor] = useState(2) // Color por defecto: Verde (2)
   const [loading, setLoading] = useState(false)
   const [loadingParkings, setLoadingParkings] = useState(false)
   const [loadingSensorTypes, setLoadingSensorTypes] = useState(false)
@@ -77,7 +78,8 @@ const WindowAssignmentModal = ({ isOpen, onClose, panelId, windowId, onSuccess }
         windowId,
         selectedParkingId,
         displayType === 'sensor_group' ? selectedSensorType : null,
-        displayType === 'sensor_group' && textoFijoPrevio ? textoFijoPrevio : null
+        displayType === 'sensor_group' && textoFijoPrevio ? textoFijoPrevio : null,
+        displayType === 'sensor_group' ? color : null
       )
 
       if (result.success) {
@@ -89,6 +91,7 @@ const WindowAssignmentModal = ({ isOpen, onClose, panelId, windowId, onSuccess }
         setSelectedSensorType(null)
         setDisplayType('parking')
         setTextoFijoPrevio('')
+        setColor(2) // Reset a verde
       } else {
         toast.error(result.error || 'Error al crear la asignación')
       }

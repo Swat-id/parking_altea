@@ -18,8 +18,13 @@ const WindowConfigModal = ({
   const [rotationEnabled, setRotationEnabled] = useState(true)
   const [refreshTimeSeconds, setRefreshTimeSeconds] = useState(5)
   const [rotationOrder, setRotationOrder] = useState([
-    { type: 'parking', percentage: 100, sensor_type: null, texto_fijo_previo: null }
+    { type: 'parking', percentage: 100, sensor_type: null, texto_fijo_previo: null, color: null }
   ])
+  const [parkingStatusConfig, setParkingStatusConfig] = useState({
+    LLIURE: { color: 2, text: 'LLIURE' },
+    DENS: { color: 3, text: 'DENS' },
+    COMPLET: { color: 1, text: 'COMPLET' }
+  })
   const [availableSensorTypes, setAvailableSensorTypes] = useState([])
   const [companyId, setCompanyId] = useState(null)
   const [companies, setCompanies] = useState([])
@@ -48,8 +53,11 @@ const WindowConfigModal = ({
         setRotationEnabled(config.rotation_enabled ?? true)
         setRefreshTimeSeconds(config.refresh_time_seconds ?? 5)
         setRotationOrder(config.rotation_order || [
-          { type: 'parking', percentage: 100, sensor_type: null, texto_fijo_previo: null }
+          { type: 'parking', percentage: 100, sensor_type: null, texto_fijo_previo: null, color: null }
         ])
+        if (config.parking_status_config) {
+          setParkingStatusConfig(config.parking_status_config)
+        }
         if (isSuperadmin) {
           setCompanyId(config.company_id)
         }
@@ -79,7 +87,7 @@ const WindowConfigModal = ({
   const addRotationItem = () => {
     setRotationOrder([
       ...rotationOrder,
-      { type: 'parking', percentage: 0, sensor_type: null, texto_fijo_previo: null }
+      { type: 'parking', percentage: 0, sensor_type: null, texto_fijo_previo: null, color: null }
     ])
   }
 
@@ -104,7 +112,8 @@ const WindowConfigModal = ({
       updated[index] = {
         ...updated[index],
         [field]: value,
-        texto_fijo_previo: updated[index].texto_fijo_previo || ''
+        texto_fijo_previo: updated[index].texto_fijo_previo || '',
+        color: updated[index].color || 2  // Verde por defecto
       }
       setRotationOrder(updated)
       return
@@ -116,6 +125,7 @@ const WindowConfigModal = ({
     if (field === 'type' && value === 'parking') {
       newOrder[index].sensor_type = null
       newOrder[index].texto_fijo_previo = null
+      newOrder[index].color = null
     }
     
     setRotationOrder(newOrder)
@@ -379,6 +389,24 @@ const WindowConfigModal = ({
                               Texto antes del número
                             </p>
                           </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                              Color
+                            </label>
+                            <select
+                              value={item.color || 2}
+                              onChange={(e) => updateRotationItem(index, 'color', parseInt(e.target.value))}
+                              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value={1}>Rojo</option>
+                              <option value={2}>Verde</option>
+                              <option value={3}>Amarillo/Naranja</option>
+                              <option value={4}>Azul</option>
+                              <option value={5}>Morado</option>
+                              <option value={6}>Cian</option>
+                              <option value={7}>Blanco</option>
+                            </select>
+                          </div>
                         </>
                       )}
 
@@ -412,6 +440,73 @@ const WindowConfigModal = ({
               </div>
             </div>
           )}
+
+          {/* Configuración de colores y textos para estados de parking */}
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Configuración de Estados de Parking
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Define los colores y textos para cada estado del parking (LLIURE, DENS, COMPLET)
+            </p>
+            
+            <div className="space-y-4">
+              {['LLIURE', 'DENS', 'COMPLET'].map((status) => (
+                <div key={status} className="border rounded-md p-4 bg-gray-50">
+                  <h4 className="font-medium text-gray-900 mb-3">{status}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Color
+                      </label>
+                      <select
+                        value={parkingStatusConfig[status]?.color || (status === 'LLIURE' ? 2 : status === 'DENS' ? 3 : 1)}
+                        onChange={(e) => {
+                          setParkingStatusConfig({
+                            ...parkingStatusConfig,
+                            [status]: {
+                              ...parkingStatusConfig[status],
+                              color: parseInt(e.target.value)
+                            }
+                          })
+                        }}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value={1}>Rojo</option>
+                        <option value={2}>Verde</option>
+                        <option value={3}>Amarillo/Naranja</option>
+                        <option value={4}>Azul</option>
+                        <option value={5}>Morado</option>
+                        <option value={6}>Cian</option>
+                        <option value={7}>Blanco</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Texto a mostrar
+                      </label>
+                      <input
+                        type="text"
+                        value={parkingStatusConfig[status]?.text || status}
+                        onChange={(e) => {
+                          setParkingStatusConfig({
+                            ...parkingStatusConfig,
+                            [status]: {
+                              ...parkingStatusConfig[status],
+                              text: e.target.value
+                            }
+                          })
+                        }}
+                        placeholder={status}
+                        maxLength={50}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
 
           {/* Botones */}
           <div className="flex justify-end space-x-3 pt-4 border-t">

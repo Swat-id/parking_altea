@@ -5798,6 +5798,7 @@ def assign_parking_to_window(panel_id, window_id):
         parking_id = req.get('parking_id')
         sensor_type = req.get('sensor_type')  # None, 'PMR', 'Electrico', etc.
         texto_fijo_previo = req.get('texto_fijo_previo')  # Texto fijo previo para sensores
+        color = req.get('color')  # Color para sensores (1=Rojo, 2=Verde, 3=Amarillo/Naranja, etc.)
         
         if not parking_id:
             return jsonify({'error': 'parking_id es requerido'}), 400
@@ -5814,7 +5815,8 @@ def assign_parking_to_window(panel_id, window_id):
             window_id=window_id,
             parking_id=parking_id,
             sensor_type=sensor_type,
-            texto_fijo_previo=texto_fijo_previo
+            texto_fijo_previo=texto_fijo_previo,
+            color=color
         )
         
         session.close()
@@ -5949,7 +5951,8 @@ def update_window_config(parking_id, panel_id, window_id):
             'rotation_enabled': req.get('rotation_enabled', True),
             'rotation_order': req.get('rotation_order'),
             'refresh_time_seconds': req.get('refresh_time_seconds', 5),
-            'company_id': company_id
+            'company_id': company_id,
+            'parking_status_config': req.get('parking_status_config')  # Configuración de colores y textos para estados
         }
         
         session = Session()
@@ -6031,11 +6034,17 @@ def get_window_content(panel_id, window_id):
         message_type = parking.message_type if parking else 'ESTADO'
         
         if content:
-            message = rotation_service.format_message_for_panel(content, message_type)
+            status_config = content.get('status_config')
+            message, color = rotation_service.format_message_for_panel(
+                content, 
+                message_type,
+                status_config
+            )
             return jsonify({
                 'success': True,
                 'content': content,
                 'message': message,
+                'color': color,
                 'message_type': message_type
             }), 200
         else:
