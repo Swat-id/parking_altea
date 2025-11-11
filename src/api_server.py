@@ -5792,7 +5792,7 @@ def get_complete_dashboard():
 @require_auth
 @require_panel_access('panel_id')
 def assign_parking_to_window(panel_id, window_id):
-    """Asignar parking o grupo de sensores a una ventana"""
+    """Asignar parking o grupo de sensores a una ventana (solo para paneles Tipo 4)"""
     try:
         req = request.get_json(force=True)
         parking_id = req.get('parking_id')
@@ -5808,6 +5808,21 @@ def assign_parking_to_window(panel_id, window_id):
             return jsonify({'error': 'window_id debe estar entre 0 y 15'}), 400
         
         session = Session()
+        
+        # Verificar que el panel es Tipo 4
+        panel = session.query(Panel).filter(Panel.id == panel_id).first()
+        if not panel:
+            session.close()
+            return jsonify({'error': 'Panel no encontrado'}), 404
+        
+        if panel.panel_type_id:
+            panel_type = session.query(PanelType).filter(PanelType.id == panel.panel_type_id).first()
+            if not panel_type or panel_type.windows_count != 16:
+                session.close()
+                return jsonify({
+                    'error': f'Esta operación solo está disponible para paneles Tipo 4. El panel actual es Tipo {panel_type.id if panel_type else "desconocido"} (soporta {panel_type.windows_count if panel_type else 0} ventanas)'
+                }), 400
+        
         window_service = PanelWindowService(session)
         
         result = window_service.assign_parking_to_window(
@@ -5834,8 +5849,23 @@ def assign_parking_to_window(panel_id, window_id):
 @require_auth
 @require_panel_access('panel_id')
 def unassign_parking_from_window(panel_id, window_id):
-    """Eliminar asignación de parking/sensor de una ventana"""
+    """Eliminar asignación de parking/sensor de una ventana (solo para paneles Tipo 4)"""
     try:
+        # Verificar que el panel es Tipo 4
+        session = Session()
+        panel = session.query(Panel).filter(Panel.id == panel_id).first()
+        if not panel:
+            session.close()
+            return jsonify({'error': 'Panel no encontrado'}), 404
+        
+        if panel.panel_type_id:
+            panel_type = session.query(PanelType).filter(PanelType.id == panel.panel_type_id).first()
+            if not panel_type or panel_type.windows_count != 16:
+                session.close()
+                return jsonify({
+                    'error': f'Esta operación solo está disponible para paneles Tipo 4. El panel actual es Tipo {panel_type.id if panel_type else "desconocido"}'
+                }), 400
+        
         req = request.get_json(force=True)
         parking_id = req.get('parking_id')
         sensor_type = req.get('sensor_type')  # None, 'PMR', 'Electrico', etc.
@@ -6095,11 +6125,25 @@ def get_window_next_changes(panel_id, window_id):
 @require_auth
 @require_panel_access('panel_id')
 def update_panel_type4(panel_id):
-    """Forzar actualización de un panel Tipo 4"""
+    """Forzar actualización de un panel Tipo 4 (solo para paneles Tipo 4)"""
     try:
-        from panel_type4_update_service import PanelType4UpdateService
-        
         session = Session()
+        
+        # Verificar que el panel es Tipo 4
+        panel = session.query(Panel).filter(Panel.id == panel_id).first()
+        if not panel:
+            session.close()
+            return jsonify({'error': 'Panel no encontrado'}), 404
+        
+        if panel.panel_type_id:
+            panel_type = session.query(PanelType).filter(PanelType.id == panel.panel_type_id).first()
+            if not panel_type or panel_type.windows_count != 16:
+                session.close()
+                return jsonify({
+                    'error': f'Esta operación solo está disponible para paneles Tipo 4. El panel actual es Tipo {panel_type.id if panel_type else "desconocido"}'
+                }), 400
+        
+        from panel_type4_update_service import PanelType4UpdateService
         update_service = PanelType4UpdateService(session)
         
         result = update_service.update_panel(panel_id)

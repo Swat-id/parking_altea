@@ -37,6 +37,7 @@ class PanelContentRotationService:
     ) -> Optional[Dict[str, Any]]:
         """
         Determina qué contenido mostrar en una ventana según la configuración de rotación
+        SOLO PARA PANELES TIPO 4
         
         Args:
             panel_id: ID del panel
@@ -49,6 +50,15 @@ class PanelContentRotationService:
         try:
             if current_time is None:
                 current_time = datetime.utcnow()
+            
+            # Verificar que el panel es Tipo 4
+            from models import Panel, PanelType
+            panel = self.db_session.query(Panel).filter(Panel.id == panel_id).first()
+            if panel and panel.panel_type_id:
+                panel_type = self.db_session.query(PanelType).filter(PanelType.id == panel.panel_type_id).first()
+                if not panel_type or panel_type.windows_count != 16:
+                    logger.warning(f"get_content_for_window llamado para panel {panel_id} que no es Tipo 4 (Tipo: {panel_type.id if panel_type else 'desconocido'}, ventanas: {panel_type.windows_count if panel_type else 0})")
+                    return None
             
             # Obtener asignaciones de la ventana
             assignments = self.db_session.query(ParkingPanelWindow).filter(

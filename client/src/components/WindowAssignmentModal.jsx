@@ -210,24 +210,47 @@ const WindowAssignmentModal = ({ isOpen, onClose, panelId, windowId, onSuccess }
                 )}
               </div>
 
-              {/* Texto fijo previo (solo si displayType === 'sensor_group') */}
+              {/* Texto fijo previo y color (solo si displayType === 'sensor_group') */}
               {selectedSensorType && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Texto fijo previo (opcional)
-                  </label>
-                  <input
-                    type="text"
-                    value={textoFijoPrevio}
-                    onChange={(e) => setTextoFijoPrevio(e.target.value)}
-                    placeholder="Ej: PMR, ELÉCTRICO, CARAVANAS..."
-                    maxLength={50}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Texto que aparecerá antes del número de plazas libres (ej: "PMR: 5/10 libres")
-                  </p>
-                </div>
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Texto fijo previo (opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={textoFijoPrevio}
+                      onChange={(e) => setTextoFijoPrevio(e.target.value)}
+                      placeholder="Ej: PMR, ELÉCTRICO, CARAVANAS..."
+                      maxLength={50}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Texto que aparecerá antes del número de plazas libres (ej: "PMR: 5/10 libres")
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Color
+                    </label>
+                    <select
+                      value={color}
+                      onChange={(e) => setColor(parseInt(e.target.value))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value={1}>Rojo</option>
+                      <option value={2}>Verde</option>
+                      <option value={3}>Amarillo/Naranja</option>
+                      <option value={4}>Azul</option>
+                      <option value={5}>Morado</option>
+                      <option value={6}>Cian</option>
+                      <option value={7}>Blanco</option>
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Color del texto para este tipo de sensor
+                    </p>
+                  </div>
+                </>
               )}
             </>
           )}
