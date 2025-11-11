@@ -786,7 +786,7 @@ class PanelWindowConfiguration(Base):
     
     id = Column(Integer, primary_key=True)
     parking_id = Column(Integer, ForeignKey('parkings.id', ondelete='CASCADE'), nullable=False)
-    panel_id = Column(Integer, ForeignKey('panels.id', ondelete='CASCADE'), nullable=False)
+    panel_id = Column(Integer, ForeignKey('panels.id', ondelete='CASCADE'), nullable=True)  # NULL = configuración preparatoria a nivel de empresa
     window_id = Column(Integer, nullable=False)  # 0-15
     company_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=True)  # NULL = usuario, ID = superadmin para empresa
     rotation_enabled = Column(Boolean, default=True)
@@ -805,7 +805,10 @@ class PanelWindowConfiguration(Base):
     
     # Constraintes
     __table_args__ = (
-        UniqueConstraint('panel_id', 'window_id', 'parking_id', name='unique_panel_window_parking_config'),
+        # Configuración única por empresa, parking y window_id (solo una por empresa)
+        # Si panel_id es NULL, es configuración preparatoria a nivel de empresa
+        # Si panel_id no es NULL, es configuración específica de un panel
+        UniqueConstraint('company_id', 'window_id', 'parking_id', name='unique_company_window_parking_config'),
         CheckConstraint('window_id >= 0 AND window_id <= 15', name='check_window_id_range_config'),
         CheckConstraint('refresh_time_seconds > 0', name='check_refresh_time_positive'),
     )

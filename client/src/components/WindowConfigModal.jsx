@@ -12,7 +12,7 @@ const WindowConfigModal = ({
   windowId, 
   onSuccess 
 }) => {
-  const { isSuperadmin } = useAuth()
+  const { isSuperadmin, user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [loadingConfig, setLoadingConfig] = useState(false)
   const [rotationEnabled, setRotationEnabled] = useState(true)
@@ -28,9 +28,19 @@ const WindowConfigModal = ({
   const [availableSensorTypes, setAvailableSensorTypes] = useState([])
   const [companyId, setCompanyId] = useState(null)
   const [companies, setCompanies] = useState([])
+  
+  // Obtener company_id por defecto del usuario actual (si no es superadmin o no se especifica)
+  const getDefaultCompanyId = () => {
+    if (isSuperadmin && companyId) {
+      return companyId
+    }
+    // Para usuarios regulares, usar su propio ID como company_id
+    return user?.id || null
+  }
 
   useEffect(() => {
-    if (isOpen && parkingId && panelId && windowId) {
+    if (isOpen && parkingId && windowId !== undefined) {
+      // Cargar configuración (puede ser preparatoria si no hay panelId)
       loadConfig()
       loadSensorTypes()
       if (isSuperadmin) {
@@ -42,9 +52,11 @@ const WindowConfigModal = ({
   const loadConfig = async () => {
     try {
       setLoadingConfig(true)
+      // Usar panelId o 0 si no hay panelId (para configuraciones preparatorias)
+      const effectivePanelId = panelId || 0
       const config = await windowService.getWindowConfig(
         parkingId,
-        panelId,
+        effectivePanelId,
         windowId,
         isSuperadmin ? companyId : null
       )
@@ -184,9 +196,18 @@ const WindowConfigModal = ({
         config.company_id = companyId
       }
 
+      // Si no hay panelId, usar 0 para crear configuración preparatoria
+      // La configuración se asociará automáticamente cuando se cree el panel Tipo 4
+      const effectivePanelId = panelId || 0
+      
+      // Asegurar que company_id esté en la configuración
+      if (!config.company_id) {
+        config.company_id = getDefaultCompanyId()
+      }
+      
       const result = await windowService.updateWindowConfig(
         parkingId,
-        panelId,
+        effectivePanelId,
         windowId,
         config
       )
@@ -216,9 +237,16 @@ const WindowConfigModal = ({
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b">
-          <h2 className="text-xl font-bold text-gray-900">
-            Configurar Ventana {windowId}
-          </h2>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">
+              Configurar Ventana {windowId}
+            </h2>
+            {!panelId && (
+              <p className="text-sm text-blue-600 mt-1">
+                ⓘ Configuración preparatoria: Esta configuración se aplicará cuando se cree un panel Tipo 4 en este parking.
+              </p>
+            )}
+          </div>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"

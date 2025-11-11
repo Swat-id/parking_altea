@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import ScheduleInfoModal from '../components/ScheduleInfoModal'
 import PanelWindowManager from '../components/PanelWindowManager'
 import PanelType4Status from '../components/PanelType4Status'
+import windowService from '../services/windowService'
 import { 
   Monitor, 
   Wifi, 
@@ -63,6 +64,8 @@ const Panels = () => {
     port: 5200,
     windows_count: 1
   })
+  // Estado para almacenar asignaciones de ventanas antes de crear el panel
+  const [pendingWindowAssignments, setPendingWindowAssignments] = useState([])
   const [showEditModal, setShowEditModal] = useState(false)
   const [editForm, setEditForm] = useState({
     name: '',
@@ -175,29 +178,26 @@ const Panels = () => {
   )
 
   const createPanelMutation = useMutation(
-    (panelData) => fetch('/api/panels', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(panelData)
-    }).then(res => res.json()),
+    async (panelData) => {
+      const res = await fetch('/api/panels', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(panelData)
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al crear el panel')
+      }
+      return data
+    },
     {
       onSuccess: () => {
         queryClient.invalidateQueries('panels')
-        setShowCreateModal(false)
-        setCreateForm({
-          name: '',
-          ip: '',
-          parking_id: '',
-          panel_type_id: '',
-          port: 5200,
-          windows_count: 1
-        })
-        toast.success('Panel creado correctamente')
       },
       onError: (error) => {
-        toast.error(error?.response?.data?.message || 'Error creando panel')
+        toast.error(error?.message || error?.response?.data?.message || 'Error creando panel')
       }
     }
   )
@@ -409,13 +409,83 @@ const Panels = () => {
     return `${panelType.name} (${panelType.manufacturer})`
   }
 
-  const handleCreatePanel = (e) => {
+  const handleCreatePanel = async (e) => {
     e.preventDefault()
-    if (!createForm.name || !createForm.ip || !createForm.parking_id || !createForm.panel_type_id) {
+    
+    // Validación básica
+    if (!createForm.name || !createForm.ip || !createForm.panel_type_id) {
       toast.error('Completa todos los campos obligatorios')
       return
     }
-    createPanelMutation.mutate(createForm)
+    
+    // Para Tipo 4, parking_id no es obligatorio (cada ventana puede tener su propio parking)
+    // Pero el backend lo requiere, así que usamos el primero disponible si no se ha seleccionado
+    const isType4 = isPanelType4(createForm.panel_type_id)
+    let parkingId = createForm.parking_id
+    
+    if (isType4 && !parkingId && parkings.length > 0) {
+      // Usar el primer parking disponible como valor por defecto para crear el panel
+      parkingId = parkings[0].id.toString()
+    }
+    
+    if (!parkingId) {
+      toast.error('Debes seleccionar un parking (o al menos uno disponible para Tipo 4)')
+      return
+    }
+    
+    // Validar número de ventanas para Tipo 4
+    if (isType4 && (!createForm.windows_count || createForm.windows_count < 1 || createForm.windows_count > 16)) {
+      toast.error('El número de ventanas debe estar entre 1 y 16 para Tipo 4')
+      return
+    }
+    
+    // Crear el panel con el parking_id (puede ser el por defecto para Tipo 4)
+    const panelData = {
+      ...createForm,
+      parking_id: parkingId
+    }
+    
+    createPanelMutation.mutate(panelData, {
+      onSuccess: async (response) => {
+        const createdPanel = response.panel
+        
+        // Si hay asignaciones pendientes y es Tipo 4, guardarlas
+        if (isType4 && pendingWindowAssignments.length > 0 && createdPanel?.id) {
+          try {
+            // Guardar todas las asignaciones pendientes
+            for (const assignment of pendingWindowAssignments) {
+              await windowService.assignParkingToWindow(
+                createdPanel.id,
+                assignment.window_id,
+                assignment.parking_id,
+                assignment.sensor_type || null,
+                assignment.texto_fijo_previo || null,
+                assignment.color || null
+              )
+            }
+            toast.success(`Panel creado y ${pendingWindowAssignments.length} asignación(es) guardada(s)`)
+          } catch (error) {
+            console.error('Error guardando asignaciones:', error)
+            toast.error('Panel creado, pero hubo errores al guardar algunas asignaciones')
+          }
+        } else {
+          toast.success('Panel creado correctamente')
+        }
+        
+        // Limpiar estado y cerrar modal
+        setPendingWindowAssignments([])
+        setCreateForm({
+          name: '',
+          ip: '',
+          parking_id: '',
+          panel_type_id: '',
+          port: 5200,
+          windows_count: 1
+        })
+        setShowCreateModal(false)
+        queryClient.invalidateQueries('panels')
+      }
+    })
   }
 
   // Nueva función para mostrar detalles de programación
@@ -1220,27 +1290,52 @@ const Panels = () => {
                     placeholder="5200"
                   />
                 </div>
+                {/* Parking: solo obligatorio si NO es Tipo 4 */}
+                {!isPanelType4(createForm.panel_type_id) && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Parking <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={createForm.parking_id}
+                      onChange={(e) => setCreateForm({...createForm, parking_id: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="">Seleccionar parking...</option>
+                      {parkings.map(parking => (
+                        <option key={parking.id} value={parking.id}>
+                          {parking.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                
+                {/* Para Tipo 4, mostrar info sobre parking */}
+                {isPanelType4(createForm.panel_type_id) && (
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <p className="text-sm text-blue-800">
+                      <strong>Panel Tipo 4:</strong> Puedes asignar diferentes parkings a cada ventana. 
+                      El parking seleccionado aquí se usará como valor por defecto para crear el panel.
+                    </p>
+                    <select
+                      value={createForm.parking_id}
+                      onChange={(e) => setCreateForm({...createForm, parking_id: e.target.value})}
+                      className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Seleccionar parking por defecto (opcional)...</option>
+                      {parkings.map(parking => (
+                        <option key={parking.id} value={parking.id}>
+                          {parking.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Parking
-                  </label>
-                  <select
-                    value={createForm.parking_id}
-                    onChange={(e) => setCreateForm({...createForm, parking_id: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  >
-                    <option value="">Seleccionar parking...</option>
-                    {parkings.map(parking => (
-                      <option key={parking.id} value={parking.id}>
-                        {parking.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Tipo de Panel
+                    Tipo de Panel <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={createForm.panel_type_id}
@@ -1252,6 +1347,10 @@ const Panels = () => {
                         panel_type_id: newTypeId,
                         windows_count: windowsCount
                       })
+                      // Limpiar asignaciones pendientes si cambia el tipo
+                      if (!isPanelType4(newTypeId)) {
+                        setPendingWindowAssignments([])
+                      }
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
@@ -1265,15 +1364,46 @@ const Panels = () => {
                   </select>
                 </div>
 
-                {/* PanelWindowManager para Tipo 4 */}
-                {isPanelType4(createForm.panel_type_id) && createForm.parking_id && (
+                {/* Campo de número de ventanas para Tipo 4 */}
+                {isPanelType4(createForm.panel_type_id) && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Número de Ventanas (1-16) <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={createForm.windows_count || 16}
+                      onChange={(e) => {
+                        const newCount = parseInt(e.target.value)
+                        setCreateForm({...createForm, windows_count: newCount})
+                        // Limpiar asignaciones que excedan el nuevo número de ventanas
+                        setPendingWindowAssignments(prev => 
+                          prev.filter(a => a.window_id < newCount)
+                        )
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      {Array.from({ length: 16 }, (_, i) => i + 1).map(num => (
+                        <option key={num} value={num}>{num}</option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Selecciona cuántas ventanas tendrá este panel (máximo 16)
+                    </p>
+                  </div>
+                )}
+
+                {/* PanelWindowManager para Tipo 4 - ahora se muestra siempre que sea Tipo 4 */}
+                {isPanelType4(createForm.panel_type_id) && (
                   <PanelWindowManager
                     panelId={null} // No existe aún
-                    parkingId={parseInt(createForm.parking_id)}
+                    parkingId={createForm.parking_id ? parseInt(createForm.parking_id) : null}
                     panelTypeId={parseInt(createForm.panel_type_id)}
                     windowsCount={createForm.windows_count || 16}
                     onWindowsCountChange={(count) => setCreateForm({...createForm, windows_count: count})}
                     isEditing={false}
+                    pendingAssignments={pendingWindowAssignments}
+                    onPendingAssignmentsChange={setPendingWindowAssignments}
                   />
                 )}
 

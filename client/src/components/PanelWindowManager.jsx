@@ -10,7 +10,9 @@ const PanelWindowManager = ({
   panelTypeId, 
   windowsCount = 1,
   onWindowsCountChange,
-  isEditing = false 
+  isEditing = false,
+  pendingAssignments = [], // Asignaciones pendientes (para creación de panel)
+  onPendingAssignmentsChange = null // Callback para actualizar asignaciones pendientes
 }) => {
   const [windows, setWindows] = useState([]) // Array de asignaciones por ventana
   const [loading, setLoading] = useState(false)
@@ -35,6 +37,39 @@ const PanelWindowManager = ({
       initializeWindows()
     }
   }, [panelId, isEditing, windowsCount])
+
+  // Efecto separado para actualizar asignaciones pendientes
+  useEffect(() => {
+    if (!panelId && !isEditing) {
+      if (pendingAssignments && pendingAssignments.length > 0) {
+        // Agrupar asignaciones pendientes por window_id
+        const windowsMap = {}
+        for (let i = 0; i < windowsCount; i++) {
+          windowsMap[i] = []
+        }
+        
+        pendingAssignments.forEach(assignment => {
+          const wid = assignment.window_id
+          if (wid >= 0 && wid < windowsCount) {
+            windowsMap[wid].push({
+              ...assignment,
+              parking_name: assignment.parking_name || `Parking ${assignment.parking_id}`
+            })
+          }
+        })
+        
+        const windowsArray = Object.keys(windowsMap).map(wid => ({
+          window_id: parseInt(wid),
+          assignments: windowsMap[wid]
+        }))
+        
+        setWindows(windowsArray)
+      } else {
+        // Si no hay asignaciones pendientes, reinicializar
+        initializeWindows()
+      }
+    }
+  }, [pendingAssignments, windowsCount, panelId, isEditing])
 
   const initializeWindows = () => {
     const initialWindows = []
@@ -91,45 +126,51 @@ const PanelWindowManager = ({
       return
     }
 
-    try {
-      await windowService.unassignParkingFromWindow(
-        panelId,
-        windowId,
-        assignment.parking_id,
-        assignment.sensor_type
-      )
-      toast.success('Asignación eliminada')
-      if (isEditing) {
+    if (panelId && isEditing) {
+      // Eliminar de la base de datos
+      try {
+        await windowService.unassignParkingFromWindow(
+          panelId,
+          windowId,
+          assignment.parking_id,
+          assignment.sensor_type
+        )
+        toast.success('Asignación eliminada')
         loadWindowAssignments()
-      } else {
-        // Actualizar estado local
-        setWindows(prev => prev.map(w => 
-          w.window_id === windowId
-            ? { ...w, assignments: w.assignments.filter(a => 
-                a.parking_id !== assignment.parking_id || 
-                a.sensor_type !== assignment.sensor_type
-              )}
-            : w
-        ))
+      } catch (error) {
+        console.error('Error eliminando asignación:', error)
+        toast.error('Error al eliminar la asignación')
       }
-    } catch (error) {
-      console.error('Error eliminando asignación:', error)
-      toast.error('Error al eliminar la asignación')
+    } else {
+      // Eliminar de asignaciones pendientes
+      if (onPendingAssignmentsChange) {
+        const updated = pendingAssignments.filter(a => 
+          !(a.window_id === windowId && 
+            a.parking_id === assignment.parking_id && 
+            (a.sensor_type || null) === (assignment.sensor_type || null))
+        )
+        onPendingAssignmentsChange(updated)
+        toast.success('Asignación eliminada')
+      }
     }
   }
 
-  const handleAssignmentSuccess = () => {
-    if (isEditing) {
+  const handleAssignmentSuccess = (newAssignment) => {
+    if (panelId && isEditing) {
       loadWindowAssignments()
+      setShowAssignmentModal(false)
+      setSelectedWindowId(null)
+    } else if (onPendingAssignmentsChange && newAssignment) {
+      // Agregar a asignaciones pendientes
+      const updated = [...(pendingAssignments || []), newAssignment]
+      onPendingAssignmentsChange(updated)
+      setShowAssignmentModal(false)
+      setSelectedWindowId(null)
+      // La visualización se actualizará automáticamente por el useEffect
     } else {
-      // Recargar asignaciones para el window_id seleccionado
-      // Por ahora, simplemente recargamos todo
-      if (panelId) {
-        loadWindowAssignments()
-      }
+      setShowAssignmentModal(false)
+      setSelectedWindowId(null)
     }
-    setShowAssignmentModal(false)
-    setSelectedWindowId(null)
   }
 
   const getAssignmentLabel = (assignment) => {
@@ -179,7 +220,6 @@ const PanelWindowManager = ({
                   type="button"
                   onClick={() => handleAddAssignment(window.window_id)}
                   className="flex items-center px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  disabled={!panelId && !isEditing}
                 >
                   <Plus className="h-4 w-4 mr-1" />
                   Agregar
@@ -200,15 +240,13 @@ const PanelWindowManager = ({
                       <span className="text-sm text-gray-700">
                         {getAssignmentLabel(assignment)}
                       </span>
-                      {isEditing && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveAssignment(window.window_id, assignment)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAssignment(window.window_id, assignment)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -218,24 +256,25 @@ const PanelWindowManager = ({
         </div>
       )}
 
-      {showAssignmentModal && panelId && selectedWindowId !== null && (
+      {showAssignmentModal && selectedWindowId !== null && (
         <WindowAssignmentModal
           isOpen={showAssignmentModal}
           onClose={() => {
             setShowAssignmentModal(false)
             setSelectedWindowId(null)
           }}
-          panelId={panelId}
+          panelId={panelId} // Puede ser null si se está creando
           windowId={selectedWindowId}
           onSuccess={handleAssignmentSuccess}
+          isCreating={!panelId && !isEditing} // Indica si se está creando el panel
         />
       )}
 
-      {!panelId && !isEditing && (
-        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-          <p className="text-sm text-yellow-800">
-            <strong>Nota:</strong> Las asignaciones de ventanas se configurarán después de crear el panel.
-            Primero crea el panel y luego edítalo para asignar contenido a las ventanas.
+      {!panelId && !isEditing && pendingAssignments.length > 0 && (
+        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
+          <p className="text-sm text-green-800">
+            <strong>✓ {pendingAssignments.length} asignación(es) configurada(s).</strong> 
+            {' '}Se guardarán automáticamente al crear el panel.
           </p>
         </div>
       )}

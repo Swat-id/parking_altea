@@ -1517,6 +1517,46 @@ def create_panel():
         session.add(new_panel)
         session.commit()
         
+        # Si es un panel Tipo 4, buscar y asociar configuraciones preparatorias de la empresa
+        if panel_type.windows_count == 16:
+            try:
+                from panel_window_service import PanelWindowService
+                window_service = PanelWindowService(session)
+                
+                # Obtener company_id del parking (a través de UserParking)
+                # Buscar el primer usuario que tenga acceso al parking (normalmente será la empresa)
+                user_parking = session.query(UserParking).filter(
+                    UserParking.parking_id == parking_id
+                ).first()
+                
+                if user_parking:
+                    company_id = user_parking.user_id
+                    
+                    # Buscar configuraciones preparatorias (panel_id = NULL o 0) para esta empresa
+                    prep_configs = session.query(PanelWindowConfiguration).filter(
+                        and_(
+                            PanelWindowConfiguration.parking_id == parking_id,
+                            PanelWindowConfiguration.company_id == company_id,
+                            or_(
+                                PanelWindowConfiguration.panel_id.is_(None),
+                                PanelWindowConfiguration.panel_id == 0
+                            ),
+                            PanelWindowConfiguration.is_active == True
+                        )
+                    ).all()
+                    
+                    # Asociar cada configuración preparatoria al panel recién creado
+                    for prep_config in prep_configs:
+                        prep_config.panel_id = new_panel.id
+                        logger.info(f"Configuración preparatoria {prep_config.id} asociada al panel {new_panel.id}")
+                    
+                    if prep_configs:
+                        session.commit()
+                        logger.info(f"✅ {len(prep_configs)} configuración(es) preparatoria(s) asociada(s) automáticamente al panel {new_panel.id}")
+            except Exception as e:
+                logger.warning(f"No se pudieron asociar configuraciones preparatorias: {e}")
+                # No fallar la creación del panel si hay error al asociar configuraciones
+        
         # Obtener el panel creado con sus relaciones
         created_panel = session.query(Panel).filter(Panel.id == new_panel.id).first()
         
@@ -5952,22 +5992,30 @@ def get_parking_sensor_types(parking_id):
 @require_auth
 @require_parking_access('parking_id')
 def update_window_config(parking_id, panel_id, window_id):
-    """Crear o actualizar configuración de rotación para una ventana (solo para paneles Tipo 4)"""
+    """Crear o actualizar configuración de rotación para una ventana (solo para paneles Tipo 4)
+    
+    Permite crear configuración aunque el panel no exista aún (para preparar configuración antes de crear el panel).
+    Si el panel existe, debe ser Tipo 4.
+    """
     try:
-        # Verificar que el panel es Tipo 4
         session = Session()
         panel = session.query(Panel).filter(Panel.id == panel_id).first()
-        if not panel:
-            session.close()
-            return jsonify({'error': 'Panel no encontrado'}), 404
         
-        if panel.panel_type_id:
-            panel_type = session.query(PanelType).filter(PanelType.id == panel.panel_type_id).first()
-            if not panel_type or panel_type.windows_count != 16:
+        # Si el panel existe, verificar que es Tipo 4
+        if panel:
+            if panel.parking_id != parking_id:
                 session.close()
-                return jsonify({
-                    'error': f'Esta operación solo está disponible para paneles Tipo 4. El panel actual es Tipo {panel_type.id if panel_type else "desconocido"}'
-                }), 400
+                return jsonify({'error': 'El panel no pertenece al parking especificado'}), 400
+            
+            if panel.panel_type_id:
+                panel_type = session.query(PanelType).filter(PanelType.id == panel.panel_type_id).first()
+                if not panel_type or panel_type.windows_count != 16:
+                    session.close()
+                    return jsonify({
+                        'error': f'Esta operación solo está disponible para paneles Tipo 4. El panel actual es Tipo {panel_type.id if panel_type else "desconocido"}'
+                    }), 400
+        # Si el panel no existe, permitir crear la configuración de todas formas
+        # (se validará cuando se cree el panel que sea Tipo 4)
         
         req = request.get_json(force=True)
         
@@ -5987,11 +6035,21 @@ def update_window_config(parking_id, panel_id, window_id):
             if abs(total_percentage - 100) > 0.01:  # Tolerancia para errores de punto flotante
                 return jsonify({'error': f'Los porcentajes en rotation_order deben sumar 100, actual: {total_percentage}'}), 400
         
-        # Obtener company_id si es superadmin
+        # Obtener company_id
         user_data = request.user_data
         company_id = None
+        
+        # Si es superadmin, puede especificar company_id
         if user_data.get('role') == 'superadmin' and 'company_id' in req:
             company_id = req.get('company_id')
+        
+        # Si no se especifica company_id, obtenerlo del parking (a través de UserParking)
+        if not company_id:
+            user_parking = session.query(UserParking).filter(
+                UserParking.parking_id == parking_id
+            ).first()
+            if user_parking:
+                company_id = user_parking.user_id
         
         config = {
             'rotation_enabled': req.get('rotation_enabled', True),
@@ -6013,6 +6071,17 @@ def update_window_config(parking_id, panel_id, window_id):
         session.close()
         
         if result['success']:
+            # Reiniciar el servicio de paneles para que cargue la nueva configuración
+            try:
+                import subprocess
+                # Reiniciar el panel worker service si existe
+                subprocess.run(['systemctl', 'restart', 'parking-panel-worker'], 
+                             capture_output=True, timeout=5, check=False)
+                logger.info("Servicio parking-panel-worker reiniciado después de actualizar configuración")
+            except Exception as restart_error:
+                logger.warning(f"No se pudo reiniciar el servicio parking-panel-worker: {restart_error}")
+                # No fallar la operación si no se puede reiniciar el servicio
+            
             return jsonify(result), 200
         else:
             return jsonify(result), 400
@@ -6022,37 +6091,53 @@ def update_window_config(parking_id, panel_id, window_id):
         return jsonify({'error': 'Internal server error'}), 500
 
 @api_bp.route('/v1/parkings/<int:parking_id>/panels/<int:panel_id>/windows/<int:window_id>/config', methods=['GET'])
+@api_bp.route('/v1/parkings/<int:parking_id>/panels/0/windows/<int:window_id>/config', methods=['GET'])  # Ruta alternativa sin panel_id
 @require_auth
 @require_parking_access('parking_id')
 def get_window_config(parking_id, panel_id, window_id):
-    """Obtener configuración de rotación de una ventana (solo para paneles Tipo 4)"""
+    """Obtener configuración de rotación de una ventana (solo para paneles Tipo 4)
+    
+    Permite obtener configuración preparatoria si panel_id es 0.
+    """
     try:
         session = Session()
         
-        # Verificar que el panel es Tipo 4
-        panel = session.query(Panel).filter(Panel.id == panel_id).first()
-        if not panel:
-            session.close()
-            return jsonify({'error': 'Panel no encontrado'}), 404
-        
-        if panel.panel_type_id:
-            panel_type = session.query(PanelType).filter(PanelType.id == panel.panel_type_id).first()
-            if not panel_type or panel_type.windows_count != 16:
+        # Si panel_id es 0, es una configuración preparatoria (no requiere panel existente)
+        if panel_id != 0:
+            # Verificar que el panel es Tipo 4
+            panel = session.query(Panel).filter(Panel.id == panel_id).first()
+            if not panel:
                 session.close()
-                return jsonify({
-                    'error': f'Esta operación solo está disponible para paneles Tipo 4. El panel actual es Tipo {panel_type.id if panel_type else "desconocido"}'
-                }), 400
+                return jsonify({'error': 'Panel no encontrado'}), 404
+            
+            if panel.panel_type_id:
+                panel_type = session.query(PanelType).filter(PanelType.id == panel.panel_type_id).first()
+                if not panel_type or panel_type.windows_count != 16:
+                    session.close()
+                    return jsonify({
+                        'error': f'Esta operación solo está disponible para paneles Tipo 4. El panel actual es Tipo {panel_type.id if panel_type else "desconocido"}'
+                    }), 400
         
-        # Obtener company_id si es superadmin
+        # Obtener company_id
         user_data = request.user_data
         company_id = None
+        
+        # Si es superadmin, puede especificar company_id
         if user_data.get('role') == 'superadmin':
             company_id = request.args.get('company_id', type=int)
+        
+        # Si no se especifica company_id, obtenerlo del parking (a través de UserParking)
+        if not company_id:
+            user_parking = session.query(UserParking).filter(
+                UserParking.parking_id == parking_id
+            ).first()
+            if user_parking:
+                company_id = user_parking.user_id
         
         window_service = PanelWindowService(session)
         
         config = window_service.get_window_configuration(
-            panel_id=panel_id,
+            panel_id=panel_id if panel_id != 0 else None,  # Pasar None si es 0
             window_id=window_id,
             parking_id=parking_id,
             company_id=company_id

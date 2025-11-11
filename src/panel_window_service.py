@@ -367,7 +367,7 @@ class PanelWindowService:
         Actualiza la configuración de rotación para una ventana
         
         Args:
-            panel_id: ID del panel
+            panel_id: ID del panel (puede ser 0 o None si el panel no existe aún - configuración preparatoria)
             window_id: ID de la ventana
             parking_id: ID del parking
             config: Dict con configuración (rotation_enabled, rotation_order, refresh_time_seconds, company_id)
@@ -376,24 +376,80 @@ class PanelWindowService:
             Dict con resultado
         """
         try:
-            # Buscar configuración existente
-            config_obj = self.db_session.query(PanelWindowConfiguration).filter(
-                and_(
-                    PanelWindowConfiguration.panel_id == panel_id,
-                    PanelWindowConfiguration.window_id == window_id,
-                    PanelWindowConfiguration.parking_id == parking_id
-                )
-            ).first()
+            company_id = config.get('company_id')
             
-            if not config_obj:
-                # Crear nueva configuración
-                config_obj = PanelWindowConfiguration(
-                    panel_id=panel_id,
-                    window_id=window_id,
-                    parking_id=parking_id,
-                    is_active=True
-                )
-                self.db_session.add(config_obj)
+            # Si panel_id es 0 o None, es una configuración preparatoria a nivel de empresa
+            # Buscar por company_id, parking_id y window_id (solo una por empresa)
+            if not panel_id or panel_id == 0:
+                if not company_id:
+                    return {
+                        'success': False,
+                        'error': 'company_id es requerido para configuraciones preparatorias'
+                    }
+                
+                config_obj = self.db_session.query(PanelWindowConfiguration).filter(
+                    and_(
+                        PanelWindowConfiguration.company_id == company_id,
+                        PanelWindowConfiguration.window_id == window_id,
+                        PanelWindowConfiguration.parking_id == parking_id,
+                        or_(
+                            PanelWindowConfiguration.panel_id.is_(None),
+                            PanelWindowConfiguration.panel_id == 0
+                        )
+                    )
+                ).first()
+                
+                if not config_obj:
+                    # Crear nueva configuración preparatoria
+                    config_obj = PanelWindowConfiguration(
+                        panel_id=None,  # NULL para configuraciones preparatorias
+                        window_id=window_id,
+                        parking_id=parking_id,
+                        company_id=company_id,
+                        is_active=True
+                    )
+                    self.db_session.add(config_obj)
+            else:
+                # Configuración para un panel específico
+                # Buscar primero por panel_id específico
+                config_obj = self.db_session.query(PanelWindowConfiguration).filter(
+                    and_(
+                        PanelWindowConfiguration.panel_id == panel_id,
+                        PanelWindowConfiguration.window_id == window_id,
+                        PanelWindowConfiguration.parking_id == parking_id
+                    )
+                ).first()
+                
+                # Si no existe, buscar configuración preparatoria de la empresa y asociarla
+                if not config_obj and company_id:
+                    prep_config = self.db_session.query(PanelWindowConfiguration).filter(
+                        and_(
+                            PanelWindowConfiguration.company_id == company_id,
+                            PanelWindowConfiguration.window_id == window_id,
+                            PanelWindowConfiguration.parking_id == parking_id,
+                            or_(
+                                PanelWindowConfiguration.panel_id.is_(None),
+                                PanelWindowConfiguration.panel_id == 0
+                            )
+                        )
+                    ).first()
+                    
+                    if prep_config:
+                        # Asociar la configuración preparatoria al panel
+                        prep_config.panel_id = panel_id
+                        config_obj = prep_config
+                        logger.info(f"Configuración preparatoria {prep_config.id} asociada al panel {panel_id}")
+                
+                # Si aún no existe, crear nueva configuración
+                if not config_obj:
+                    config_obj = PanelWindowConfiguration(
+                        panel_id=panel_id,
+                        window_id=window_id,
+                        parking_id=parking_id,
+                        company_id=company_id,
+                        is_active=True
+                    )
+                    self.db_session.add(config_obj)
             
             # Actualizar campos
             if 'rotation_enabled' in config:

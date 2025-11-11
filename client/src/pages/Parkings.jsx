@@ -357,7 +357,7 @@ const Parkings = () => {
   }
 
   const handleOpenWindowConfig = async () => {
-    // Cargar paneles de todos los parkings para verificar si hay Tipo 4
+    // Cargar paneles de todos los parkings (opcional, para mostrar si existen)
     try {
       const allPanels = await panelService.getAllPanels()
       const type4Panels = allPanels.filter(panel => {
@@ -365,12 +365,7 @@ const Parkings = () => {
         return panel.panel_type?.windows_count === 16 || panel.windows_count === 16
       })
 
-      if (type4Panels.length === 0) {
-        toast.error('No hay paneles Tipo 4 configurados. Los paneles Tipo 4 soportan hasta 16 ventanas.')
-        return
-      }
-
-      // Agrupar paneles por parking
+      // Agrupar paneles por parking (si existen)
       const panelsByParking = {}
       type4Panels.forEach(panel => {
         if (panel.parking_id) {
@@ -383,19 +378,39 @@ const Parkings = () => {
 
       setParkingPanels(panelsByParking)
       
-      // Si solo hay un parking con paneles Tipo 4, abrir directamente
-      const parkingIds = Object.keys(panelsByParking)
-      if (parkingIds.length === 1) {
-        setSelectedParkingForWindows(parseInt(parkingIds[0]))
+      // Si hay paneles Tipo 4 y solo hay un parking, abrir directamente
+      if (type4Panels.length > 0) {
+        const parkingIds = Object.keys(panelsByParking)
+        if (parkingIds.length === 1) {
+          setSelectedParkingForWindows(parseInt(parkingIds[0]))
+          setShowWindowConfigModal(true)
+          return
+        }
+      }
+      
+      // Si no hay paneles Tipo 4 o hay múltiples parkings, mostrar selector
+      // Permitir crear configuración aunque no haya paneles Tipo 4
+      // El usuario puede seleccionar un parking para configurar
+      if (parkings && parkings.length > 0) {
+        // Si solo hay un parking disponible, seleccionarlo automáticamente
+        if (parkings.length === 1) {
+          setSelectedParkingForWindows(parkings[0].id)
+        }
         setShowWindowConfigModal(true)
       } else {
-        // Mostrar selector de parking
-        // Por ahora, abrimos el modal y el usuario puede seleccionar
-        setShowWindowConfigModal(true)
+        toast.error('No hay parkings disponibles para configurar')
       }
     } catch (error) {
       console.error('Error cargando paneles:', error)
-      toast.error('Error al cargar los paneles')
+      // Aún así permitir abrir el modal si hay parkings disponibles
+      if (parkings && parkings.length > 0) {
+        if (parkings.length === 1) {
+          setSelectedParkingForWindows(parkings[0].id)
+        }
+        setShowWindowConfigModal(true)
+      } else {
+        toast.error('Error al cargar los paneles')
+      }
     }
   }
 
@@ -905,7 +920,7 @@ const Parkings = () => {
       />
 
       {/* Modal de configuración de ventanas */}
-      {showWindowConfigModal && selectedParkingForWindows && parkingPanels[selectedParkingForWindows]?.[0] && (
+      {showWindowConfigModal && selectedParkingForWindows && (
         <WindowConfigModal
           isOpen={showWindowConfigModal}
           onClose={() => {
@@ -913,7 +928,7 @@ const Parkings = () => {
             setSelectedParkingForWindows(null)
           }}
           parkingId={selectedParkingForWindows}
-          panelId={parkingPanels[selectedParkingForWindows][0].id}
+          panelId={parkingPanels[selectedParkingForWindows]?.[0]?.id || null}
           windowId={0}
           onSuccess={handleWindowConfigSuccess}
         />

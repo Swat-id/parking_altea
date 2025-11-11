@@ -5,7 +5,7 @@ import panelService from '../services/panelService'
 import parkingService from '../services/parkingService'
 import toast from 'react-hot-toast'
 
-const WindowAssignmentModal = ({ isOpen, onClose, panelId, windowId, onSuccess }) => {
+const WindowAssignmentModal = ({ isOpen, onClose, panelId, windowId, onSuccess, isCreating = false }) => {
   const [parkings, setParkings] = useState([])
   const [selectedParkingId, setSelectedParkingId] = useState(null)
   const [sensorTypes, setSensorTypes] = useState([])
@@ -18,10 +18,10 @@ const WindowAssignmentModal = ({ isOpen, onClose, panelId, windowId, onSuccess }
   const [loadingSensorTypes, setLoadingSensorTypes] = useState(false)
 
   useEffect(() => {
-    if (isOpen && panelId) {
+    if (isOpen) {
       loadParkings()
     }
-  }, [isOpen, panelId])
+  }, [isOpen])
 
   useEffect(() => {
     if (selectedParkingId && displayType === 'sensor_group') {
@@ -71,6 +71,31 @@ const WindowAssignmentModal = ({ isOpen, onClose, panelId, windowId, onSuccess }
       return
     }
 
+    // Si se está creando el panel (sin panelId), devolver la asignación al callback
+    if (isCreating || !panelId) {
+      const parking = parkings.find(p => p.id === selectedParkingId)
+      const newAssignment = {
+        window_id: windowId,
+        parking_id: selectedParkingId,
+        parking_name: parking?.name || `Parking ${selectedParkingId}`,
+        sensor_type: displayType === 'sensor_group' ? selectedSensorType : null,
+        texto_fijo_previo: displayType === 'sensor_group' && textoFijoPrevio ? textoFijoPrevio : null,
+        color: displayType === 'sensor_group' ? color : null
+      }
+      
+      toast.success('Asignación agregada')
+      onSuccess?.(newAssignment)
+      onClose()
+      // Reset form
+      setSelectedParkingId(null)
+      setSelectedSensorType(null)
+      setDisplayType('parking')
+      setTextoFijoPrevio('')
+      setColor(2) // Reset a verde
+      return
+    }
+
+    // Si el panel ya existe, guardar en la base de datos
     try {
       setLoading(true)
       const result = await windowService.assignParkingToWindow(
