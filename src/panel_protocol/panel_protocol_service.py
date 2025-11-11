@@ -17,6 +17,7 @@ from .constants import (
     DEFAULT_PORT, Color, FontSize, Effect, Alignment,
     CARD_ID_BROADCAST
 )
+from .protocol_v4 import PanelProtocolV4, TextColor, FontSize as FontSizeV4, TextAlignment, TextEffect
 
 logger = logging.getLogger(__name__)
 
@@ -525,6 +526,81 @@ class PanelProtocolService:
     async def get_statistics(self) -> Dict[str, Any]:
         """Obtiene estadísticas generales del servicio"""
         return await self.result_storage.get_statistics()
+    
+    async def send_text_v4(
+        self,
+        panel_ip: str,
+        panel_port: int,
+        window_id: int,
+        text: str,
+        color: TextColor = TextColor.GREEN,
+        font_size: FontSizeV4 = FontSizeV4.SIZE_16,
+        alignment: TextAlignment = TextAlignment.CENTER_CENTER,
+        effect: TextEffect = TextEffect.STATIC,
+        speed: int = 0x03,
+        wait_time: int = 0x0003,
+        request_confirmation: bool = True,
+        wait_for_response: bool = False
+    ) -> str:
+        """
+        Envía texto a una ventana usando protocolo v4 (Panel Tipo 4).
+        Soporta hasta 16 ventanas (0-15).
+        
+        Args:
+            panel_ip: IP del panel
+            panel_port: Puerto del panel
+            window_id: ID de la ventana (0-15)
+            text: Texto a enviar
+            color: Color del texto (TextColor enum)
+            font_size: Tamaño de fuente (FontSize enum)
+            alignment: Alineación (TextAlignment enum)
+            effect: Efecto (TextEffect enum)
+            speed: Velocidad del efecto
+            wait_time: Tiempo de espera
+            request_confirmation: Si solicita confirmación
+            wait_for_response: Si True, espera la respuesta antes de retornar
+            
+        Returns:
+            str: ID de la tarea
+        """
+        # Validar window_id
+        if window_id < 0 or window_id > 15:
+            raise ValueError(f"window_id debe estar entre 0 y 15, recibido: {window_id}")
+        
+        logger.info(f"Enviando texto '{text}' a ventana {window_id} (v4) en {panel_ip}:{panel_port}")
+        
+        # Construir paquete usando protocolo v4
+        protocol_v4 = PanelProtocolV4(panel_ip, panel_port)
+        packet = protocol_v4.build_text_packet(
+            text=text,
+            window_number=window_id,
+            color=color,
+            font_size=font_size,
+            alignment=alignment,
+            effect=effect,
+            speed=speed,
+            wait_time=wait_time
+        )
+        
+        task_id = await self.task_queue.add_task(
+            panel_ip=panel_ip,
+            panel_port=panel_port,
+            operation=self._send_packet_operation,
+            metadata={
+                'window_id': window_id,
+                'text': text,
+                'protocol': 'v4'
+            },
+            packet=packet,
+            operation_type="send_text_v4"
+        )
+        
+        logger.info(f"✅ Tarea {task_id} creada para enviar texto (v4) a ventana {window_id}")
+        
+        if wait_for_response:
+            await self.task_queue.get_task_result(task_id)
+        
+        return task_id
     
     async def close(self):
         """Cierra todas las conexiones y limpia recursos"""

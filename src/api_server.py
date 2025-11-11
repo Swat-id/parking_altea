@@ -12,8 +12,16 @@ from sqlalchemy.orm import sessionmaker
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from config import DB_URL, API_PORT
-from models import Base, User, Parking, Access, Panel, OccupancyHistory, ScheduledMessage, ActivityLog, PanelMessageLog, VehicleCount, CameraLog, UserParking, UserPanel, UserAccess, PanelSchedule, PanelScheduleLog, PanelType, CameraParking, AlarmConfiguration, AlarmConfigurationTarget, AlarmConfigurationThreshold, Alarm, AlarmHistory, IndividualSensor, SensorStatusHistory, SensorCurrentStatus, ParkingSensorSummary
+from models import (
+    Base, User, Parking, Access, Panel, OccupancyHistory, ScheduledMessage, ActivityLog, 
+    PanelMessageLog, VehicleCount, CameraLog, UserParking, UserPanel, UserAccess, 
+    PanelSchedule, PanelScheduleLog, PanelType, CameraParking, AlarmConfiguration, 
+    AlarmConfigurationTarget, AlarmConfigurationThreshold, Alarm, AlarmHistory, 
+    IndividualSensor, SensorStatusHistory, SensorCurrentStatus, ParkingSensorSummary,
+    ParkingPanelWindow, PanelWindowConfiguration
+)
 from panel_schedule_service import PanelScheduleService
+from panel_window_service import PanelWindowService
 from auth import (
     create_user, authenticate_user, delete_user, change_password, 
     get_user_permissions, assign_user_to_resources, require_auth, require_superadmin,
@@ -5758,6 +5766,254 @@ def get_complete_dashboard():
         session.close()
 
 # Registrar el Blueprint con la aplicación
+# ============================================================================
+# NUEVO v4.3.0: ENDPOINTS PARA GESTIÓN DE VENTANAS (PANEL TIPO 4)
+# ============================================================================
+
+@api_bp.route('/v1/panels/<int:panel_id>/windows/<int:window_id>/assign', methods=['POST'])
+@require_auth
+@require_panel_access('panel_id')
+def assign_parking_to_window(panel_id, window_id):
+    """Asignar parking o grupo de sensores a una ventana"""
+    try:
+        req = request.get_json(force=True)
+        parking_id = req.get('parking_id')
+        sensor_type = req.get('sensor_type')  # None, 'PMR', 'Electrico', etc.
+        
+        if not parking_id:
+            return jsonify({'error': 'parking_id es requerido'}), 400
+        
+        # Validar window_id
+        if window_id < 0 or window_id > 15:
+            return jsonify({'error': 'window_id debe estar entre 0 y 15'}), 400
+        
+        session = Session()
+        window_service = PanelWindowService(session)
+        
+        result = window_service.assign_parking_to_window(
+            panel_id=panel_id,
+            window_id=window_id,
+            parking_id=parking_id,
+            sensor_type=sensor_type
+        )
+        
+        session.close()
+        
+        if result['success']:
+            return jsonify(result), 201
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        logger.error(f"Error asignando parking a ventana: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/v1/panels/<int:panel_id>/windows/<int:window_id>/unassign', methods=['DELETE'])
+@require_auth
+@require_panel_access('panel_id')
+def unassign_parking_from_window(panel_id, window_id):
+    """Eliminar asignación de parking/sensor de una ventana"""
+    try:
+        req = request.get_json(force=True)
+        parking_id = req.get('parking_id')
+        sensor_type = req.get('sensor_type')  # None, 'PMR', 'Electrico', etc.
+        
+        if not parking_id:
+            return jsonify({'error': 'parking_id es requerido'}), 400
+        
+        session = Session()
+        window_service = PanelWindowService(session)
+        
+        result = window_service.remove_window_assignment(
+            panel_id=panel_id,
+            window_id=window_id,
+            parking_id=parking_id,
+            sensor_type=sensor_type
+        )
+        
+        session.close()
+        
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 404
+            
+    except Exception as e:
+        logger.error(f"Error eliminando asignación: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/v1/panels/<int:panel_id>/windows', methods=['GET'])
+@require_auth
+@require_panel_access('panel_id')
+def get_panel_windows(panel_id):
+    """Obtener todas las asignaciones de ventanas de un panel"""
+    try:
+        session = Session()
+        window_service = PanelWindowService(session)
+        
+        assignments = window_service.get_window_assignments(panel_id)
+        
+        session.close()
+        return jsonify(assignments), 200
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo ventanas del panel: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/v1/parkings/<int:parking_id>/windows', methods=['GET'])
+@require_auth
+@require_parking_access('parking_id')
+def get_parking_windows(parking_id):
+    """Obtener todas las ventanas asignadas a un parking"""
+    try:
+        session = Session()
+        window_service = PanelWindowService(session)
+        
+        windows = window_service.get_parking_windows(parking_id)
+        
+        session.close()
+        return jsonify(windows), 200
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo ventanas del parking: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/v1/parkings/<int:parking_id>/sensor-types', methods=['GET'])
+@require_auth
+@require_parking_access('parking_id')
+def get_parking_sensor_types(parking_id):
+    """Obtener tipos de sensores disponibles en un parking"""
+    try:
+        session = Session()
+        window_service = PanelWindowService(session)
+        
+        sensor_types = window_service.get_parking_sensor_types(parking_id)
+        
+        session.close()
+        return jsonify({'sensor_types': sensor_types}), 200
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo tipos de sensores: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/v1/parkings/<int:parking_id>/panels/<int:panel_id>/windows/<int:window_id>/config', methods=['POST', 'PUT'])
+@require_auth
+@require_parking_access('parking_id')
+def update_window_config(parking_id, panel_id, window_id):
+    """Crear o actualizar configuración de rotación para una ventana"""
+    try:
+        req = request.get_json(force=True)
+        
+        # Validar window_id
+        if window_id < 0 or window_id > 15:
+            return jsonify({'error': 'window_id debe estar entre 0 y 15'}), 400
+        
+        # Validar rotation_order si se proporciona
+        if 'rotation_order' in req:
+            rotation_order = req['rotation_order']
+            if not isinstance(rotation_order, list):
+                return jsonify({'error': 'rotation_order debe ser una lista'}), 400
+            
+            # Validar que los porcentajes sumen 100
+            total_percentage = sum(item.get('percentage', 0) for item in rotation_order if isinstance(item, dict))
+            if abs(total_percentage - 100) > 0.01:  # Tolerancia para errores de punto flotante
+                return jsonify({'error': f'Los porcentajes en rotation_order deben sumar 100, actual: {total_percentage}'}), 400
+        
+        # Obtener company_id si es superadmin
+        user_data = request.user_data
+        company_id = None
+        if user_data.get('role') == 'superadmin' and 'company_id' in req:
+            company_id = req.get('company_id')
+        
+        config = {
+            'rotation_enabled': req.get('rotation_enabled', True),
+            'rotation_order': req.get('rotation_order'),
+            'refresh_time_seconds': req.get('refresh_time_seconds', 5),
+            'company_id': company_id
+        }
+        
+        session = Session()
+        window_service = PanelWindowService(session)
+        
+        result = window_service.update_window_configuration(
+            panel_id=panel_id,
+            window_id=window_id,
+            parking_id=parking_id,
+            config=config
+        )
+        
+        session.close()
+        
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        logger.error(f"Error actualizando configuración de ventana: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/v1/parkings/<int:parking_id>/panels/<int:panel_id>/windows/<int:window_id>/config', methods=['GET'])
+@require_auth
+@require_parking_access('parking_id')
+def get_window_config(parking_id, panel_id, window_id):
+    """Obtener configuración de rotación de una ventana"""
+    try:
+        # Obtener company_id si es superadmin
+        user_data = request.user_data
+        company_id = None
+        if user_data.get('role') == 'superadmin':
+            company_id = request.args.get('company_id', type=int)
+        
+        session = Session()
+        window_service = PanelWindowService(session)
+        
+        config = window_service.get_window_configuration(
+            panel_id=panel_id,
+            window_id=window_id,
+            parking_id=parking_id,
+            company_id=company_id
+        )
+        
+        session.close()
+        
+        if config:
+            return jsonify(config), 200
+        else:
+            return jsonify({'error': 'Configuración no encontrada'}), 404
+            
+    except Exception as e:
+        logger.error(f"Error obteniendo configuración de ventana: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/v1/panels/<int:panel_id>/windows/<int:window_id>/content', methods=['GET'])
+@require_auth
+@require_panel_access('panel_id')
+def get_window_content(panel_id, window_id):
+    """Obtener contenido actual para una ventana (según rotación)"""
+    try:
+        from panel_content_rotation_service import PanelContentRotationService
+        
+        session = Session()
+        rotation_service = PanelContentRotationService(session)
+        
+        content = rotation_service.get_content_for_window(panel_id, window_id)
+        
+        if content:
+            message = rotation_service.format_message_for_panel(content)
+            content['formatted_message'] = message
+        
+        session.close()
+        
+        if content:
+            return jsonify(content), 200
+        else:
+            return jsonify({'error': 'No hay contenido asignado a esta ventana'}), 404
+            
+    except Exception as e:
+        logger.error(f"Error obteniendo contenido de ventana: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 app.register_blueprint(api_bp)
 
 if __name__ == '__main__':

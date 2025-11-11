@@ -62,6 +62,10 @@ class Parking(Base):
     # NUEVO v4.1.0: Relaciones con sensores individuales
     individual_sensors = relationship('IndividualSensor', back_populates='parking')
     sensor_summaries = relationship('ParkingSensorSummary', back_populates='parking')
+    
+    # NUEVO v4.3.0: Relaciones con ventanas de paneles
+    panel_windows = relationship('ParkingPanelWindow', back_populates='parking')
+    window_configurations = relationship('PanelWindowConfiguration', back_populates='parking')
 
 class Access(Base):
     __tablename__ = 'accesses'
@@ -127,10 +131,17 @@ class Panel(Base):
     last_update_window_1 = Column(DateTime(timezone=True))  # Última actualización ventana 1
     window_config_json = Column(JSON)  # Configuración detallada de ventanas
     
+    # NUEVO v4.3.0: Campo para soportar hasta 16 ventanas
+    windows_count = Column(Integer, default=1)  # Número de ventanas soportadas (1-16)
+    
     # Relaciones
     parking = relationship('Parking', back_populates='panels')
     panel_type = relationship('PanelType', back_populates='panels')
     user_panels = relationship('UserPanel', back_populates='panel')
+    
+    # NUEVO v4.3.0: Relaciones con ventanas
+    window_assignments = relationship('ParkingPanelWindow', back_populates='panel', cascade='all, delete-orphan')
+    window_configurations = relationship('PanelWindowConfiguration', back_populates='panel', cascade='all, delete-orphan')
     
     def supports_multiple_windows(self):
         """Verificar si el panel soporta múltiples ventanas (Tipo 3)"""
@@ -731,3 +742,69 @@ class ParkingSensorSummary(Base):
             'error': self.error_sensors,
             'unknown': self.total_sensors - (self.free_sensors + self.busy_sensors + self.error_sensors)
         }
+
+
+# ============================================================================
+# NUEVO v4.3.0: MODELOS PARA PANEL TIPO 4 - GESTIÓN DE VENTANAS
+# ============================================================================
+
+class ParkingPanelWindow(Base):
+    """Asignación de parking/sensores a ventanas de paneles"""
+    __tablename__ = 'parking_panel_windows'
+    
+    id = Column(Integer, primary_key=True)
+    parking_id = Column(Integer, ForeignKey('parkings.id', ondelete='CASCADE'), nullable=False)
+    panel_id = Column(Integer, ForeignKey('panels.id', ondelete='CASCADE'), nullable=False)
+    window_id = Column(Integer, nullable=False)  # 0-15
+    sensor_type = Column(String(20), nullable=True)  # NULL = parking general, 'PMR', 'Electrico', etc.
+    display_type = Column(String(20), default='parking')  # 'parking', 'sensor_group', 'mixed'
+    priority = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relaciones
+    parking = relationship('Parking', back_populates='panel_windows')
+    panel = relationship('Panel', back_populates='window_assignments')
+    
+    # Constraintes
+    __table_args__ = (
+        UniqueConstraint('panel_id', 'window_id', 'parking_id', 'sensor_type', name='unique_panel_window_parking_sensor'),
+        CheckConstraint('window_id >= 0 AND window_id <= 15', name='check_window_id_range'),
+    )
+    
+    def __repr__(self):
+        sensor_info = f", sensor_type='{self.sensor_type}'" if self.sensor_type else ", sensor_type=NULL"
+        return f"<ParkingPanelWindow(id={self.id}, panel_id={self.panel_id}, window_id={self.window_id}, parking_id={self.parking_id}{sensor_info})>"
+
+
+class PanelWindowConfiguration(Base):
+    """Configuración de rotación y visualización para ventanas de paneles"""
+    __tablename__ = 'panel_window_configurations'
+    
+    id = Column(Integer, primary_key=True)
+    parking_id = Column(Integer, ForeignKey('parkings.id', ondelete='CASCADE'), nullable=False)
+    panel_id = Column(Integer, ForeignKey('panels.id', ondelete='CASCADE'), nullable=False)
+    window_id = Column(Integer, nullable=False)  # 0-15
+    company_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=True)  # NULL = usuario, ID = superadmin para empresa
+    rotation_enabled = Column(Boolean, default=True)
+    rotation_order = Column(JSON, nullable=True)  # JSONB: [{"type": "parking", "percentage": 50, "sensor_type": null}, ...]
+    refresh_time_seconds = Column(Integer, default=5)  # Tiempo total de ciclo
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relaciones
+    parking = relationship('Parking', back_populates='window_configurations')
+    panel = relationship('Panel', back_populates='window_configurations')
+    company = relationship('User', foreign_keys=[company_id])
+    
+    # Constraintes
+    __table_args__ = (
+        UniqueConstraint('panel_id', 'window_id', 'parking_id', name='unique_panel_window_parking_config'),
+        CheckConstraint('window_id >= 0 AND window_id <= 15', name='check_window_id_range_config'),
+        CheckConstraint('refresh_time_seconds > 0', name='check_refresh_time_positive'),
+    )
+    
+    def __repr__(self):
+        return f"<PanelWindowConfiguration(id={self.id}, panel_id={self.panel_id}, window_id={self.window_id}, parking_id={self.parking_id})>"

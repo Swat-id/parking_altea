@@ -187,14 +187,123 @@ class PacketBuilder:
             # Si no hay texto, solo fin de texto
             command_data += b'\x00\x00\x00'
         
-        # Según el ejemplo, el packet_data debe incluir la longitud del comando CC (4 bytes, little-endian)
-        # al inicio, antes de los datos del comando
-        packet_data = struct.pack('<I', len(command_data)) + command_data
+        # El packet_data es directamente el comando CC (sin incluir la longitud de 4 bytes)
+        # La longitud se incluye en build_network_packet como "Packet data length"
+        packet_data = command_data
         
         return PacketBuilder.build_network_packet(
             card_id=card_id,
             command=CMD_PROTOCOL_CONTROL,
             packet_data=packet_data,
+            request_confirmation=request_confirmation
+        )
+    
+    @staticmethod
+    def build_static_text_packet(
+        card_id: int,
+        window_id: int,
+        text: str,
+        font_size: int,
+        font_style: int = 0x00,
+        alignment: int = 0x00,
+        display_x: int = 0,
+        display_y: int = 0,
+        display_width: int = 64,
+        display_height: int = 8,
+        color_r: int = 255,
+        color_g: int = 0,
+        color_b: int = 0,
+        request_confirmation: bool = True
+    ) -> bytes:
+        """
+        Construye un paquete para enviar texto estático (comando 0x04).
+        
+        Según la documentación:
+        - CC: 0x04 (1 byte)
+        - Window NO: 0x00~0x07 (1 byte)
+        - Data type: 0x01 (1 byte) - Simple text data
+        - The level of alignment: 0~2 (1 byte) - 0: left, 1: center, 2: right
+        - Display area X: 2 bytes (High byte in the former - big-endian según doc)
+        - Display area Y: 2 bytes (High byte in the former - big-endian según doc)
+        - Display area width: 2 bytes (High byte in the former - big-endian según doc)
+        - Display area height: 2 bytes (High byte in the former - big-endian según doc)
+        - Font: 1 byte - Bit0~3: font size, Bit4~6: font style, Bit7: Reserved
+        - Text color R: 0~255 (1 byte)
+        - Text color G: 0~255 (1 byte)
+        - Text color B: 0~255 (1 byte)
+        - Text: Variable length - Text string to the end of 0x00
+        
+        Args:
+            card_id: ID de la tarjeta
+            window_id: ID de la ventana (0x00~0x07)
+            text: Texto a enviar
+            font_size: Tamaño de fuente (0x00~0x07) - bits 0-3
+            font_style: Estilo de fuente (0x00~0x07) - bits 4-6
+            alignment: Alineación (0: left, 1: center, 2: right)
+            display_x: Coordenada X del área de visualización
+            display_y: Coordenada Y del área de visualización
+            display_width: Ancho del área de visualización
+            display_height: Alto del área de visualización
+            color_r: Componente rojo del color (0~255)
+            color_g: Componente verde del color (0~255)
+            color_b: Componente azul del color (0~255)
+            request_confirmation: Si solicita confirmación
+            
+        Returns:
+            bytes: Paquete completo
+        """
+        # Validar window_id
+        if window_id < 0 or window_id > 7:
+            raise ValueError(f"window_id debe estar entre 0 y 7, recibido: {window_id}")
+        
+        # Validar alignment
+        if alignment < 0 or alignment > 2:
+            raise ValueError(f"alignment debe estar entre 0 y 2, recibido: {alignment}")
+        
+        # Validar font_size
+        if font_size < 0 or font_size > 7:
+            raise ValueError(f"font_size debe estar entre 0 y 7, recibido: {font_size}")
+        
+        # Validar font_style
+        if font_style < 0 or font_style > 7:
+            raise ValueError(f"font_style debe estar entre 0 y 7, recibido: {font_style}")
+        
+        # Construir datos del comando CC=0x04
+        command_data = bytes([
+            CMD_STATIC_TEXT,      # 0x04: Static text
+            window_id,            # Window NO: 0x00~0x07
+            0x01,                 # Data type: 0x01 (Simple text data)
+            alignment             # The level of alignment: 0~2
+        ])
+        
+        # Display area X, Y, width, height (2 bytes cada uno)
+        # NOTA: La documentación dice "High byte in the former" lo que sugiere big-endian,
+        # pero el protocolo general usa little-endian. Usaremos big-endian según la doc.
+        command_data += struct.pack('>H', display_x)      # Display area X (big-endian)
+        command_data += struct.pack('>H', display_y)       # Display area Y (big-endian)
+        command_data += struct.pack('>H', display_width)  # Display area width (big-endian)
+        command_data += struct.pack('>H', display_height) # Display area height (big-endian)
+        
+        # Font: Bit0~3: font size, Bit4~6: font style, Bit7: Reserved (0)
+        font_byte = (font_size & 0x0F) | ((font_style & 0x07) << 4)
+        command_data += bytes([font_byte])
+        
+        # Text color R, G, B (1 byte cada uno)
+        command_data += bytes([
+            color_r & 0xFF,  # Text color R: 0~255
+            color_g & 0xFF,  # Text color G: 0~255
+            color_b & 0xFF   # Text color B: 0~255
+        ])
+        
+        # Text: Variable length - Text string to the end of 0x00
+        command_data += text.encode('ascii', errors='ignore') + b'\x00'
+        
+        # El comando 0x04 es un comando directo, no un subcomando de 0x7B
+        # Por lo tanto, usamos CMD_STATIC_TEXT directamente como command
+        return PacketBuilder.build_network_packet(
+            card_id=card_id,
+            command=CMD_STATIC_TEXT,
+            packet_data=command_data,
             request_confirmation=request_confirmation
         )
     

@@ -3,7 +3,10 @@ import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { Link } from 'react-router-dom'
 import parkingService from '../services/parkingService'
 import cameraService from '../services/cameraService'
+import panelService from '../services/panelService'
 import CameraAssignmentModal from '../components/CameraAssignmentModal'
+import WindowAssignmentModal from '../components/WindowAssignmentModal'
+import WindowConfigModal from '../components/WindowConfigModal'
 import { useAuth } from '../context/AuthContext'
 import { 
   Car, 
@@ -19,7 +22,8 @@ import {
   X,
   Plus,
   Camera,
-  Trash2
+  Trash2,
+  Settings
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -30,6 +34,9 @@ const Parkings = () => {
   const [editingParking, setEditingParking] = useState(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showCameraModal, setShowCameraModal] = useState(false)
+  const [showWindowConfigModal, setShowWindowConfigModal] = useState(false)
+  const [selectedParkingForWindows, setSelectedParkingForWindows] = useState(null)
+  const [parkingPanels, setParkingPanels] = useState({}) // { parkingId: [panels] }
   const [editForm, setEditForm] = useState({
     name: '',
     location: '',
@@ -349,6 +356,54 @@ const Parkings = () => {
     setShowCameraModal(true)
   }
 
+  const handleOpenWindowConfig = async () => {
+    // Cargar paneles de todos los parkings para verificar si hay Tipo 4
+    try {
+      const allPanels = await panelService.getAllPanels()
+      const type4Panels = allPanels.filter(panel => {
+        // Verificar si el panel es Tipo 4 (soporta 16 ventanas)
+        return panel.panel_type?.windows_count === 16 || panel.windows_count === 16
+      })
+
+      if (type4Panels.length === 0) {
+        toast.error('No hay paneles Tipo 4 configurados. Los paneles Tipo 4 soportan hasta 16 ventanas.')
+        return
+      }
+
+      // Agrupar paneles por parking
+      const panelsByParking = {}
+      type4Panels.forEach(panel => {
+        if (panel.parking_id) {
+          if (!panelsByParking[panel.parking_id]) {
+            panelsByParking[panel.parking_id] = []
+          }
+          panelsByParking[panel.parking_id].push(panel)
+        }
+      })
+
+      setParkingPanels(panelsByParking)
+      
+      // Si solo hay un parking con paneles Tipo 4, abrir directamente
+      const parkingIds = Object.keys(panelsByParking)
+      if (parkingIds.length === 1) {
+        setSelectedParkingForWindows(parseInt(parkingIds[0]))
+        setShowWindowConfigModal(true)
+      } else {
+        // Mostrar selector de parking
+        // Por ahora, abrimos el modal y el usuario puede seleccionar
+        setShowWindowConfigModal(true)
+      }
+    } catch (error) {
+      console.error('Error cargando paneles:', error)
+      toast.error('Error al cargar los paneles')
+    }
+  }
+
+  const handleWindowConfigSuccess = () => {
+    queryClient.invalidateQueries('allParkings')
+    toast.success('Configuración de ventanas actualizada')
+  }
+
   // Mostrar loading mientras se cargan los datos
   if (isLoading) {
     return (
@@ -384,15 +439,25 @@ const Parkings = () => {
             Gestión y monitoreo de todos los aparcamientos
           </p>
         </div>
-        {isSuperadmin && (
+        <div className="flex space-x-3">
           <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center"
+            onClick={handleOpenWindowConfig}
+            className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 flex items-center"
+            title="Configurar ventanas de paneles Tipo 4"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Crear Parking
+            <Settings className="h-4 w-4 mr-2" />
+            Configurar Ventanas
           </button>
-        )}
+          {isSuperadmin && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Crear Parking
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filtros */}
@@ -838,6 +903,21 @@ const Parkings = () => {
         onSave={handleCameraAssignment}
         existingCameras={assignedCameras}
       />
+
+      {/* Modal de configuración de ventanas */}
+      {showWindowConfigModal && selectedParkingForWindows && parkingPanels[selectedParkingForWindows]?.[0] && (
+        <WindowConfigModal
+          isOpen={showWindowConfigModal}
+          onClose={() => {
+            setShowWindowConfigModal(false)
+            setSelectedParkingForWindows(null)
+          }}
+          parkingId={selectedParkingForWindows}
+          panelId={parkingPanels[selectedParkingForWindows][0].id}
+          windowId={0}
+          onSuccess={handleWindowConfigSuccess}
+        />
+      )}
     </div>
   )
 }

@@ -13,6 +13,23 @@ from .api_server import PanelProtocolAPIServer
 from .client import PanelProtocolClient, get_panel_protocol_client
 from .constants import PANEL_PROTOCOL_SERVICE_PORT
 
+# Módulos v4 para Panel Tipo 4 (16 ventanas)
+from .protocol_v4 import (
+    PanelProtocolV4,
+    TextColor,
+    FontSize,
+    TextAlignment,
+    TextEffect
+)
+from .backend_v4 import (
+    PanelBackendV4,
+    WindowMessage,
+    SendResult,
+    BatchResult,
+    quick_send_v4,
+    quick_send_all_v4
+)
+
 __all__ = [
     "PanelProtocolService",
     "PanelProtocolAPIServer",
@@ -22,5 +39,17 @@ __all__ = [
     "TaskQueue",
     "ResultStorage",
     "PANEL_PROTOCOL_SERVICE_PORT",
+    # v4 exports
+    "PanelProtocolV4",
+    "TextColor",
+    "FontSize",
+    "TextAlignment",
+    "TextEffect",
+    "PanelBackendV4",
+    "WindowMessage",
+    "SendResult",
+    "BatchResult",
+    "quick_send_v4",
+    "quick_send_all_v4",
 ]
 
