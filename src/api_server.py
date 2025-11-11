@@ -272,19 +272,31 @@ def get_user_panels():
             logger.warning(f"Usuario {user_id} no tiene acceso a ningún panel - devolviendo lista vacía")
             panels = []
         
-        data = [
-            {
+        data = []
+        for p in panels:
+            panel_data = {
                 'id': p.id,
                 'name': p.name,
                 'ip': p.ip,
+                'ip_address': p.ip,  # Alias para compatibilidad
                 'parking_id': p.parking_id,
                 'parking_name': p.parking.name if p.parking else None,
                 'status': p.status,
                 'last_message': p.last_message,
-                'last_update': p.last_update.isoformat() if p.last_update else None
+                'last_update': p.last_update.isoformat() if p.last_update else None,
+                'panel_type_id': p.panel_type_id,
+                'panel_type': {
+                    'id': p.panel_type.id,
+                    'name': p.panel_type.name,
+                    'manufacturer': p.panel_type.manufacturer.name,
+                    'protocol': p.panel_type.protocol_type,
+                    'windows_count': p.panel_type.windows_count
+                } if p.panel_type else None,
+                'port': p.port,
+                'is_active': p.is_active,
+                'windows_count': p.windows_count
             }
-            for p in panels
-        ]
+            data.append(panel_data)
         session.close()
         return jsonify(data)
         

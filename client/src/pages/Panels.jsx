@@ -125,12 +125,27 @@ const Panels = () => {
         const panelTypeIdString = panelTypeId.toString()
         
         // Verificar que el valor actual del formulario no coincide
-        if (editForm.panel_type_id !== panelTypeIdString) {
+        const currentFormTypeId = editForm.panel_type_id ? editForm.panel_type_id.toString() : ''
+        
+        if (currentFormTypeId !== panelTypeIdString) {
           // Verificar que el tipo existe en panelTypes
+          const normalizeId = (id) => {
+            if (id === null || id === undefined) return null
+            return typeof id === 'number' ? id : parseInt(id)
+          }
+          
+          const normalizedPanelTypeId = normalizeId(panelTypeId)
           const typeExists = panelTypes.some(pt => {
-            const ptId = typeof pt.id === 'number' ? pt.id : parseInt(pt.id)
-            const compareId = typeof panelTypeId === 'number' ? panelTypeId : parseInt(panelTypeId)
-            return ptId === compareId
+            const ptId = normalizeId(pt.id)
+            return ptId !== null && ptId === normalizedPanelTypeId
+          })
+          
+          console.log('useEffect - Actualizando panel_type_id:', {
+            panelTypeId,
+            panelTypeIdString,
+            currentFormTypeId,
+            typeExists,
+            panelTypes_ids: panelTypes.map(pt => pt.id)
           })
           
           if (typeExists) {
@@ -143,7 +158,7 @@ const Panels = () => {
         }
       }
     }
-  }, [panelTypes, editingPanel, showEditModal])
+  }, [panelTypes, editingPanel, showEditModal, editForm.panel_type_id])
 
   // Función para verificar si un panel type es Tipo 4
   const isPanelType4 = (panelTypeId) => {
@@ -843,40 +858,48 @@ const Panels = () => {
                     ) : (
                       <div className="text-sm text-gray-500">
                         {(() => {
-                          // Primero intentar usar panel.panel_type si existe (objeto completo del backend)
-                          if (panel.panel_type && panel.panel_type !== null) {
-                            if (panel.panel_type.name) {
-                              return getPanelTypeDisplayName(panel.panel_type)
-                            }
-                            // Si tiene id pero no name, buscar en panelTypes
-                            if (panel.panel_type.id && panelTypes.length > 0) {
-                              const panelTypeId = panel.panel_type.id
-                              const panelType = panelTypes.find(pt => {
-                                const ptId = typeof pt.id === 'number' ? pt.id : parseInt(pt.id)
-                                const compareId = typeof panelTypeId === 'number' ? panelTypeId : parseInt(panelTypeId)
-                                return ptId === compareId
-                              })
-                              if (panelType) {
-                                return getPanelTypeDisplayName(panelType)
-                              }
+                          // Función auxiliar para normalizar IDs
+                          const normalizeId = (id) => {
+                            if (id === null || id === undefined) return null
+                            return typeof id === 'number' ? id : parseInt(id)
+                          }
+                          
+                          // Función auxiliar para encontrar tipo en panelTypes
+                          const findPanelType = (typeId) => {
+                            if (!typeId || panelTypes.length === 0) return null
+                            const normalizedId = normalizeId(typeId)
+                            if (normalizedId === null || isNaN(normalizedId)) return null
+                            
+                            return panelTypes.find(pt => {
+                              const ptId = normalizeId(pt.id)
+                              return ptId !== null && ptId === normalizedId
+                            }) || null
+                          }
+                          
+                          // 1. Intentar usar panel.panel_type si existe y tiene name
+                          if (panel.panel_type && panel.panel_type.name) {
+                            return getPanelTypeDisplayName(panel.panel_type)
+                          }
+                          
+                          // 2. Si panel.panel_type existe pero no tiene name, buscar por ID
+                          if (panel.panel_type && panel.panel_type.id) {
+                            const foundType = findPanelType(panel.panel_type.id)
+                            if (foundType) {
+                              return getPanelTypeDisplayName(foundType)
                             }
                           }
-                          // Si no, buscar en el array panelTypes usando panel_type_id
-                          const panelTypeId = panel.panel_type_id
-                          if (panelTypeId !== null && panelTypeId !== undefined && panelTypes.length > 0) {
-                            const panelType = panelTypes.find(pt => {
-                              const ptId = typeof pt.id === 'number' ? pt.id : parseInt(pt.id)
-                              const compareId = typeof panelTypeId === 'number' ? panelTypeId : parseInt(panelTypeId)
-                              return ptId === compareId
-                            })
-                            if (panelType) {
-                              return getPanelTypeDisplayName(panelType)
+                          
+                          // 3. Buscar por panel_type_id
+                          if (panel.panel_type_id !== null && panel.panel_type_id !== undefined) {
+                            const foundType = findPanelType(panel.panel_type_id)
+                            if (foundType) {
+                              return getPanelTypeDisplayName(foundType)
                             }
+                            // Si no se encuentra, mostrar ID
+                            return `Tipo ID: ${panel.panel_type_id}`
                           }
-                          // Si aún no hay tipo, mostrar mensaje informativo
-                          if (panelTypeId !== null && panelTypeId !== undefined) {
-                            return `Tipo ID: ${panelTypeId} (no encontrado)`
-                          }
+                          
+                          // 4. Sin tipo
                           return 'Sin tipo'
                         })()}
                         <button
