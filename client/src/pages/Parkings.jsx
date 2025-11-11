@@ -388,15 +388,19 @@ const Parkings = () => {
         }
       }
       
-      // Si no hay paneles Tipo 4 o hay múltiples parkings, mostrar selector
+      // Si no hay paneles Tipo 4 o hay múltiples parkings, permitir crear configuración
       // Permitir crear configuración aunque no haya paneles Tipo 4
-      // El usuario puede seleccionar un parking para configurar
       if (parkings && parkings.length > 0) {
         // Si solo hay un parking disponible, seleccionarlo automáticamente
         if (parkings.length === 1) {
           setSelectedParkingForWindows(parkings[0].id)
+          setShowWindowConfigModal(true)
+        } else {
+          // Si hay múltiples parkings, seleccionar el primero por defecto
+          // El usuario puede cambiar el parking desde el modal si es necesario
+          setSelectedParkingForWindows(parkings[0].id)
+          setShowWindowConfigModal(true)
         }
-        setShowWindowConfigModal(true)
       } else {
         toast.error('No hay parkings disponibles para configurar')
       }
@@ -404,9 +408,8 @@ const Parkings = () => {
       console.error('Error cargando paneles:', error)
       // Aún así permitir abrir el modal si hay parkings disponibles
       if (parkings && parkings.length > 0) {
-        if (parkings.length === 1) {
-          setSelectedParkingForWindows(parkings[0].id)
-        }
+        // Seleccionar el primer parking disponible
+        setSelectedParkingForWindows(parkings[0].id)
         setShowWindowConfigModal(true)
       } else {
         toast.error('Error al cargar los paneles')

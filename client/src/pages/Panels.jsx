@@ -503,14 +503,23 @@ const Panels = () => {
 
   const handleEditPanel = (panel) => {
     setEditingPanel(panel)
+    // Obtener panel_type_id de panel.panel_type_id o panel.panel_type?.id
+    const panelTypeId = panel.panel_type_id || panel.panel_type?.id || ''
+    // Obtener IP de panel.ip_address o panel.ip
+    const panelIp = panel.ip_address || panel.ip || ''
+    // Obtener windows_count del panel o del tipo de panel
+    const windowsCount = panel.windows_count || panel.panel_type?.windows_count || 1
+    // Obtener parking_id y convertirlo a string
+    const parkingId = panel.parking_id ? panel.parking_id.toString() : ''
+    
     setEditForm({
-      name: panel.name,
-      ip: panel.ip_address,
-      parking_id: panel.parking_id,
-      panel_type_id: panel.panel_type_id,
+      name: panel.name || '',
+      ip: panelIp,
+      parking_id: parkingId,
+      panel_type_id: panelTypeId.toString(),
       port: panel.port || 5200,
       is_active: panel.is_active !== false,
-      windows_count: panel.windows_count || 1
+      windows_count: windowsCount
     })
     setShowEditModal(true)
   }
@@ -687,7 +696,7 @@ const Panels = () => {
                         {panel.name}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {panel.ip_address}:{panel.port || 5200}
+                        {panel.ip_address || panel.ip || 'Sin IP'}
                       </div>
                     </div>
                   </td>
@@ -1478,14 +1487,14 @@ const Panels = () => {
                     Parking
                   </label>
                   <select
-                    value={editForm.parking_id}
+                    value={editForm.parking_id || ''}
                     onChange={(e) => setEditForm({...editForm, parking_id: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   >
                     <option value="">Seleccionar parking...</option>
                     {parkings.map(parking => (
-                      <option key={parking.id} value={parking.id}>
+                      <option key={parking.id} value={parking.id.toString()}>
                         {parking.name}
                       </option>
                     ))}
@@ -1496,7 +1505,7 @@ const Panels = () => {
                     Tipo de Panel
                   </label>
                   <select
-                    value={editForm.panel_type_id}
+                    value={editForm.panel_type_id || ''}
                     onChange={(e) => {
                       const newTypeId = e.target.value
                       const windowsCount = getWindowsCountForType(newTypeId)
@@ -1511,7 +1520,7 @@ const Panels = () => {
                   >
                     <option value="">Seleccionar tipo...</option>
                     {panelTypes.map(type => (
-                      <option key={type.id} value={type.id}>
+                      <option key={type.id} value={type.id.toString()}>
                         {type.name}
                       </option>
                     ))}
