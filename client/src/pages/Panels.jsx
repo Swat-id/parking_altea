@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import panelService from '../services/panelService'
 import { panelTypeService } from '../services/panelTypeService'
@@ -84,6 +84,18 @@ const Panels = () => {
     panelService.getAllPanels, // Ya filtra automáticamente por permisos
     {
       refetchInterval: 30000, // Refrescar cada 30 segundos
+      onSuccess: (data) => {
+        // Debug: verificar estructura de datos
+        if (data && data.length > 0) {
+          console.log('Paneles cargados:', data.length)
+          console.log('Primer panel ejemplo:', {
+            id: data[0].id,
+            name: data[0].name,
+            panel_type_id: data[0].panel_type_id,
+            panel_type: data[0].panel_type
+          })
+        }
+      }
     }
   )
 
@@ -101,6 +113,37 @@ const Panels = () => {
     'userParkings',
     () => api.get('/api/parkings').then(res => res.data)
   )
+
+  // Actualizar editForm cuando se carguen los tipos de panel y haya un panel en edición
+  useEffect(() => {
+    if (editingPanel && panelTypes.length > 0 && showEditModal) {
+      // Obtener panel_type_id del panel en edición
+      const panelTypeId = editingPanel.panel_type_id || editingPanel.panel_type?.id
+      
+      if (panelTypeId !== null && panelTypeId !== undefined) {
+        // Normalizar a string
+        const panelTypeIdString = panelTypeId.toString()
+        
+        // Verificar que el valor actual del formulario no coincide
+        if (editForm.panel_type_id !== panelTypeIdString) {
+          // Verificar que el tipo existe en panelTypes
+          const typeExists = panelTypes.some(pt => {
+            const ptId = typeof pt.id === 'number' ? pt.id : parseInt(pt.id)
+            const compareId = typeof panelTypeId === 'number' ? panelTypeId : parseInt(panelTypeId)
+            return ptId === compareId
+          })
+          
+          if (typeExists) {
+            // Actualizar el formulario con el tipo correcto
+            setEditForm(prev => ({
+              ...prev,
+              panel_type_id: panelTypeIdString
+            }))
+          }
+        }
+      }
+    }
+  }, [panelTypes, editingPanel, showEditModal])
 
   // Función para verificar si un panel type es Tipo 4
   const isPanelType4 = (panelTypeId) => {
@@ -515,7 +558,15 @@ const Panels = () => {
   const handleEditPanel = (panel) => {
     setEditingPanel(panel)
     // Obtener panel_type_id de panel.panel_type_id o panel.panel_type?.id
-    const panelTypeId = panel.panel_type_id || panel.panel_type?.id || ''
+    let panelTypeId = panel.panel_type_id || panel.panel_type?.id || null
+    
+    // Convertir a string para el formulario (los selects usan strings)
+    let panelTypeIdString = ''
+    if (panelTypeId !== null && panelTypeId !== undefined) {
+      // Normalizar a string
+      panelTypeIdString = panelTypeId.toString()
+    }
+    
     // Obtener IP de panel.ip_address o panel.ip
     const panelIp = panel.ip_address || panel.ip || ''
     // Obtener windows_count del panel o del tipo de panel
@@ -523,11 +574,22 @@ const Panels = () => {
     // Obtener parking_id y convertirlo a string
     const parkingId = panel.parking_id ? panel.parking_id.toString() : ''
     
+    console.log('Editando panel:', {
+      panel_id: panel.id,
+      panel_name: panel.name,
+      panel_type_id: panelTypeId,
+      panel_type_id_string: panelTypeIdString,
+      panel_panel_type_id: panel.panel_type_id,
+      panel_panel_type: panel.panel_type,
+      panelTypes_loaded: panelTypes.length,
+      panelTypes_ids: panelTypes.map(pt => pt.id)
+    })
+    
     setEditForm({
       name: panel.name || '',
       ip: panelIp,
       parking_id: parkingId,
-      panel_type_id: panelTypeId.toString(),
+      panel_type_id: panelTypeIdString,
       port: panel.port || 5200,
       is_active: panel.is_active !== false,
       windows_count: windowsCount
@@ -782,16 +844,38 @@ const Panels = () => {
                       <div className="text-sm text-gray-500">
                         {(() => {
                           // Primero intentar usar panel.panel_type si existe (objeto completo del backend)
-                          if (panel.panel_type && panel.panel_type.name) {
-                            return getPanelTypeDisplayName(panel.panel_type)
+                          if (panel.panel_type && panel.panel_type !== null) {
+                            if (panel.panel_type.name) {
+                              return getPanelTypeDisplayName(panel.panel_type)
+                            }
+                            // Si tiene id pero no name, buscar en panelTypes
+                            if (panel.panel_type.id && panelTypes.length > 0) {
+                              const panelTypeId = panel.panel_type.id
+                              const panelType = panelTypes.find(pt => {
+                                const ptId = typeof pt.id === 'number' ? pt.id : parseInt(pt.id)
+                                const compareId = typeof panelTypeId === 'number' ? panelTypeId : parseInt(panelTypeId)
+                                return ptId === compareId
+                              })
+                              if (panelType) {
+                                return getPanelTypeDisplayName(panelType)
+                              }
+                            }
                           }
                           // Si no, buscar en el array panelTypes usando panel_type_id
-                          const panelTypeId = panel.panel_type_id || panel.panel_type?.id
-                          if (panelTypeId && panelTypes.length > 0) {
-                            const panelType = panelTypes.find(pt => pt.id === parseInt(panelTypeId))
+                          const panelTypeId = panel.panel_type_id
+                          if (panelTypeId !== null && panelTypeId !== undefined && panelTypes.length > 0) {
+                            const panelType = panelTypes.find(pt => {
+                              const ptId = typeof pt.id === 'number' ? pt.id : parseInt(pt.id)
+                              const compareId = typeof panelTypeId === 'number' ? panelTypeId : parseInt(panelTypeId)
+                              return ptId === compareId
+                            })
                             if (panelType) {
                               return getPanelTypeDisplayName(panelType)
                             }
+                          }
+                          // Si aún no hay tipo, mostrar mensaje informativo
+                          if (panelTypeId !== null && panelTypeId !== undefined) {
+                            return `Tipo ID: ${panelTypeId} (no encontrado)`
                           }
                           return 'Sin tipo'
                         })()}
@@ -1533,7 +1617,7 @@ const Panels = () => {
                     Tipo de Panel
                   </label>
                   <select
-                    value={editForm.panel_type_id || ''}
+                    value={editForm.panel_type_id ? editForm.panel_type_id.toString() : ''}
                     onChange={(e) => {
                       const newTypeId = e.target.value
                       const windowsCount = getWindowsCountForType(newTypeId)
@@ -1548,11 +1632,16 @@ const Panels = () => {
                   >
                     <option value="">Seleccionar tipo...</option>
                     {panelTypes.map(type => (
-                      <option key={type.id} value={type.id.toString()}>
-                        {type.name}
+                      <option key={type.id} value={type.id ? type.id.toString() : ''}>
+                        {type.name || `Tipo ${type.id}`}
                       </option>
                     ))}
                   </select>
+                  {editForm.panel_type_id && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Tipo seleccionado: {editForm.panel_type_id}
+                    </p>
+                  )}
                 </div>
 
                 {/* Campo de número de ventanas para Tipo 4 */}
