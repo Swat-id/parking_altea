@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, Save, Plus, Trash2, AlertCircle } from 'lucide-react'
 import windowService from '../services/windowService'
+import { authService } from '../services/authService'
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
 
@@ -28,6 +29,7 @@ const WindowConfigModal = ({
   const [availableSensorTypes, setAvailableSensorTypes] = useState([])
   const [companyId, setCompanyId] = useState(null)
   const [companies, setCompanies] = useState([])
+  const isInitialLoad = useRef(true)
   
   // Obtener company_id por defecto del usuario actual (si no es superadmin o no se especifica)
   const getDefaultCompanyId = () => {
@@ -39,43 +41,80 @@ const WindowConfigModal = ({
   }
 
   useEffect(() => {
-    if (isOpen && parkingId && windowId !== undefined) {
+    if (isOpen && parkingId !== null && parkingId !== undefined && windowId !== undefined) {
+      // Resetear estado cuando se abre el modal
+      isInitialLoad.current = true
+      setRotationEnabled(true)
+      setRefreshTimeSeconds(30)
+      setRotationOrder([
+        { type: 'parking', percentage: 100, sensor_type: null, texto_fijo_previo: null, color: null }
+      ])
+      setParkingStatusConfig({
+        LLIURE: { color: 2, text: 'LLIURE' },
+        DENS: { color: 3, text: 'DENS' },
+        COMPLET: { color: 1, text: 'COMPLET' }
+      })
+      if (!isSuperadmin) {
+        setCompanyId(null) // Solo resetear si no es superadmin
+      }
+      
       // Cargar configuración (puede ser preparatoria si no hay panelId)
       loadConfig()
       loadSensorTypes()
       if (isSuperadmin) {
         loadCompanies()
       }
+      
+      // Marcar que la carga inicial ha terminado después de un breve delay
+      setTimeout(() => {
+        isInitialLoad.current = false
+      }, 500)
     }
   }, [isOpen, parkingId, panelId, windowId, isSuperadmin])
+
+  // Recargar configuración cuando cambie la empresa seleccionada (solo superadmin)
+  useEffect(() => {
+    if (isOpen && isSuperadmin && !isInitialLoad.current && companyId !== null && companyId !== undefined && parkingId !== null && parkingId !== undefined && windowId !== undefined) {
+      // Solo recargar si el modal ya estaba abierto y no es la carga inicial
+      loadConfig()
+    }
+  }, [companyId])
 
   const loadConfig = async () => {
     try {
       setLoadingConfig(true)
       // Usar panelId o 0 si no hay panelId (para configuraciones preparatorias)
       const effectivePanelId = panelId || 0
+      const effectiveCompanyId = isSuperadmin && companyId ? companyId : null
+      
       const config = await windowService.getWindowConfig(
         parkingId,
         effectivePanelId,
         windowId,
-        isSuperadmin ? companyId : null
+        effectiveCompanyId
       )
 
       if (config) {
+        // Configuración encontrada, cargar datos
         setRotationEnabled(config.rotation_enabled ?? true)
-        setRefreshTimeSeconds(config.refresh_time_seconds ?? 5)
+        setRefreshTimeSeconds(config.refresh_time_seconds ?? 30)
         setRotationOrder(config.rotation_order || [
           { type: 'parking', percentage: 100, sensor_type: null, texto_fijo_previo: null, color: null }
         ])
         if (config.parking_status_config) {
           setParkingStatusConfig(config.parking_status_config)
         }
-        if (isSuperadmin) {
+        if (isSuperadmin && config.company_id) {
           setCompanyId(config.company_id)
         }
+      } else {
+        // No hay configuración, usar valores por defecto (ya están establecidos en el useEffect)
+        console.log('No se encontró configuración, usando valores por defecto')
       }
     } catch (error) {
       console.error('Error cargando configuración:', error)
+      // En caso de error, mantener valores por defecto
+      toast.error('Error al cargar la configuración. Se usarán valores por defecto.')
     } finally {
       setLoadingConfig(false)
     }
@@ -91,9 +130,19 @@ const WindowConfigModal = ({
   }
 
   const loadCompanies = async () => {
-    // TODO: Implementar carga de empresas si es necesario
-    // Por ahora, dejamos vacío
-    setCompanies([])
+    try {
+      const response = await authService.getAllUsers()
+      // Convertir usuarios a formato de empresas (cada usuario es una empresa)
+      const companiesList = (response.users || []).map(user => ({
+        id: user.id,
+        name: user.name || user.email
+      }))
+      setCompanies(companiesList)
+    } catch (error) {
+      console.error('Error cargando empresas:', error)
+      toast.error('Error al cargar la lista de empresas')
+      setCompanies([])
+    }
   }
 
   const addRotationItem = () => {
@@ -189,7 +238,8 @@ const WindowConfigModal = ({
       const config = {
         rotation_enabled: rotationEnabled,
         rotation_order: rotationOrder,
-        refresh_time_seconds: refreshTimeSeconds
+        refresh_time_seconds: refreshTimeSeconds,
+        parking_status_config: parkingStatusConfig
       }
 
       if (isSuperadmin && companyId) {
@@ -256,25 +306,45 @@ const WindowConfigModal = ({
         </div>
 
         {/* Form */}
+        {loadingConfig ? (
+          <div className="p-6 flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+              <p className="text-sm text-gray-600">Cargando configuración...</p>
+            </div>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Selector de empresa (solo superadmin) */}
           {isSuperadmin && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Empresa (opcional - para aplicar a todos los parkings de la empresa)
+                Empresa <span className="text-gray-500 font-normal">(opcional - para aplicar a todos los parkings de la empresa)</span>
               </label>
               <select
                 value={companyId || ''}
-                onChange={(e) => setCompanyId(e.target.value ? parseInt(e.target.value) : null)}
+                onChange={(e) => {
+                  const newCompanyId = e.target.value ? parseInt(e.target.value) : null
+                  setCompanyId(newCompanyId)
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={loadingConfig}
               >
                 <option value="">Aplicar solo a este parking</option>
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.name}
-                  </option>
-                ))}
+                {companies.length > 0 ? (
+                  companies.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.name}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>Cargando empresas...</option>
+                )}
               </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Si seleccionas una empresa, la configuración se aplicará a todos los parkings de esa empresa.
+                Si no seleccionas ninguna, la configuración será solo para este parking específico.
+              </p>
             </div>
           )}
 
@@ -564,6 +634,7 @@ const WindowConfigModal = ({
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   )
