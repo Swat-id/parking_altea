@@ -165,6 +165,26 @@ class PanelType4UpdateService:
                     
                     if result.get('success'):
                         windows_updated += 1
+                        # Actualizar último mensaje en la tabla Panel
+                        # Para ventana 0, actualizar last_message general
+                        # Para otras ventanas, actualizar last_message general con el mensaje más reciente
+                        if window_id == 0:
+                            panel.last_message = message
+                            panel.last_message_window_0 = message
+                            panel.last_update_window_0 = datetime.utcnow()
+                        elif window_id == 1:
+                            panel.last_message_window_1 = message
+                            panel.last_update_window_1 = datetime.utcnow()
+                            # Si no hay mensaje en ventana 0, usar el de ventana 1
+                            if not panel.last_message:
+                                panel.last_message = message
+                        
+                        # Actualizar last_update general con la fecha actual
+                        panel.last_update = datetime.utcnow()
+                        
+                        # Guardar cambios en la base de datos
+                        self.db_session.commit()
+                        
                         logger.info(
                             f"Ventana {window_id} del panel {panel.id} ({panel.name}) "
                             f"actualizada: {message}"

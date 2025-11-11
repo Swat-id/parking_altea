@@ -390,7 +390,9 @@ const Panels = () => {
 
   const handleEditPanelType = (panelId, currentPanelTypeId) => {
     setEditingPanelId(panelId)
-    setEditingPanelTypeId(currentPanelTypeId)
+    // Asegurar que el ID sea un número
+    const typeId = currentPanelTypeId ? (typeof currentPanelTypeId === 'number' ? currentPanelTypeId : parseInt(currentPanelTypeId)) : null
+    setEditingPanelTypeId(typeId)
   }
 
   const handleSavePanelType = (panelId) => {
@@ -406,7 +408,16 @@ const Panels = () => {
 
   const getPanelTypeDisplayName = (panelType) => {
     if (!panelType) return 'Sin tipo'
-    return `${panelType.name} (${panelType.manufacturer})`
+    // Si es un objeto con name y manufacturer
+    if (panelType.name && panelType.manufacturer) {
+      return `${panelType.name} (${panelType.manufacturer})`
+    }
+    // Si solo tiene name
+    if (panelType.name) {
+      return panelType.name
+    }
+    // Si es un objeto sin estructura esperada, intentar mostrar algo
+    return 'Tipo desconocido'
   }
 
   const handleCreatePanel = async (e) => {
@@ -741,13 +752,13 @@ const Panels = () => {
                     {editingPanelId === panel.id ? (
                       <div className="space-y-2">
                         <select
-                          value={editingPanelTypeId || ''}
-                          onChange={(e) => setEditingPanelTypeId(e.target.value)}
+                          value={editingPanelTypeId ? editingPanelTypeId.toString() : ''}
+                          onChange={(e) => setEditingPanelTypeId(e.target.value ? parseInt(e.target.value) : null)}
                           className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
                         >
                           <option value="">Seleccionar tipo...</option>
                           {panelTypes.map(type => (
-                            <option key={type.id} value={type.id}>
+                            <option key={type.id} value={type.id.toString()}>
                               {type.name}
                             </option>
                           ))}
@@ -769,9 +780,26 @@ const Panels = () => {
                       </div>
                     ) : (
                       <div className="text-sm text-gray-500">
-                        {panel.panel_type ? getPanelTypeDisplayName(panel.panel_type) : 'Sin tipo'}
+                        {(() => {
+                          // Primero intentar usar panel.panel_type si existe (objeto completo del backend)
+                          if (panel.panel_type && panel.panel_type.name) {
+                            return getPanelTypeDisplayName(panel.panel_type)
+                          }
+                          // Si no, buscar en el array panelTypes usando panel_type_id
+                          const panelTypeId = panel.panel_type_id || panel.panel_type?.id
+                          if (panelTypeId && panelTypes.length > 0) {
+                            const panelType = panelTypes.find(pt => pt.id === parseInt(panelTypeId))
+                            if (panelType) {
+                              return getPanelTypeDisplayName(panelType)
+                            }
+                          }
+                          return 'Sin tipo'
+                        })()}
                         <button
-                          onClick={() => handleEditPanelType(panel.id, panel.panel_type?.id)}
+                          onClick={() => {
+                            const panelTypeId = panel.panel_type_id || panel.panel_type?.id
+                            handleEditPanelType(panel.id, panelTypeId)
+                          }}
                           className="ml-2 text-blue-600 hover:text-blue-900"
                         >
                           <Edit className="h-3 w-3" />
@@ -1527,16 +1555,53 @@ const Panels = () => {
                   </select>
                 </div>
 
+                {/* Campo de número de ventanas para Tipo 4 */}
+                {isPanelType4(editForm.panel_type_id) && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Número de Ventanas (1-16) <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={editForm.windows_count || 16}
+                      onChange={(e) => {
+                        const newCount = parseInt(e.target.value)
+                        setEditForm({...editForm, windows_count: newCount})
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      {Array.from({ length: 16 }, (_, i) => i + 1).map(num => (
+                        <option key={num} value={num}>{num}</option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Selecciona cuántas ventanas tendrá este panel (máximo 16)
+                    </p>
+                  </div>
+                )}
+
                 {/* PanelWindowManager para Tipo 4 */}
                 {isPanelType4(editForm.panel_type_id) && editForm.parking_id && editingPanel && (
-                  <PanelWindowManager
-                    panelId={editingPanel.id}
-                    parkingId={parseInt(editForm.parking_id)}
-                    panelTypeId={parseInt(editForm.panel_type_id)}
-                    windowsCount={editForm.windows_count || 16}
-                    onWindowsCountChange={(count) => setEditForm({...editForm, windows_count: count})}
-                    isEditing={true}
-                  />
+                  <div className="mb-4">
+                    <PanelWindowManager
+                      panelId={editingPanel.id}
+                      parkingId={parseInt(editForm.parking_id)}
+                      panelTypeId={parseInt(editForm.panel_type_id)}
+                      windowsCount={editForm.windows_count || 16}
+                      onWindowsCountChange={(count) => setEditForm({...editForm, windows_count: count})}
+                      isEditing={true}
+                    />
+                  </div>
+                )}
+
+                {/* Mensaje informativo si es Tipo 4 pero no hay parking seleccionado */}
+                {isPanelType4(editForm.panel_type_id) && !editForm.parking_id && (
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <p className="text-sm text-blue-800">
+                      <strong>Panel Tipo 4:</strong> Selecciona un parking para configurar las ventanas. 
+                      Puedes asignar diferentes parkings o grupos de sensores a cada ventana.
+                    </p>
+                  </div>
                 )}
 
                 <div className="mb-6">

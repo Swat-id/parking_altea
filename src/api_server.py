@@ -1668,6 +1668,7 @@ def update_panel(panel_id):
         # Actualizar los datos del panel
         old_name = panel.name
         old_ip = panel.ip
+        old_panel_type_id = panel.panel_type_id  # Guardar tipo anterior
         
         panel.name = name
         panel.ip = ip
@@ -1678,13 +1679,20 @@ def update_panel(panel_id):
         panel.protocol_version = panel_type.protocol_type
         panel.service_endpoint = panel_type.service_endpoint
         
-        # Actualizar windows_count si se proporciona
+        # Actualizar windows_count
+        # Si se proporciona explícitamente, usarlo (validado)
         if 'windows_count' in req:
             windows_count = req.get('windows_count')
             if windows_count and 1 <= windows_count <= 16:
                 panel.windows_count = windows_count
             elif panel_type.windows_count:
                 panel.windows_count = panel_type.windows_count
+        # Si no se proporciona pero cambió el tipo de panel, actualizar según el nuevo tipo
+        elif old_panel_type_id != panel_type_id or not panel.windows_count:
+            if panel_type.windows_count:
+                panel.windows_count = panel_type.windows_count
+            else:
+                panel.windows_count = 1  # Por defecto
         
         session.commit()
         
@@ -1702,12 +1710,14 @@ def update_panel(panel_id):
                 'id': updated_panel.panel_type.id,
                 'name': updated_panel.panel_type.name,
                 'manufacturer': updated_panel.panel_type.manufacturer.name,
-                'protocol': updated_panel.panel_type.protocol_type
+                'protocol': updated_panel.panel_type.protocol_type,
+                'windows_count': updated_panel.panel_type.windows_count
             },
             'port': updated_panel.port,
             'status': updated_panel.status,
             'protocol_version': updated_panel.protocol_version,
             'is_active': updated_panel.is_active,
+            'windows_count': updated_panel.windows_count,
             'last_update': updated_panel.last_update.isoformat() if updated_panel.last_update else None
         }
         
