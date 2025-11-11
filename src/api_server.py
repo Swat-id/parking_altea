@@ -5985,7 +5985,6 @@ def update_window_config(parking_id, panel_id, window_id):
             'parking_status_config': req.get('parking_status_config')  # Configuración de colores y textos para estados
         }
         
-        session = Session()
         window_service = PanelWindowService(session)
         
         result = window_service.update_window_configuration(
@@ -6091,11 +6090,25 @@ def get_window_content(panel_id, window_id):
 @require_auth
 @require_panel_access('panel_id')
 def get_window_next_changes(panel_id, window_id):
-    """Obtener próximos cambios programados para una ventana"""
+    """Obtener próximos cambios programados para una ventana (solo para paneles Tipo 4)"""
     try:
-        from panel_type4_update_service import PanelType4UpdateService
-        
         session = Session()
+        
+        # Verificar que el panel es Tipo 4
+        panel = session.query(Panel).filter(Panel.id == panel_id).first()
+        if not panel:
+            session.close()
+            return jsonify({'error': 'Panel no encontrado'}), 404
+        
+        if panel.panel_type_id:
+            panel_type = session.query(PanelType).filter(PanelType.id == panel.panel_type_id).first()
+            if not panel_type or panel_type.windows_count != 16:
+                session.close()
+                return jsonify({
+                    'error': f'Esta operación solo está disponible para paneles Tipo 4. El panel actual es Tipo {panel_type.id if panel_type else "desconocido"}'
+                }), 400
+        
+        from panel_type4_update_service import PanelType4UpdateService
         update_service = PanelType4UpdateService(session)
         
         changes = update_service.get_next_changes(panel_id, window_id)
