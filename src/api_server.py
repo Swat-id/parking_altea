@@ -5952,12 +5952,28 @@ def get_parking_sensor_types(parking_id):
 @require_auth
 @require_parking_access('parking_id')
 def update_window_config(parking_id, panel_id, window_id):
-    """Crear o actualizar configuración de rotación para una ventana"""
+    """Crear o actualizar configuración de rotación para una ventana (solo para paneles Tipo 4)"""
     try:
+        # Verificar que el panel es Tipo 4
+        session = Session()
+        panel = session.query(Panel).filter(Panel.id == panel_id).first()
+        if not panel:
+            session.close()
+            return jsonify({'error': 'Panel no encontrado'}), 404
+        
+        if panel.panel_type_id:
+            panel_type = session.query(PanelType).filter(PanelType.id == panel.panel_type_id).first()
+            if not panel_type or panel_type.windows_count != 16:
+                session.close()
+                return jsonify({
+                    'error': f'Esta operación solo está disponible para paneles Tipo 4. El panel actual es Tipo {panel_type.id if panel_type else "desconocido"}'
+                }), 400
+        
         req = request.get_json(force=True)
         
         # Validar window_id
         if window_id < 0 or window_id > 15:
+            session.close()
             return jsonify({'error': 'window_id debe estar entre 0 y 15'}), 400
         
         # Validar rotation_order si se proporciona
