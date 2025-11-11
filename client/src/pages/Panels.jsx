@@ -4,6 +4,8 @@ import panelService from '../services/panelService'
 import { panelTypeService } from '../services/panelTypeService'
 import { useAuth } from '../context/AuthContext'
 import ScheduleInfoModal from '../components/ScheduleInfoModal'
+import PanelWindowManager from '../components/PanelWindowManager'
+import PanelType4Status from '../components/PanelType4Status'
 import { 
   Monitor, 
   Wifi, 
@@ -58,7 +60,8 @@ const Panels = () => {
     ip: '',
     parking_id: '',
     panel_type_id: '',
-    port: 5200
+    port: 5200,
+    windows_count: 1
   })
   const [showEditModal, setShowEditModal] = useState(false)
   const [editForm, setEditForm] = useState({
@@ -67,7 +70,8 @@ const Panels = () => {
     parking_id: '',
     panel_type_id: '',
     port: 5200,
-    is_active: true
+    is_active: true,
+    windows_count: 1
   })
   const [editingPanel, setEditingPanel] = useState(null)
 
@@ -94,6 +98,20 @@ const Panels = () => {
     'userParkings',
     () => api.get('/api/parkings').then(res => res.data)
   )
+
+  // Función para verificar si un panel type es Tipo 4
+  const isPanelType4 = (panelTypeId) => {
+    if (!panelTypeId) return false
+    const panelType = panelTypes.find(pt => pt.id === parseInt(panelTypeId))
+    return panelType && (panelType.windows_count === 16 || panelType.id === 4)
+  }
+
+  // Función para obtener windows_count del tipo de panel
+  const getWindowsCountForType = (panelTypeId) => {
+    if (!panelTypeId) return 1
+    const panelType = panelTypes.find(pt => pt.id === parseInt(panelTypeId))
+    return panelType?.windows_count || 1
+  }
 
   // NUEVO v4.1.0: Estado para validación
   const [validationResult, setValidationResult] = useState(null)
@@ -173,7 +191,8 @@ const Panels = () => {
           ip: '',
           parking_id: '',
           panel_type_id: '',
-          port: 5200
+          port: 5200,
+          windows_count: 1
         })
         toast.success('Panel creado correctamente')
       },
@@ -420,7 +439,8 @@ const Panels = () => {
       parking_id: panel.parking_id,
       panel_type_id: panel.panel_type_id,
       port: panel.port || 5200,
-      is_active: panel.is_active !== false
+      is_active: panel.is_active !== false,
+      windows_count: panel.windows_count || 1
     })
     setShowEditModal(true)
   }
@@ -711,6 +731,15 @@ const Panels = () => {
                         ) : (
                           'Sin info de ventanas'
                         )}
+                      </div>
+                    )}
+                    {/* PanelType4Status para paneles Tipo 4 */}
+                    {isPanelType4(panel.panel_type_id) && (
+                      <div className="mt-2">
+                        <PanelType4Status 
+                          panelId={panel.id} 
+                          windowsCount={panel.windows_count || 16}
+                        />
                       </div>
                     )}
                   </td>
@@ -1215,7 +1244,15 @@ const Panels = () => {
                   </label>
                   <select
                     value={createForm.panel_type_id}
-                    onChange={(e) => setCreateForm({...createForm, panel_type_id: e.target.value})}
+                    onChange={(e) => {
+                      const newTypeId = e.target.value
+                      const windowsCount = getWindowsCountForType(newTypeId)
+                      setCreateForm({
+                        ...createForm, 
+                        panel_type_id: newTypeId,
+                        windows_count: windowsCount
+                      })
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   >
@@ -1227,6 +1264,19 @@ const Panels = () => {
                     ))}
                   </select>
                 </div>
+
+                {/* PanelWindowManager para Tipo 4 */}
+                {isPanelType4(createForm.panel_type_id) && createForm.parking_id && (
+                  <PanelWindowManager
+                    panelId={null} // No existe aún
+                    parkingId={parseInt(createForm.parking_id)}
+                    panelTypeId={parseInt(createForm.panel_type_id)}
+                    windowsCount={createForm.windows_count || 16}
+                    onWindowsCountChange={(count) => setCreateForm({...createForm, windows_count: count})}
+                    isEditing={false}
+                  />
+                )}
+
                 <div className="flex justify-end space-x-3">
                   <button
                     type="button"
@@ -1317,7 +1367,15 @@ const Panels = () => {
                   </label>
                   <select
                     value={editForm.panel_type_id}
-                    onChange={(e) => setEditForm({...editForm, panel_type_id: e.target.value})}
+                    onChange={(e) => {
+                      const newTypeId = e.target.value
+                      const windowsCount = getWindowsCountForType(newTypeId)
+                      setEditForm({
+                        ...editForm, 
+                        panel_type_id: newTypeId,
+                        windows_count: windowsCount
+                      })
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   >
@@ -1329,6 +1387,19 @@ const Panels = () => {
                     ))}
                   </select>
                 </div>
+
+                {/* PanelWindowManager para Tipo 4 */}
+                {isPanelType4(editForm.panel_type_id) && editForm.parking_id && editingPanel && (
+                  <PanelWindowManager
+                    panelId={editingPanel.id}
+                    parkingId={parseInt(editForm.parking_id)}
+                    panelTypeId={parseInt(editForm.panel_type_id)}
+                    windowsCount={editForm.windows_count || 16}
+                    onWindowsCountChange={(count) => setEditForm({...editForm, windows_count: count})}
+                    isEditing={true}
+                  />
+                )}
+
                 <div className="mb-6">
                   <label className="flex items-center">
                     <input

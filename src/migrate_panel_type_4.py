@@ -68,6 +68,7 @@ def create_parking_panel_windows_table(engine):
         sensor_type VARCHAR(20) CHECK (sensor_type IN ('PMR', 'Electrico', 'Caravanas', 'Emergencias', 'Policia', 'Otros', NULL)),
         display_type VARCHAR(20) DEFAULT 'parking' CHECK (display_type IN ('parking', 'sensor_group', 'mixed')),
         priority INTEGER DEFAULT 0,
+        texto_fijo_previo VARCHAR(50),
         is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

@@ -7,14 +7,16 @@ const windowService = {
    * @param {number} windowId - ID de la ventana (0-15)
    * @param {number} parkingId - ID del parking
    * @param {string|null} sensorType - Tipo de sensor ('PMR', 'Electrico', 'Caravanas', etc.) o null para parking general
+   * @param {string|null} textoFijoPrevio - Texto fijo previo para sensores (ej: "PMR", "ELÉCTRICO")
    */
-  async assignParkingToWindow(panelId, windowId, parkingId, sensorType = null) {
+  async assignParkingToWindow(panelId, windowId, parkingId, sensorType = null, textoFijoPrevio = null) {
     try {
       const response = await api.post(
         `/api/v1/panels/${panelId}/windows/${windowId}/assign`,
         {
           parking_id: parkingId,
-          sensor_type: sensorType
+          sensor_type: sensorType,
+          texto_fijo_previo: textoFijoPrevio
         }
       )
       return response.data
@@ -149,6 +151,39 @@ const windowService = {
         return null // No hay contenido asignado
       }
       console.error('Error obteniendo contenido de ventana:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Obtener próximos cambios programados para una ventana
+   * @param {number} panelId - ID del panel
+   * @param {number} windowId - ID de la ventana (0-15)
+   */
+  async getWindowNextChanges(panelId, windowId) {
+    try {
+      const response = await api.get(
+        `/api/v1/panels/${panelId}/windows/${windowId}/next-changes`
+      )
+      return response.data
+    } catch (error) {
+      console.error('Error obteniendo próximos cambios:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Forzar actualización de un panel Tipo 4
+   * @param {number} panelId - ID del panel
+   */
+  async updatePanelType4(panelId) {
+    try {
+      const response = await api.post(
+        `/api/v1/panels/${panelId}/update-type4`
+      )
+      return response.data
+    } catch (error) {
+      console.error('Error actualizando panel Tipo 4:', error)
       throw error
     }
   }

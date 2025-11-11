@@ -1491,6 +1491,15 @@ def create_panel():
             session.close()
             return jsonify({'error': f'Ya existe un panel con el nombre "{name}" en este parking'}), 400
         
+        # Determinar windows_count
+        windows_count = req.get('windows_count')
+        if windows_count and 1 <= windows_count <= 16:
+            final_windows_count = windows_count
+        elif panel_type.windows_count:
+            final_windows_count = panel_type.windows_count
+        else:
+            final_windows_count = 1  # Por defecto
+        
         # Crear el nuevo panel
         new_panel = Panel(
             name=name,
@@ -1501,6 +1510,7 @@ def create_panel():
             status='OFFLINE',  # Estado inicial
             protocol_version=panel_type.protocol_type,
             service_endpoint=panel_type.service_endpoint,
+            windows_count=final_windows_count,
             is_active=True
         )
         
@@ -1627,6 +1637,14 @@ def update_panel(panel_id):
         panel.is_active = is_active
         panel.protocol_version = panel_type.protocol_type
         panel.service_endpoint = panel_type.service_endpoint
+        
+        # Actualizar windows_count si se proporciona
+        if 'windows_count' in req:
+            windows_count = req.get('windows_count')
+            if windows_count and 1 <= windows_count <= 16:
+                panel.windows_count = windows_count
+            elif panel_type.windows_count:
+                panel.windows_count = panel_type.windows_count
         
         session.commit()
         
@@ -5779,6 +5797,7 @@ def assign_parking_to_window(panel_id, window_id):
         req = request.get_json(force=True)
         parking_id = req.get('parking_id')
         sensor_type = req.get('sensor_type')  # None, 'PMR', 'Electrico', etc.
+        texto_fijo_previo = req.get('texto_fijo_previo')  # Texto fijo previo para sensores
         
         if not parking_id:
             return jsonify({'error': 'parking_id es requerido'}), 400
@@ -5794,7 +5813,8 @@ def assign_parking_to_window(panel_id, window_id):
             panel_id=panel_id,
             window_id=window_id,
             parking_id=parking_id,
-            sensor_type=sensor_type
+            sensor_type=sensor_type,
+            texto_fijo_previo=texto_fijo_previo
         )
         
         session.close()
@@ -5997,21 +6017,93 @@ def get_window_content(panel_id, window_id):
         session = Session()
         rotation_service = PanelContentRotationService(session)
         
-        content = rotation_service.get_content_for_window(panel_id, window_id)
+        content = rotation_service.get_content_for_window(
+            panel_id=panel_id,
+            window_id=window_id
+        )
+        
+        # Obtener parking para message_type
+        panel = session.query(Panel).filter(Panel.id == panel_id).first()
+        parking = None
+        if panel:
+            parking = session.query(Parking).filter(Parking.id == panel.parking_id).first()
+        
+        message_type = parking.message_type if parking else 'ESTADO'
         
         if content:
-            message = rotation_service.format_message_for_panel(content)
-            content['formatted_message'] = message
-        
-        session.close()
-        
-        if content:
-            return jsonify(content), 200
+            message = rotation_service.format_message_for_panel(content, message_type)
+            return jsonify({
+                'success': True,
+                'content': content,
+                'message': message,
+                'message_type': message_type
+            }), 200
         else:
-            return jsonify({'error': 'No hay contenido asignado a esta ventana'}), 404
+            return jsonify({
+                'success': False,
+                'error': 'No hay contenido configurado para esta ventana'
+            }), 404
             
     except Exception as e:
         logger.error(f"Error obteniendo contenido de ventana: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/v1/panels/<int:panel_id>/windows/<int:window_id>/next-changes', methods=['GET'])
+@require_auth
+@require_panel_access('panel_id')
+def get_window_next_changes(panel_id, window_id):
+    """Obtener próximos cambios programados para una ventana"""
+    try:
+        from panel_type4_update_service import PanelType4UpdateService
+        
+        session = Session()
+        update_service = PanelType4UpdateService(session)
+        
+        changes = update_service.get_next_changes(panel_id, window_id)
+        
+        session.close()
+        
+        return jsonify({
+            'success': True,
+            'changes': [
+                {
+                    'time': change['time'].isoformat(),
+                    'content_type': change['content_type'],
+                    'sensor_type': change.get('sensor_type'),
+                    'texto_fijo_previo': change.get('texto_fijo_previo'),
+                    'duration_seconds': change['duration_seconds'],
+                    'percentage': change['percentage']
+                }
+                for change in changes
+            ]
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo próximos cambios: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/v1/panels/<int:panel_id>/update-type4', methods=['POST'])
+@require_auth
+@require_panel_access('panel_id')
+def update_panel_type4(panel_id):
+    """Forzar actualización de un panel Tipo 4"""
+    try:
+        from panel_type4_update_service import PanelType4UpdateService
+        
+        session = Session()
+        update_service = PanelType4UpdateService(session)
+        
+        result = update_service.update_panel(panel_id)
+        
+        session.close()
+        
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        logger.error(f"Error actualizando panel Tipo 4: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 app.register_blueprint(api_bp)

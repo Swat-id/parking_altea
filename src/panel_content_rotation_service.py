@@ -138,18 +138,22 @@ class PanelContentRotationService:
                 Parking.id == assignment.parking_id
             ).first()
             
+            # Usar texto_fijo_previo de la asignación si existe, o el tipo de sensor como fallback
+            prefix_text = assignment.texto_fijo_previo if assignment.texto_fijo_previo else assignment.sensor_type
+            
             return {
                 'type': 'sensor_group',
                 'parking_id': parking.id if parking else None,
                 'parking_name': parking.name if parking else None,
                 'sensor_type': assignment.sensor_type,
+                'texto_fijo_previo': assignment.texto_fijo_previo,
                 'content': {
                     'total_sensors': sensor_summary.total_sensors,
                     'free_sensors': sensor_summary.free_sensors,
                     'busy_sensors': sensor_summary.busy_sensors,
                     'error_sensors': sensor_summary.error_sensors
                 },
-                'message': f"{assignment.sensor_type}: {sensor_summary.free_sensors}/{sensor_summary.total_sensors} libres"
+                'message': f"{prefix_text}: {sensor_summary.free_sensors}/{sensor_summary.total_sensors} libres"
             }
     
     def _calculate_rotated_content(
@@ -178,9 +182,18 @@ class PanelContentRotationService:
             
             # Calcular tiempo transcurrido en el ciclo actual
             cycle_duration = config.refresh_time_seconds
+            # Asegurar que el ciclo es múltiplo de 30 segundos
+            cycle_duration = ((cycle_duration + 29) // 30) * 30
+            
+            # Trabajar con bloques de 30 segundos
+            BLOCK_SIZE = 30
             time_in_cycle = (current_time.timestamp() % cycle_duration)
             
-            # Calcular qué elemento mostrar según porcentajes
+            # Calcular en qué bloque de 30s estamos
+            current_block = int(time_in_cycle // BLOCK_SIZE)
+            time_in_block = time_in_cycle % BLOCK_SIZE
+            
+            # Calcular distribución dentro del bloque de 30s según porcentajes
             cumulative_time = 0.0
             
             for rotation_item in config.rotation_order:
@@ -191,16 +204,20 @@ class PanelContentRotationService:
                 percentage = rotation_item.get('percentage', 0)
                 sensor_type = rotation_item.get('sensor_type')
                 
-                # Calcular tiempo de visualización para este elemento
-                item_duration = (percentage / 100.0) * cycle_duration
+                # Calcular tiempo de visualización para este elemento dentro del bloque de 30s
+                item_duration = (percentage / 100.0) * BLOCK_SIZE
                 
-                if time_in_cycle >= cumulative_time and time_in_cycle < cumulative_time + item_duration:
+                if time_in_block >= cumulative_time and time_in_block < cumulative_time + item_duration:
                     # Este es el elemento que debe mostrarse ahora
-                    return self._get_content_for_rotation_item(
+                    content = self._get_content_for_rotation_item(
                         assignments,
                         item_type,
                         sensor_type
                     )
+                    # Agregar texto_fijo_previo si existe en rotation_item
+                    if content and 'texto_fijo_previo' in rotation_item:
+                        content['texto_fijo_previo'] = rotation_item['texto_fijo_previo']
+                    return content
                 
                 cumulative_time += item_duration
             
@@ -304,13 +321,15 @@ class PanelContentRotationService:
     
     def format_message_for_panel(
         self,
-        content: Dict[str, Any]
+        content: Dict[str, Any],
+        parking_message_type: str = 'ESTADO'  # 'ESTADO' o 'PLAZAS_LIBRES'
     ) -> str:
         """
         Formatea el contenido como mensaje para el panel
         
         Args:
             content: Dict con contenido
+            parking_message_type: Tipo de mensaje para parking ('ESTADO' o 'PLAZAS_LIBRES')
             
         Returns:
             String formateado para mostrar en el panel
@@ -322,17 +341,25 @@ class PanelContentRotationService:
             parking_data = content.get('content', {})
             free_spaces = parking_data.get('free_spaces', 0)
             max_capacity = parking_data.get('max_capacity', 0)
+            status = parking_data.get('status', 'LIBRE')
             parking_name = content.get('parking_name', 'Parking')
             
-            return f"{parking_name}: {free_spaces}/{max_capacity} libres"
+            if parking_message_type == 'PLAZAS_LIBRES':
+                # Mostrar número de plazas libres
+                return f"{parking_name}: {free_spaces}/{max_capacity} libres"
+            else:
+                # Mostrar estado (LIBRE, DENSO, COMPLETO)
+                return f"{parking_name}: {status}"
         
         elif content.get('type') == 'sensor_group':
             sensor_data = content.get('content', {})
             free_sensors = sensor_data.get('free_sensors', 0)
             total_sensors = sensor_data.get('total_sensors', 0)
-            sensor_type = content.get('sensor_type', 'Sensores')
+            # Usar texto_fijo_previo si existe, sino usar sensor_type
+            prefix_text = content.get('texto_fijo_previo') or content.get('sensor_type', 'Sensores')
             
-            return f"{sensor_type}: {free_sensors}/{total_sensors} libres"
+            # Para sensores siempre mostrar número de plazas libres
+            return f"{prefix_text}: {free_sensors}/{total_sensors} libres"
         
         return content.get('message', '')
 

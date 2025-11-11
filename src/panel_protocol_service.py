@@ -56,33 +56,15 @@ def _init_event_loop():
 # Gunicorn buscará la variable 'app' en este módulo
 app = server.app
 
-# Hook de gunicorn para inicializar el event loop cuando cada worker se inicia
-def on_starting(server):
-    """Hook de gunicorn que se ejecuta cuando el servidor inicia"""
-    logger.info("Gunicorn on_starting hook ejecutado")
-
-def when_ready(server):
-    """Hook de gunicorn que se ejecuta cuando el servidor está listo"""
-    logger.info("Gunicorn when_ready hook ejecutado")
-    # Inicializar el event loop cuando el worker está listo
+# Inicializar el event loop de forma lazy cuando se necesite
+# Con gunicorn, cada worker necesita su propio event loop, así que lo inicializamos
+# cuando se necesita en lugar de al importar el módulo
+# Para desarrollo, inicializar al importar
+if __name__ == '__main__':
     _init_event_loop()
-
-def on_reload(server):
-    """Hook de gunicorn que se ejecuta cuando se recarga"""
-    logger.info("Gunicorn on_reload hook ejecutado")
-
-# También inicializar al importar (para desarrollo o si no se usan hooks)
-# Pero solo si no estamos en un worker de gunicorn
-if __name__ != '__main__':
-    # Con gunicorn, esperar a que se ejecute el hook when_ready
-    # Pero también inicializar aquí por si acaso
-    import os
-    if os.environ.get('SERVER_SOFTWARE', '').startswith('gunicorn'):
-        logger.info("Ejecutándose con gunicorn, el event loop se inicializará en when_ready")
-    else:
-        _init_event_loop()
 else:
-    _init_event_loop()
+    # Con gunicorn, el event loop se inicializará de forma lazy cuando se necesite
+    logger.info("Módulo cargado, el event loop se inicializará cuando se necesite")
 
 if __name__ == '__main__':
     # Si se ejecuta directamente, usar Flask (para desarrollo)

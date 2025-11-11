@@ -11,6 +11,7 @@ const WindowAssignmentModal = ({ isOpen, onClose, panelId, windowId, onSuccess }
   const [sensorTypes, setSensorTypes] = useState([])
   const [selectedSensorType, setSelectedSensorType] = useState(null)
   const [displayType, setDisplayType] = useState('parking') // 'parking' o 'sensor_group'
+  const [textoFijoPrevio, setTextoFijoPrevio] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadingParkings, setLoadingParkings] = useState(false)
   const [loadingSensorTypes, setLoadingSensorTypes] = useState(false)
@@ -75,7 +76,8 @@ const WindowAssignmentModal = ({ isOpen, onClose, panelId, windowId, onSuccess }
         panelId,
         windowId,
         selectedParkingId,
-        displayType === 'sensor_group' ? selectedSensorType : null
+        displayType === 'sensor_group' ? selectedSensorType : null,
+        displayType === 'sensor_group' && textoFijoPrevio ? textoFijoPrevio : null
       )
 
       if (result.success) {
@@ -86,6 +88,7 @@ const WindowAssignmentModal = ({ isOpen, onClose, panelId, windowId, onSuccess }
         setSelectedParkingId(null)
         setSelectedSensorType(null)
         setDisplayType('parking')
+        setTextoFijoPrevio('')
       } else {
         toast.error(result.error || 'Error al crear la asignación')
       }
@@ -172,36 +175,58 @@ const WindowAssignmentModal = ({ isOpen, onClose, panelId, windowId, onSuccess }
 
           {/* Selección de tipo de sensor (solo si displayType === 'sensor_group') */}
           {displayType === 'sensor_group' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tipo de Sensor <span className="text-red-500">*</span>
-              </label>
-              {loadingSensorTypes ? (
-                <div className="text-sm text-gray-500">Cargando tipos de sensores...</div>
-              ) : sensorTypes.length === 0 ? (
-                <div className="text-sm text-yellow-600 bg-yellow-50 p-3 rounded-md flex items-start">
-                  <AlertCircle className="h-5 w-5 mr-2 mt-0.5" />
-                  <span>
-                    El parking seleccionado no tiene sensores configurados. 
-                    Primero debes agregar sensores al parking.
-                  </span>
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tipo de Sensor <span className="text-red-500">*</span>
+                </label>
+                {loadingSensorTypes ? (
+                  <div className="text-sm text-gray-500">Cargando tipos de sensores...</div>
+                ) : sensorTypes.length === 0 ? (
+                  <div className="text-sm text-yellow-600 bg-yellow-50 p-3 rounded-md flex items-start">
+                    <AlertCircle className="h-5 w-5 mr-2 mt-0.5" />
+                    <span>
+                      El parking seleccionado no tiene sensores configurados. 
+                      Primero debes agregar sensores al parking.
+                    </span>
+                  </div>
+                ) : (
+                  <select
+                    value={selectedSensorType || ''}
+                    onChange={(e) => setSelectedSensorType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Seleccionar tipo de sensor...</option>
+                    {sensorTypes.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Texto fijo previo (solo si displayType === 'sensor_group') */}
+              {selectedSensorType && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Texto fijo previo (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={textoFijoPrevio}
+                    onChange={(e) => setTextoFijoPrevio(e.target.value)}
+                    placeholder="Ej: PMR, ELÉCTRICO, CARAVANAS..."
+                    maxLength={50}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Texto que aparecerá antes del número de plazas libres (ej: "PMR: 5/10 libres")
+                  </p>
                 </div>
-              ) : (
-                <select
-                  value={selectedSensorType || ''}
-                  onChange={(e) => setSelectedSensorType(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  <option value="">Seleccionar tipo de sensor...</option>
-                  {sensorTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
               )}
-            </div>
+            </>
           )}
 
           {/* Botones */}

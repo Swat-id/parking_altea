@@ -18,7 +18,7 @@ const WindowConfigModal = ({
   const [rotationEnabled, setRotationEnabled] = useState(true)
   const [refreshTimeSeconds, setRefreshTimeSeconds] = useState(5)
   const [rotationOrder, setRotationOrder] = useState([
-    { type: 'parking', percentage: 100, sensor_type: null }
+    { type: 'parking', percentage: 100, sensor_type: null, texto_fijo_previo: null }
   ])
   const [availableSensorTypes, setAvailableSensorTypes] = useState([])
   const [companyId, setCompanyId] = useState(null)
@@ -48,7 +48,7 @@ const WindowConfigModal = ({
         setRotationEnabled(config.rotation_enabled ?? true)
         setRefreshTimeSeconds(config.refresh_time_seconds ?? 5)
         setRotationOrder(config.rotation_order || [
-          { type: 'parking', percentage: 100, sensor_type: null }
+          { type: 'parking', percentage: 100, sensor_type: null, texto_fijo_previo: null }
         ])
         if (isSuperadmin) {
           setCompanyId(config.company_id)
@@ -79,7 +79,7 @@ const WindowConfigModal = ({
   const addRotationItem = () => {
     setRotationOrder([
       ...rotationOrder,
-      { type: 'parking', percentage: 0, sensor_type: null }
+      { type: 'parking', percentage: 0, sensor_type: null, texto_fijo_previo: null }
     ])
   }
 
@@ -98,12 +98,24 @@ const WindowConfigModal = ({
   }
 
   const updateRotationItem = (index, field, value) => {
+    // Si se cambia el tipo a sensor_group, agregar campo texto_fijo_previo si no existe
+    if (field === 'type' && value === 'sensor_group') {
+      const updated = [...rotationOrder]
+      updated[index] = {
+        ...updated[index],
+        [field]: value,
+        texto_fijo_previo: updated[index].texto_fijo_previo || ''
+      }
+      setRotationOrder(updated)
+      return
+    }
     const newOrder = [...rotationOrder]
     newOrder[index] = { ...newOrder[index], [field]: value }
     
-    // Si cambia el tipo a sensor_group y no hay sensor_type, limpiar
+    // Si cambia el tipo a parking, limpiar campos de sensor
     if (field === 'type' && value === 'parking') {
       newOrder[index].sensor_type = null
+      newOrder[index].texto_fijo_previo = null
     }
     
     setRotationOrder(newOrder)
@@ -250,14 +262,23 @@ const WindowConfigModal = ({
             </label>
             <input
               type="number"
-              min="1"
+              min="30"
+              step="30"
               value={refreshTimeSeconds}
-              onChange={(e) => setRefreshTimeSeconds(parseInt(e.target.value) || 1)}
+              onChange={(e) => {
+                const value = parseInt(e.target.value) || 30
+                // Asegurar que sea múltiplo de 30
+                const rounded = Math.max(30, Math.round(value / 30) * 30)
+                setRefreshTimeSeconds(rounded)
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
             <p className="mt-1 text-sm text-gray-500">
-              Tiempo total del ciclo de rotación en segundos
+              Tiempo total del ciclo de rotación en segundos (debe ser múltiplo de 30)
+            </p>
+            <p className="mt-1 text-xs text-gray-400">
+              El contenido se rotará en bloques de 30 segundos. Ejemplo: 120 segundos = 4 bloques de 30s
             </p>
           </div>
 
@@ -305,7 +326,7 @@ const WindowConfigModal = ({
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className={`grid grid-cols-1 gap-4 ${item.type === 'sensor_group' ? 'md:grid-cols-4' : 'md:grid-cols-2'}`}>
                       {/* Tipo */}
                       <div>
                         <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -323,24 +344,42 @@ const WindowConfigModal = ({
 
                       {/* Tipo de sensor (solo si type === 'sensor_group') */}
                       {item.type === 'sensor_group' && (
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
-                            Tipo de Sensor
-                          </label>
-                          <select
-                            value={item.sensor_type || ''}
-                            onChange={(e) => updateRotationItem(index, 'sensor_type', e.target.value)}
-                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                          >
-                            <option value="">Seleccionar...</option>
-                            {availableSensorTypes.map((type) => (
-                              <option key={type} value={type}>
-                                {type}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                        <>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                              Tipo de Sensor
+                            </label>
+                            <select
+                              value={item.sensor_type || ''}
+                              onChange={(e) => updateRotationItem(index, 'sensor_type', e.target.value)}
+                              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              required
+                            >
+                              <option value="">Seleccionar...</option>
+                              {availableSensorTypes.map((type) => (
+                                <option key={type} value={type}>
+                                  {type}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                              Texto fijo previo
+                            </label>
+                            <input
+                              type="text"
+                              value={item.texto_fijo_previo || ''}
+                              onChange={(e) => updateRotationItem(index, 'texto_fijo_previo', e.target.value)}
+                              placeholder="Ej: PMR, ELÉCTRICO..."
+                              maxLength={50}
+                              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                              Texto antes del número
+                            </p>
+                          </div>
+                        </>
                       )}
 
                       {/* Porcentaje */}

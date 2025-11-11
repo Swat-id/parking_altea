@@ -33,7 +33,8 @@ class PanelWindowService:
         panel_id: int,
         window_id: int,
         parking_id: int,
-        sensor_type: Optional[str] = None
+        sensor_type: Optional[str] = None,
+        texto_fijo_previo: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Asigna un parking o grupo de sensores a una ventana
@@ -117,6 +118,7 @@ class PanelWindowService:
                 parking_id=parking_id,
                 sensor_type=sensor_type,
                 display_type=display_type,
+                texto_fijo_previo=texto_fijo_previo,
                 is_active=True
             )
             
