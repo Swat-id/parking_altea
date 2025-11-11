@@ -5871,9 +5871,9 @@ def unassign_parking_from_window(panel_id, window_id):
         sensor_type = req.get('sensor_type')  # None, 'PMR', 'Electrico', etc.
         
         if not parking_id:
+            session.close()
             return jsonify({'error': 'parking_id es requerido'}), 400
         
-        session = Session()
         window_service = PanelWindowService(session)
         
         result = window_service.remove_window_assignment(
@@ -6009,15 +6009,30 @@ def update_window_config(parking_id, panel_id, window_id):
 @require_auth
 @require_parking_access('parking_id')
 def get_window_config(parking_id, panel_id, window_id):
-    """Obtener configuración de rotación de una ventana"""
+    """Obtener configuración de rotación de una ventana (solo para paneles Tipo 4)"""
     try:
+        session = Session()
+        
+        # Verificar que el panel es Tipo 4
+        panel = session.query(Panel).filter(Panel.id == panel_id).first()
+        if not panel:
+            session.close()
+            return jsonify({'error': 'Panel no encontrado'}), 404
+        
+        if panel.panel_type_id:
+            panel_type = session.query(PanelType).filter(PanelType.id == panel.panel_type_id).first()
+            if not panel_type or panel_type.windows_count != 16:
+                session.close()
+                return jsonify({
+                    'error': f'Esta operación solo está disponible para paneles Tipo 4. El panel actual es Tipo {panel_type.id if panel_type else "desconocido"}'
+                }), 400
+        
         # Obtener company_id si es superadmin
         user_data = request.user_data
         company_id = None
         if user_data.get('role') == 'superadmin':
             company_id = request.args.get('company_id', type=int)
         
-        session = Session()
         window_service = PanelWindowService(session)
         
         config = window_service.get_window_configuration(
@@ -6042,11 +6057,25 @@ def get_window_config(parking_id, panel_id, window_id):
 @require_auth
 @require_panel_access('panel_id')
 def get_window_content(panel_id, window_id):
-    """Obtener contenido actual para una ventana (según rotación)"""
+    """Obtener contenido actual para una ventana (según rotación) - solo para paneles Tipo 4"""
     try:
-        from panel_content_rotation_service import PanelContentRotationService
-        
         session = Session()
+        
+        # Verificar que el panel es Tipo 4
+        panel = session.query(Panel).filter(Panel.id == panel_id).first()
+        if not panel:
+            session.close()
+            return jsonify({'error': 'Panel no encontrado'}), 404
+        
+        if panel.panel_type_id:
+            panel_type = session.query(PanelType).filter(PanelType.id == panel.panel_type_id).first()
+            if not panel_type or panel_type.windows_count != 16:
+                session.close()
+                return jsonify({
+                    'error': f'Esta operación solo está disponible para paneles Tipo 4. El panel actual es Tipo {panel_type.id if panel_type else "desconocido"}'
+                }), 400
+        
+        from panel_content_rotation_service import PanelContentRotationService
         rotation_service = PanelContentRotationService(session)
         
         content = rotation_service.get_content_for_window(
