@@ -135,6 +135,9 @@ class PanelType3And4UpdateService:
                 return self.update_type4_panel(panel_id)
             else:
                 return {'success': False, 'error': f'Panel tipo no soportado (windows_count: {windows_count})'}
+        except Exception as e:
+            logger.error(f"Error en update_panel {panel_id}: {e}")
+            return {'success': False, 'error': str(e)}
     
     def update_type3_panel(self, panel_id: int) -> Dict[str, Any]:
         """
