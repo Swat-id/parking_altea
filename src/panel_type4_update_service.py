@@ -138,6 +138,11 @@ class PanelType3And4UpdateService:
                 return {'success': False, 'error': f'Panel tipo no soportado (windows_count: {windows_count})'}
         except Exception as e:
             logger.error(f"Error en update_panel {panel_id}: {e}")
+            # Hacer rollback para limpiar la transacción en caso de error
+            try:
+                self.db_session.rollback()
+            except Exception as rollback_error:
+                logger.error(f"Error haciendo rollback: {rollback_error}")
             return {'success': False, 'error': str(e)}
     
     def update_type3_panel(self, panel_id: int) -> Dict[str, Any]:
@@ -281,6 +286,11 @@ class PanelType3And4UpdateService:
                         })
                 except Exception as e:
                     logger.error(f"Error actualizando ventana {window_id} del panel {panel_id}: {e}")
+                    # Hacer rollback para limpiar la transacción en caso de error
+                    try:
+                        self.db_session.rollback()
+                    except Exception as rollback_error:
+                        logger.error(f"Error haciendo rollback: {rollback_error}")
                     errors.append({
                         'window_id': window_id,
                         'error': str(e)
@@ -295,6 +305,11 @@ class PanelType3And4UpdateService:
             
         except Exception as e:
             logger.error(f"Error en update_type3_panel {panel_id}: {e}")
+            # Hacer rollback para limpiar la transacción en caso de error
+            try:
+                self.db_session.rollback()
+            except Exception as rollback_error:
+                logger.error(f"Error haciendo rollback: {rollback_error}")
             return {'success': False, 'error': str(e)}
     
     def update_type4_panel(self, panel_id: int) -> Dict[str, Any]:
@@ -423,6 +438,11 @@ class PanelType3And4UpdateService:
                         })
                 except Exception as e:
                     logger.error(f"Error actualizando ventana {window_id} del panel {panel_id}: {e}")
+                    # Hacer rollback para limpiar la transacción en caso de error
+                    try:
+                        self.db_session.rollback()
+                    except Exception as rollback_error:
+                        logger.error(f"Error haciendo rollback: {rollback_error}")
                     errors.append({
                         'window_id': window_id,
                         'error': str(e)
@@ -436,7 +456,12 @@ class PanelType3And4UpdateService:
             }
             
         except Exception as e:
-            logger.error(f"Error en update_panel {panel_id}: {e}")
+            logger.error(f"Error en update_type4_panel {panel_id}: {e}")
+            # Hacer rollback para limpiar la transacción en caso de error
+            try:
+                self.db_session.rollback()
+            except Exception as rollback_error:
+                logger.error(f"Error haciendo rollback: {rollback_error}")
             return {'success': False, 'error': str(e)}
     
     def get_next_changes(self, panel_id: int, window_id: int) -> List[Dict[str, Any]]:
