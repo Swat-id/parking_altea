@@ -402,8 +402,13 @@ class PanelType3And4UpdateService:
             if not parking:
                 return {'success': False, 'error': 'Parking no encontrado'}
             
-            # Inicializar servicio de protocolo
-            protocol_service = PanelProtocolService()
+            # Inicializar servicio de protocolo con timeouts aumentados para procesamiento paralelo
+            protocol_service = PanelProtocolService(
+                max_concurrent_tasks=20,  # Aumentar para procesar más paneles en paralelo
+                max_connections_per_panel=5,
+                connection_timeout=5.0,
+                read_timeout=15.0  # Aumentar timeout de lectura para procesamiento paralelo
+            )
             
             # Actualizar ambas ventanas EN PARALELO usando asyncio.gather
             window_tasks = [
