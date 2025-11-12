@@ -208,12 +208,8 @@ class PanelType3And4UpdateService:
                         
                         if sensor_data:
                             free_count = sensor_data.get('free', 0)
-                            texto_fijo = assignment.texto_fijo_previo or ''
-                            
-                            if texto_fijo:
-                                message = f"{texto_fijo} {free_count}"
-                            else:
-                                message = str(free_count)
+                            # Para Tipo 3, NO usar texto_fijo_previo (solo valores numéricos)
+                            message = str(free_count)
                             
                             # Usar color de la asignación si está configurado
                             if assignment.color:

@@ -85,14 +85,22 @@ class PanelContentRotationService:
             
             # Si no hay configuración o rotación deshabilitada, usar la primera asignación
             if not config or not config.rotation_enabled or not config.rotation_order:
-                return self._get_content_for_assignment(first_assignment)
+                content = self._get_content_for_assignment(first_assignment)
+                # Incluir status_config si existe en la configuración
+                if content and config and config.parking_status_config:
+                    content['status_config'] = config.parking_status_config
+                return content
             
             # Calcular qué contenido mostrar según rotación
-            return self._calculate_rotated_content(
+            content = self._calculate_rotated_content(
                 assignments,
                 config,
                 current_time
             )
+            # Incluir status_config si existe en la configuración
+            if content and config and config.parking_status_config:
+                content['status_config'] = config.parking_status_config
+            return content
             
         except Exception as e:
             logger.error(f"Error obteniendo contenido para ventana: {e}")
