@@ -155,34 +155,33 @@ class PacketBuilder:
         
         # Construir datos del comando CC (sin incluir la longitud)
         # Comando CC: 0x02 (enviar texto)
+        # Según documentación: CC, window_id, effect, alignment, speed, stay_time
         command_data = bytes([
-            SUB_CMD_SEND_TEXT,
-            window_id,
-            effect,
-            alignment,
-            speed
+            SUB_CMD_SEND_TEXT,  # 0x02
+            window_id,          # Número de ventana
+            effect,             # Efecto (0x00 = instantáneo)
+            alignment,          # Alineación
+            speed               # Velocidad (0x03 según ejemplo)
         ])
         
         # Tiempo de espera (2 bytes, little-endian)
         command_data += struct.pack('<H', stay_time)
         
-        # Según el ejemplo exacto de la documentación:
-        # - color_font + 0x00 (reservado) antes del primer carácter
-        # - Cada carácter (incluido el primero): carácter + color_font + 0x00
-        # - Último carácter: carácter + 0x00 + 0x00 + 0x00 (sin color_font después)
+        # Según el ejemplo exacto de la documentación (línea 47-68):
+        # Formato para cada carácter: color_font + 0x00 + carácter
+        # Ejemplo "hola" en rojo (0x10 = rojo, tamaño 8px):
+        #   0x10, 0x00, 0x68  (h)
+        #   0x10, 0x00, 0x6f  (o)
+        #   0x10, 0x00, 0x6c  (l)
+        #   0x10, 0x00, 0x61  (a)
+        #   0x00, 0x00, 0x00  (fin de texto)
         if len(text) > 0:
-            # Primer byte: color_font + 0x00 (reservado) antes del primer carácter
-            command_data += bytes([color_font, 0x00])
-            
-            # Todos los caracteres: carácter + color_font + 0x00
+            # Para cada carácter: color_font + 0x00 + carácter
             for char in text:
-                command_data += bytes([ord(char), color_font, 0x00])
+                command_data += bytes([color_font, 0x00, ord(char)])
             
-            # Reemplazar los últimos 3 bytes (del último carácter) con: carácter + 0x00 + 0x00 + 0x00
-            # Eliminar los últimos 3 bytes (color_font + 0x00 del último carácter)
-            command_data = command_data[:-3]
-            # Agregar el último carácter con terminación: carácter + 0x00 + 0x00 + 0x00
-            command_data += bytes([ord(text[-1]), 0x00, 0x00, 0x00])
+            # Fin de texto: 3 bytes a 0x00
+            command_data += b'\x00\x00\x00'
         else:
             # Si no hay texto, solo fin de texto
             command_data += b'\x00\x00\x00'
