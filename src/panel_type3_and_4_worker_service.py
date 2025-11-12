@@ -35,7 +35,7 @@ class PanelType3And4WorkerService:
         Args:
             update_interval: Intervalo de actualización en segundos (default: 2 minutos)
         """
-        self.worker = PanelType3And4Worker(update_interval=update_interval)
+        self.worker = PanelType3And4Worker(base_update_interval=update_interval)
         self.shutdown_requested = False
         
         # Configurar señales para shutdown graceful
