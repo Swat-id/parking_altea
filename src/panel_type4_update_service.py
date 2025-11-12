@@ -166,6 +166,7 @@ class PanelType3And4UpdateService:
         """
         try:
             # Obtener asignación de la ventana
+            logger.debug(f"Panel {panel.id} ({panel.name}), ventana {window_id}: Buscando asignación...")
             assignment = self.db_session.query(ParkingPanelWindow).filter(
                 and_(
                     ParkingPanelWindow.panel_id == panel.id,
@@ -175,8 +176,14 @@ class PanelType3And4UpdateService:
             ).first()
             
             if not assignment:
-                logger.debug(f"Panel {panel.id}, ventana {window_id}: Sin asignación configurada")
+                logger.debug(f"Panel {panel.id} ({panel.name}), ventana {window_id}: Sin asignación configurada")
                 return {'success': False, 'skipped': True}
+            
+            logger.info(
+                f"Panel {panel.id} ({panel.name}), ventana {window_id}: "
+                f"Asignación encontrada - Tipo: {assignment.display_type}, "
+                f"Parking: {assignment.parking_id}, Sensor: {assignment.sensor_type}"
+            )
             
             # Obtener contenido según el tipo de asignación
             message = None
@@ -187,8 +194,17 @@ class PanelType3And4UpdateService:
                 free_spaces = parking.max_capacity - parking.current_occupancy
                 message = str(free_spaces)
                 color = 2  # Verde para plazas libres
+                logger.info(
+                    f"Panel {panel.id} ({panel.name}), ventana {window_id}: "
+                    f"Parking - Capacidad: {parking.max_capacity}, Ocupación: {parking.current_occupancy}, "
+                    f"Libres: {free_spaces}, Mensaje: '{message}'"
+                )
             elif assignment.display_type == 'sensor_group' and assignment.sensor_type:
                 # Ventana con datos de sensores agrupados (ej: PMR)
+                logger.debug(
+                    f"Panel {panel.id} ({panel.name}), ventana {window_id}: "
+                    f"Obteniendo datos de sensores tipo '{assignment.sensor_type}' para parking {assignment.parking_id}"
+                )
                 from panel_window_service import PanelWindowService
                 window_service = PanelWindowService(self.db_session)
                 sensor_data = window_service.get_sensor_data_for_window(panel.id, window_id)
@@ -196,22 +212,45 @@ class PanelType3And4UpdateService:
                 if sensor_data:
                     # CORRECCIÓN: La clave es 'free_sensors', no 'free'
                     free_count = sensor_data.get('free_sensors', 0)
+                    total_count = sensor_data.get('total_sensors', 0)
                     # Para Tipo 3, NO usar texto_fijo_previo (solo valores numéricos)
                     message = str(free_count)
+                    
+                    logger.info(
+                        f"Panel {panel.id} ({panel.name}), ventana {window_id}: "
+                        f"Sensores {assignment.sensor_type} - Total: {total_count}, Libres: {free_count}, "
+                        f"Mensaje: '{message}'"
+                    )
                     
                     # Usar color de la asignación si está configurado
                     if assignment.color:
                         color = assignment.color
+                        logger.debug(f"Panel {panel.id} ({panel.name}), ventana {window_id}: Usando color {color} de asignación")
                     else:
                         color = 2  # Verde por defecto
                 else:
                     message = "0"  # Sin datos disponibles
+                    logger.warning(
+                        f"Panel {panel.id} ({panel.name}), ventana {window_id}: "
+                        f"No se encontraron datos de sensores para tipo '{assignment.sensor_type}' "
+                        f"en parking {assignment.parking_id}"
+                    )
             else:
-                logger.warning(f"Panel {panel.id}, ventana {window_id}: Tipo de asignación no reconocido")
+                logger.warning(
+                    f"Panel {panel.id} ({panel.name}), ventana {window_id}: "
+                    f"Tipo de asignación no reconocido - display_type: '{assignment.display_type}', "
+                    f"sensor_type: '{assignment.sensor_type}'"
+                )
                 return {'success': False, 'skipped': True}
             
             if not message:
+                logger.warning(f"Panel {panel.id} ({panel.name}), ventana {window_id}: Mensaje vacío, omitiendo")
                 return {'success': False, 'skipped': True}
+            
+            logger.info(
+                f"Panel {panel.id} ({panel.name}), ventana {window_id}: "
+                f"Preparado para enviar - Mensaje: '{message}', Color: {color}"
+            )
             
             # Enviar mensaje al panel usando protocolo v4 (asíncrono)
             try:
@@ -351,19 +390,39 @@ class PanelType3And4UpdateService:
             windows_updated = 0
             errors = []
             
+            logger.info(f"Panel {panel_id} ({panel.name}): Procesando resultados de {len(window_results)} ventanas")
             for i, result in enumerate(window_results):
                 if isinstance(result, Exception):
+                    error_msg = str(result)
+                    logger.error(f"Panel {panel_id} ({panel.name}), ventana {i}: Excepción - {error_msg}")
                     errors.append({
                         'window_id': i,
-                        'error': str(result)
+                        'error': error_msg
                     })
                 elif result.get('success'):
                     windows_updated += 1
-                elif not result.get('skipped'):
+                    logger.info(
+                        f"Panel {panel_id} ({panel.name}), ventana {result.get('window_id', i)}: "
+                        f"Actualizada exitosamente - Mensaje: '{result.get('message', 'N/A')}'"
+                    )
+                elif result.get('skipped'):
+                    logger.debug(f"Panel {panel_id} ({panel.name}), ventana {i}: Omitida (sin asignación)")
+                else:
+                    error_msg = result.get('error', 'Unknown error')
+                    logger.warning(
+                        f"Panel {panel_id} ({panel.name}), ventana {result.get('window_id', i)}: "
+                        f"Error - {error_msg}"
+                    )
                     errors.append({
                         'window_id': result.get('window_id', i),
-                        'error': result.get('error', 'Unknown error')
+                        'error': error_msg
                     })
+            
+            logger.info(
+                f"Panel {panel_id} ({panel.name}): "
+                f"Actualización completada - {windows_updated}/2 ventanas actualizadas, "
+                f"{len(errors)} errores"
+            )
             
             return {
                 'success': windows_updated > 0,

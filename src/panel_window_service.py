@@ -335,6 +335,8 @@ class PanelWindowService:
             Dict con datos de sensores o None si no hay asignación
         """
         try:
+            logger.debug(f"get_sensor_data_for_window: panel_id={panel_id}, window_id={window_id}")
+            
             # Obtener asignación
             assignment = self.db_session.query(ParkingPanelWindow).filter(
                 and_(
@@ -345,8 +347,18 @@ class PanelWindowService:
                 )
             ).first()
             
-            if not assignment or not assignment.sensor_type:
+            if not assignment:
+                logger.debug(f"get_sensor_data_for_window: No se encontró asignación para panel {panel_id}, ventana {window_id}")
                 return None
+            
+            if not assignment.sensor_type:
+                logger.debug(f"get_sensor_data_for_window: Asignación sin sensor_type para panel {panel_id}, ventana {window_id}")
+                return None
+            
+            logger.debug(
+                f"get_sensor_data_for_window: Asignación encontrada - "
+                f"parking_id={assignment.parking_id}, sensor_type={assignment.sensor_type}"
+            )
             
             # Obtener datos de sensores desde parking_sensor_summary
             sensor_summary = self.db_session.query(ParkingSensorSummary).filter(
@@ -357,9 +369,13 @@ class PanelWindowService:
             ).first()
             
             if not sensor_summary:
+                logger.warning(
+                    f"get_sensor_data_for_window: No se encontró ParkingSensorSummary para "
+                    f"parking_id={assignment.parking_id}, sensor_type={assignment.sensor_type}"
+                )
                 return None
             
-            return {
+            result = {
                 'parking_id': assignment.parking_id,
                 'parking_name': assignment.parking.name if assignment.parking else None,
                 'sensor_type': assignment.sensor_type,
@@ -370,8 +386,19 @@ class PanelWindowService:
                 'last_update': sensor_summary.last_update.isoformat() if sensor_summary.last_update else None
             }
             
+            logger.info(
+                f"get_sensor_data_for_window: Datos obtenidos - "
+                f"Parking {assignment.parking_id}, {assignment.sensor_type}: "
+                f"Total={sensor_summary.total_sensors}, Libres={sensor_summary.free_sensors}, "
+                f"Ocupados={sensor_summary.busy_sensors}, Error={sensor_summary.error_sensors}"
+            )
+            
+            return result
+            
         except Exception as e:
-            logger.error(f"Error obteniendo datos de sensores para ventana: {e}")
+            import traceback
+            logger.error(f"Error obteniendo datos de sensores para ventana (panel {panel_id}, window {window_id}): {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return None
     
     def update_window_configuration(
