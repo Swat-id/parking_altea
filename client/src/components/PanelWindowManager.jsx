@@ -15,7 +15,9 @@ const PanelWindowManager = ({
   onPendingAssignmentsChange = null // Callback para actualizar asignaciones pendientes
 }) => {
   const [windows, setWindows] = useState([]) // Array de asignaciones por ventana
+  const [windowConfigs, setWindowConfigs] = useState({}) // Configuraciones por ventana {windowId: config}
   const [loading, setLoading] = useState(false)
+  const [loadingConfigs, setLoadingConfigs] = useState(false)
   const [showAssignmentModal, setShowAssignmentModal] = useState(false)
   const [selectedWindowId, setSelectedWindowId] = useState(null)
   const [isType3Or4, setIsType3Or4] = useState(false)
@@ -40,12 +42,24 @@ const PanelWindowManager = ({
 
   useEffect(() => {
     if (panelId && isEditing) {
+      console.log(`[PanelWindowManager] useEffect: panelId=${panelId}, isEditing=${isEditing}, windowsCount=${windowsCount}`)
+      // Cargar asignaciones y configuraciones
       loadWindowAssignments()
+      loadWindowConfigurations()
     } else {
       // Inicializar ventanas vacías para nuevo panel
       initializeWindows()
     }
   }, [panelId, isEditing, windowsCount, panelTypeId, parkingId]) // Añadir parkingId para recargar cuando cambia el parking
+  
+  // Recargar asignaciones y configuraciones cuando el componente se monta o cuando cambia el panelId
+  useEffect(() => {
+    if (panelId && isEditing) {
+      console.log(`[PanelWindowManager] Recargando asignaciones y configuraciones: panelId=${panelId}`)
+      loadWindowAssignments()
+      loadWindowConfigurations()
+    }
+  }, [panelId]) // Solo cuando cambia panelId
 
   // Efecto separado para actualizar asignaciones pendientes
   useEffect(() => {
@@ -130,6 +144,40 @@ const PanelWindowManager = ({
     }
   }
 
+  const loadWindowConfigurations = async () => {
+    if (!panelId || !parkingId) return
+    
+    try {
+      setLoadingConfigs(true)
+      console.log(`[PanelWindowManager] Cargando configuraciones para panel ${panelId}, parking ${parkingId}`)
+      
+      const configs = {}
+      // Cargar configuraciones para cada ventana
+      for (let windowId = 0; windowId < windowsCount; windowId++) {
+        try {
+          const config = await windowService.getWindowConfig(parkingId, panelId, windowId)
+          if (config) {
+            configs[windowId] = config
+            console.log(`[PanelWindowManager] Configuración cargada para ventana ${windowId}:`, config)
+          }
+        } catch (error) {
+          // Si no existe configuración, no es error (puede no estar configurada)
+          if (error.response?.status !== 404) {
+            console.warn(`[PanelWindowManager] Error cargando configuración para ventana ${windowId}:`, error)
+          }
+        }
+      }
+      
+      setWindowConfigs(configs)
+      console.log(`[PanelWindowManager] Configuraciones cargadas:`, configs)
+    } catch (error) {
+      console.error('Error cargando configuraciones de ventanas:', error)
+      // No mostrar error al usuario, las configuraciones son opcionales
+    } finally {
+      setLoadingConfigs(false)
+    }
+  }
+
   const handleAddAssignment = (windowId) => {
     setSelectedWindowId(windowId)
     setShowAssignmentModal(true)
@@ -172,6 +220,7 @@ const PanelWindowManager = ({
   const handleAssignmentSuccess = (newAssignment) => {
     if (panelId && isEditing) {
       loadWindowAssignments()
+      loadWindowConfigurations() // Recargar también configuraciones
       setShowAssignmentModal(false)
       setSelectedWindowId(null)
     } else if (onPendingAssignmentsChange && newAssignment) {
@@ -225,53 +274,74 @@ const PanelWindowManager = ({
         )}
       </div>
 
-      {loading ? (
-        <div className="text-center py-4 text-gray-500">Cargando asignaciones...</div>
+      {(loading || loadingConfigs) ? (
+        <div className="text-center py-4 text-gray-500">
+          Cargando {loading ? 'asignaciones' : ''} {loading && loadingConfigs ? 'y ' : ''} {loadingConfigs ? 'configuraciones' : ''}...
+        </div>
       ) : (
         <div className="space-y-4">
-          {windows.map((window) => (
-            <div key={window.window_id} className="border rounded-lg p-4 bg-gray-50">
-              <div className="flex items-center justify-between mb-3">
-                <h5 className="font-medium text-gray-900">
-                  Ventana {window.window_id}
-                </h5>
-                <button
-                  type="button"
-                  onClick={() => handleAddAssignment(window.window_id)}
-                  className="flex items-center px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Agregar
-                </button>
-              </div>
-
-              {window.assignments.length === 0 ? (
-                <p className="text-sm text-gray-500 italic">
-                  No hay asignaciones para esta ventana
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {window.assignments.map((assignment, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between bg-white p-2 rounded border"
-                    >
-                      <span className="text-sm text-gray-700">
-                        {getAssignmentLabel(assignment)}
+          {windows.map((window) => {
+            const windowConfig = windowConfigs[window.window_id]
+            return (
+              <div key={window.window_id} className="border rounded-lg p-4 bg-gray-50">
+                <div className="flex items-center justify-between mb-3">
+                  <h5 className="font-medium text-gray-900">
+                    Ventana {window.window_id}
+                    {windowConfig && (
+                      <span className="ml-2 text-xs text-gray-500">
+                        (Configurada: {windowConfig.rotation_enabled ? 'Rotación activa' : 'Sin rotación'})
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveAssignment(window.window_id, assignment)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
+                    )}
+                  </h5>
+                  <button
+                    type="button"
+                    onClick={() => handleAddAssignment(window.window_id)}
+                    className="flex items-center px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Agregar
+                  </button>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {window.assignments.length === 0 ? (
+                  <p className="text-sm text-gray-500 italic">
+                    No hay asignaciones para esta ventana
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {window.assignments.map((assignment, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between bg-white p-2 rounded border"
+                      >
+                        <span className="text-sm text-gray-700">
+                          {getAssignmentLabel(assignment)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAssignment(window.window_id, assignment)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Mostrar información de configuración si existe (solo para Tipo 4) */}
+                {windowConfig && panelTypeId === 4 && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <p className="text-xs text-gray-600">
+                      <strong>Configuración:</strong> {windowConfig.rotation_enabled ? 'Rotación activa' : 'Sin rotación'} | 
+                      Refresco: {windowConfig.refresh_time_seconds}s | 
+                      Elementos: {windowConfig.rotation_order?.length || 0}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 

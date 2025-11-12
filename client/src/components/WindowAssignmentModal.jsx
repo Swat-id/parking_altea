@@ -37,16 +37,9 @@ const WindowAssignmentModal = ({
       // Si es Tipo 3 y tiene parkingId, usar ese parking directamente
       if (isType3 && parkingId) {
         setSelectedParkingId(parkingId)
-        // Para Tipo 3: ventana 0 = parking general, ventana 1 = PMR
-        if (windowId === 0) {
-          setDisplayType('parking')
-        } else if (windowId === 1) {
-          setDisplayType('sensor_group')
-          // Cargar tipos de sensores automáticamente después de un pequeño delay
-          setTimeout(() => {
-            loadSensorTypes(parkingId)
-          }, 100)
-        }
+        // Para Tipo 3, permitir seleccionar cualquier tipo de asignación
+        // No pre-configurar displayType, dejar que el usuario elija
+        // Solo cargar tipos de sensores si el usuario selecciona sensor_group
       }
     } else {
       // Reset al cerrar
@@ -66,17 +59,6 @@ const WindowAssignmentModal = ({
       setSelectedSensorType(null)
     }
   }, [selectedParkingId, displayType])
-  
-  // Para Tipo 3, pre-seleccionar PMR en ventana 1
-  useEffect(() => {
-    if (isType3 && windowId === 1 && displayType === 'sensor_group' && sensorTypes.length > 0) {
-      const pmrType = sensorTypes.find(t => t === 'PMR')
-      if (pmrType && !selectedSensorType) {
-        setSelectedSensorType('PMR')
-        setTextoFijoPrevio('PMR')
-      }
-    }
-  }, [isType3, windowId, displayType, sensorTypes, selectedSensorType])
 
   const loadParkings = async () => {
     try {
@@ -120,12 +102,14 @@ const WindowAssignmentModal = ({
     // Si se está creando el panel (sin panelId), devolver la asignación al callback
     if (isCreating || !panelId) {
       const parking = parkings.find(p => p.id === selectedParkingId)
+      // Para Tipo 3, NO incluir texto_fijo_previo (solo valores numéricos)
+      const textoFijo = isType3 ? null : (displayType === 'sensor_group' && textoFijoPrevio ? textoFijoPrevio : null)
       const newAssignment = {
         window_id: windowId,
         parking_id: selectedParkingId,
         parking_name: parking?.name || `Parking ${selectedParkingId}`,
         sensor_type: displayType === 'sensor_group' ? selectedSensorType : null,
-        texto_fijo_previo: displayType === 'sensor_group' && textoFijoPrevio ? textoFijoPrevio : null,
+        texto_fijo_previo: textoFijo,
         color: displayType === 'sensor_group' ? color : null
       }
       
@@ -141,15 +125,17 @@ const WindowAssignmentModal = ({
       return
     }
 
-    // Si el panel ya existe, guardar en la base de datos
+        // Si el panel ya existe, guardar en la base de datos
     try {
       setLoading(true)
+      // Para Tipo 3, NO enviar texto_fijo_previo (solo valores numéricos)
+      const textoFijo = isType3 ? null : (displayType === 'sensor_group' && textoFijoPrevio ? textoFijoPrevio : null)
       const result = await windowService.assignParkingToWindow(
         panelId,
         windowId,
         selectedParkingId,
         displayType === 'sensor_group' ? selectedSensorType : null,
-        displayType === 'sensor_group' && textoFijoPrevio ? textoFijoPrevio : null,
+        textoFijo,
         displayType === 'sensor_group' ? color : null
       )
 
@@ -214,50 +200,39 @@ const WindowAssignmentModal = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Tipo de asignación - Para Tipo 3, mostrar según la ventana */}
-          {isType3 ? (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tipo de asignación
+          {/* Tipo de asignación - Permitir seleccionar cualquier tipo para Tipo 3 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tipo de asignación
+            </label>
+            <div className="space-y-2">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  value="parking"
+                  checked={displayType === 'parking'}
+                  onChange={(e) => setDisplayType(e.target.value)}
+                  className="mr-2"
+                />
+                <span>Ocupación general del parking (Plazas libres totales)</span>
               </label>
-              <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-                {windowId === 0 
-                  ? 'Ocupación general del parking (Plazas libres totales)'
-                  : 'Grupo de sensores PMR (Plazas PMR libres)'}
-              </div>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  value="sensor_group"
+                  checked={displayType === 'sensor_group'}
+                  onChange={(e) => setDisplayType(e.target.value)}
+                  className="mr-2"
+                />
+                <span>Grupo de sensores (PMR, Eléctrico, Caravanas, etc.)</span>
+              </label>
+            </div>
+            {isType3 && (
               <p className="mt-1 text-xs text-gray-500">
-                Para paneles Tipo 3: Ventana 0 = Plazas totales, Ventana 1 = Plazas PMR
+                Para paneles Tipo 3, solo se mostrarán valores numéricos (sin texto previo)
               </p>
-            </div>
-          ) : (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tipo de asignación
-              </label>
-              <div className="space-y-2">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="parking"
-                    checked={displayType === 'parking'}
-                    onChange={(e) => setDisplayType(e.target.value)}
-                    className="mr-2"
-                  />
-                  <span>Ocupación general del parking</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="sensor_group"
-                    checked={displayType === 'sensor_group'}
-                    onChange={(e) => setDisplayType(e.target.value)}
-                    className="mr-2"
-                  />
-                  <span>Grupo de sensores (PMR, Eléctrico, Caravanas, etc.)</span>
-                </label>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Selección de parking - Para Tipo 3, mostrar solo el parking del panel */}
           {isType3 && parkingId ? (
@@ -331,25 +306,28 @@ const WindowAssignmentModal = ({
                 )}
               </div>
 
-              {/* Texto fijo previo y color (solo si displayType === 'sensor_group') */}
+              {/* Color (solo si displayType === 'sensor_group') - Para Tipo 3, NO mostrar texto previo */}
               {selectedSensorType && (
                 <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Texto fijo previo (opcional)
-                    </label>
-                    <input
-                      type="text"
-                      value={textoFijoPrevio}
-                      onChange={(e) => setTextoFijoPrevio(e.target.value)}
-                      placeholder="Ej: PMR, ELÉCTRICO, CARAVANAS..."
-                      maxLength={50}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <p className="mt-1 text-xs text-gray-500">
-                      Texto que aparecerá antes del número de plazas libres (ej: "PMR: 5/10 libres")
-                    </p>
-                  </div>
+                  {/* Texto fijo previo - SOLO para Tipo 4, NO para Tipo 3 */}
+                  {!isType3 && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Texto fijo previo (opcional)
+                      </label>
+                      <input
+                        type="text"
+                        value={textoFijoPrevio}
+                        onChange={(e) => setTextoFijoPrevio(e.target.value)}
+                        placeholder="Ej: PMR, ELÉCTRICO, CARAVANAS..."
+                        maxLength={50}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Texto que aparecerá antes del número de plazas libres (ej: "PMR: 5/10 libres")
+                      </p>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Color

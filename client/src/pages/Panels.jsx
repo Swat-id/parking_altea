@@ -1738,6 +1738,7 @@ const Panels = () => {
                 {isPanelType3Or4(editForm.panel_type_id) && editForm.parking_id && editingPanel && (
                   <div className="mb-4">
                     <PanelWindowManager
+                      key={`panel-${editingPanel.id}-${editForm.panel_type_id}-${editForm.windows_count}`} // Key para forzar recarga cuando cambia el panel o tipo
                       panelId={editingPanel.id}
                       parkingId={parseInt(editForm.parking_id)}
                       panelTypeId={parseInt(editForm.panel_type_id)}

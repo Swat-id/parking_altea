@@ -1757,6 +1757,7 @@ def update_panel(panel_id):
         old_name = panel.name
         old_ip = panel.ip
         old_panel_type_id = panel.panel_type_id  # Guardar tipo anterior
+        old_parking_id = panel.parking_id  # Guardar parking_id anterior para actualizar configuraciones
         
         panel.name = name
         panel.ip = ip
@@ -1784,13 +1785,13 @@ def update_panel(panel_id):
         
         session.commit()
         
-        # Si cambió a Tipo 3 o Tipo 4, buscar y asociar configuraciones preparatorias de la empresa
-        if panel_type.windows_count in [2, 16] and old_panel_type_id != panel_type_id:
+        # Si es Tipo 3 o Tipo 4, actualizar configuraciones de ventanas
+        if panel_type.windows_count in [2, 16]:
             try:
                 from panel_window_service import PanelWindowService
                 window_service = PanelWindowService(session)
                 
-                # Obtener company_id del parking (a través de UserParking)
+                # Obtener company_id del nuevo parking (a través de UserParking)
                 user_parking = session.query(UserParking).filter(
                     UserParking.parking_id == parking_id
                 ).first()
@@ -1798,30 +1799,63 @@ def update_panel(panel_id):
                 if user_parking:
                     company_id = user_parking.user_id
                     
-                    # Buscar configuraciones preparatorias (panel_id = NULL o 0) para esta empresa
-                    prep_configs = session.query(PanelWindowConfiguration).filter(
-                        and_(
-                            PanelWindowConfiguration.parking_id == parking_id,
-                            PanelWindowConfiguration.company_id == company_id,
-                            or_(
-                                PanelWindowConfiguration.panel_id.is_(None),
-                                PanelWindowConfiguration.panel_id == 0
-                            ),
-                            PanelWindowConfiguration.is_active == True
-                        )
-                    ).all()
+                    # Si cambió el parking_id, actualizar las configuraciones existentes
+                    if old_parking_id != parking_id:
+                        # Actualizar parking_id en configuraciones existentes del panel
+                        existing_configs = session.query(PanelWindowConfiguration).filter(
+                            and_(
+                                PanelWindowConfiguration.panel_id == panel_id,
+                                PanelWindowConfiguration.is_active == True
+                            )
+                        ).all()
+                        
+                        for config in existing_configs:
+                            config.parking_id = parking_id
+                            config.company_id = company_id
+                            logger.info(f"Configuración {config.id} actualizada: parking_id {old_parking_id} -> {parking_id}")
+                        
+                        # Actualizar parking_id en asignaciones existentes del panel
+                        existing_assignments = session.query(ParkingPanelWindow).filter(
+                            and_(
+                                ParkingPanelWindow.panel_id == panel_id,
+                                ParkingPanelWindow.is_active == True
+                            )
+                        ).all()
+                        
+                        for assignment in existing_assignments:
+                            assignment.parking_id = parking_id
+                            logger.info(f"Asignación {assignment.id} actualizada: parking_id {old_parking_id} -> {parking_id}")
+                        
+                        if existing_configs or existing_assignments:
+                            session.commit()
+                            logger.info(f"✅ {len(existing_configs)} configuración(es) y {len(existing_assignments)} asignación(es) actualizada(s) al cambiar parking_id")
                     
-                    # Asociar cada configuración preparatoria al panel
-                    for prep_config in prep_configs:
-                        prep_config.panel_id = panel_id
-                        logger.info(f"Configuración preparatoria {prep_config.id} asociada al panel {panel_id}")
-                    
-                    if prep_configs:
-                        session.commit()
-                        logger.info(f"✅ {len(prep_configs)} configuración(es) preparatoria(s) asociada(s) automáticamente al panel {panel_id}")
+                    # Si cambió a Tipo 3 o Tipo 4 (o ya lo era), buscar y asociar configuraciones preparatorias
+                    if old_panel_type_id != panel_type_id:
+                        # Buscar configuraciones preparatorias (panel_id = NULL o 0) para esta empresa
+                        prep_configs = session.query(PanelWindowConfiguration).filter(
+                            and_(
+                                PanelWindowConfiguration.parking_id == parking_id,
+                                PanelWindowConfiguration.company_id == company_id,
+                                or_(
+                                    PanelWindowConfiguration.panel_id.is_(None),
+                                    PanelWindowConfiguration.panel_id == 0
+                                ),
+                                PanelWindowConfiguration.is_active == True
+                            )
+                        ).all()
+                        
+                        # Asociar cada configuración preparatoria al panel
+                        for prep_config in prep_configs:
+                            prep_config.panel_id = panel_id
+                            logger.info(f"Configuración preparatoria {prep_config.id} asociada al panel {panel_id}")
+                        
+                        if prep_configs:
+                            session.commit()
+                            logger.info(f"✅ {len(prep_configs)} configuración(es) preparatoria(s) asociada(s) automáticamente al panel {panel_id}")
             except Exception as e:
-                logger.warning(f"No se pudieron asociar configuraciones preparatorias: {e}")
-                # No fallar la actualización del panel si hay error al asociar configuraciones
+                logger.warning(f"No se pudieron actualizar configuraciones de ventanas: {e}")
+                # No fallar la actualización del panel si hay error al actualizar configuraciones
         
         # Obtener el panel actualizado con sus relaciones
         updated_panel = session.query(Panel).filter(Panel.id == panel_id).first()
