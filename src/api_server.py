@@ -294,7 +294,12 @@ def get_user_panels():
                 } if p.panel_type else None,
                 'port': p.port,
                 'is_active': p.is_active,
-                'windows_count': p.windows_count
+                'windows_count': p.windows_count,
+                # NUEVO v4.3.0: Mensajes por ventana para Tipo 3 y Tipo 4
+                'last_message_window_0': getattr(p, 'last_message_window_0', None),
+                'last_message_window_1': getattr(p, 'last_message_window_1', None),
+                'last_update_window_0': p.last_update_window_0.isoformat() if hasattr(p, 'last_update_window_0') and p.last_update_window_0 else None,
+                'last_update_window_1': p.last_update_window_1.isoformat() if hasattr(p, 'last_update_window_1') and p.last_update_window_1 else None
             }
             data.append(panel_data)
         session.close()

@@ -999,9 +999,30 @@ const Panels = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div>
-                      <div className="font-medium text-gray-900">
-                        {panel.last_message || 'Sin mensajes'}
-                      </div>
+                      {/* Para Tipo 3 y Tipo 4, mostrar mensajes de todas las ventanas */}
+                      {(panel.panel_type?.windows_count === 2 || panel.panel_type?.windows_count === 16) ? (
+                        <div className="space-y-1">
+                          {panel.last_message_window_0 && (
+                            <div className="font-medium text-gray-900">
+                              V0: {panel.last_message_window_0}
+                            </div>
+                          )}
+                          {panel.last_message_window_1 && (
+                            <div className="font-medium text-gray-900">
+                              V1: {panel.last_message_window_1}
+                            </div>
+                          )}
+                          {!panel.last_message_window_0 && !panel.last_message_window_1 && (
+                            <div className="font-medium text-gray-500">
+                              Sin mensajes
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="font-medium text-gray-900">
+                          {panel.last_message || 'Sin mensajes'}
+                        </div>
+                      )}
                       {panel.last_update && (
                         <div className="text-xs text-gray-400">
                           {new Date(panel.last_update).toLocaleString('es-ES', {
