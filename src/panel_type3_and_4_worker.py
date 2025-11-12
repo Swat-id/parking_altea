@@ -341,8 +341,17 @@ class PanelType3And4Worker:
                             }
                     
                     # Ejecutar todas las actualizaciones en paralelo
+                    # Crear un nuevo event loop para este thread (el worker se ejecuta en un thread separado)
+                    try:
+                        # Intentar obtener el event loop actual
+                        loop = asyncio.get_event_loop()
+                    except RuntimeError:
+                        # Si no hay event loop, crear uno nuevo
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                    
                     panel_tasks = [update_panel_async(panel) for panel in panels]
-                    panel_results = asyncio.run(asyncio.gather(*panel_tasks, return_exceptions=True))
+                    panel_results = loop.run_until_complete(asyncio.gather(*panel_tasks, return_exceptions=True))
                     
                     # Procesar resultados
                     for panel_result in panel_results:
