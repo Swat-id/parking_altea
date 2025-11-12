@@ -213,7 +213,8 @@ class PanelType3And4UpdateService:
                         sensor_data = window_service.get_sensor_data_for_window(panel_id, window_id)
                         
                         if sensor_data:
-                            free_count = sensor_data.get('free', 0)
+                            # CORRECCIÓN: La clave es 'free_sensors', no 'free'
+                            free_count = sensor_data.get('free_sensors', 0)
                             # Para Tipo 3, NO usar texto_fijo_previo (solo valores numéricos)
                             message = str(free_count)
                             
