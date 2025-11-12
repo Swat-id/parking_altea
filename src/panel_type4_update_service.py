@@ -526,7 +526,12 @@ class PanelType3And4UpdateService:
             
             # Inicializar servicios
             rotation_service = PanelContentRotationService(self.db_session)
-            protocol_service = PanelProtocolService()
+            protocol_service = PanelProtocolService(
+                max_concurrent_tasks=20,  # Aumentar para procesar más paneles en paralelo
+                max_connections_per_panel=5,
+                connection_timeout=5.0,
+                read_timeout=15.0  # Aumentar timeout de lectura para procesamiento paralelo
+            )
             
             windows_updated = 0
             errors = []
