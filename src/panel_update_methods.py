@@ -76,9 +76,19 @@ class PanelUpdateMethods:
                 logger.debug(f"Enviando estado de ocupación a {parking_name}: '{message}' ({parking_data['status']})")
             
             # 2. Obtener paneles del parking (todos los activos, independientemente del estado)
-            panels = session.query(Panel).filter(
+            # EXCLUIR Tipo 3 (2 ventanas) y Tipo 4 (16 ventanas) - tienen worker separado
+            from models import PanelType
+            from sqlalchemy import or_
+            
+            # Obtener paneles que NO son Tipo 3 ni Tipo 4
+            # Incluir: Tipo 1, Tipo 2, y paneles sin tipo asignado (compatibilidad)
+            panels = session.query(Panel).outerjoin(PanelType, Panel.panel_type_id == PanelType.id).filter(
                 Panel.parking_id == parking_id,
-                Panel.is_active == True  # Solo paneles activos en configuración
+                Panel.is_active == True,  # Solo paneles activos en configuración
+                or_(
+                    Panel.panel_type_id.is_(None),  # Paneles sin tipo (compatibilidad)
+                    ~PanelType.windows_count.in_([2, 16])  # Excluir Tipo 3 (2 ventanas) y Tipo 4 (16 ventanas)
+                )
             ).all()
             
             if not panels:
