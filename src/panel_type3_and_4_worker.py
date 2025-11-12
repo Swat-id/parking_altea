@@ -266,18 +266,29 @@ class PanelType3And4Worker:
             panels_by_user = self._get_type3_and_type4_panels_by_user(session)
             
             if not panels_by_user:
-                logger.debug("No hay paneles Tipo 3 o Tipo 4 para actualizar")
+                logger.info("No hay paneles Tipo 3 o Tipo 4 para actualizar")
                 return
             
-            logger.info(f"Procesando paneles Tipo 3/4 para {len(panels_by_user)} usuarios")
+            total_panels = sum(len(panels) for panels in panels_by_user.values())
+            logger.info(f"Procesando {total_panels} paneles Tipo 3/4 para {len(panels_by_user)} usuarios")
             
             # Procesar paneles por usuario
             updated_users = set()
+            skipped_users = 0
             for user_id, panels in panels_by_user.items():
                 # Verificar si debe actualizarse según el intervalo del usuario
                 if not self._should_update_user_panels(user_id):
-                    logger.debug(f"Usuario {user_id}: omitiendo actualización (intervalo no cumplido)")
+                    skipped_users += 1
+                    interval = self._get_user_update_interval(user_id)
+                    last_update = self._last_update_by_user.get(user_id)
+                    if last_update:
+                        time_since = (datetime.now() - last_update).total_seconds()
+                        logger.debug(f"Usuario {user_id}: omitiendo actualización (intervalo: {interval}s, último update: {time_since:.1f}s atrás)")
+                    else:
+                        logger.debug(f"Usuario {user_id}: omitiendo actualización (intervalo: {interval}s)")
                     continue
+                
+                logger.info(f"Usuario {user_id}: procesando {len(panels)} paneles (intervalo: {self._get_user_update_interval(user_id)}s)")
                 
                 try:
                     # Actualizar paneles del usuario usando el servicio especializado
@@ -400,9 +411,12 @@ class PanelType3And4Worker:
             for user_id in updated_users:
                 self._mark_user_updated(user_id)
                 logger.debug(f"Usuario {user_id} marcado como actualizado (Tipo 3/4)")
+            
+            if skipped_users > 0:
+                logger.info(f"Se omitieron {skipped_users} usuarios (intervalo no cumplido)")
         
         except Exception as e:
-            logger.error(f"Error en actualización masiva de paneles Tipo 3/4: {e}")
+            logger.error(f"Error en actualización masiva de paneles Tipo 3/4: {e}", exc_info=True)
             with self._stats_lock:
                 self._stats['errors'] += 1
         
