@@ -255,6 +255,10 @@ class PanelType3And4UpdateService:
             # Enviar mensaje al panel usando protocolo v4 (asíncrono)
             try:
                 # Lanzar tarea asíncrona (no esperar respuesta inmediatamente)
+                logger.debug(
+                    f"Panel {panel.id} ({panel.name}), ventana {window_id}: "
+                    f"Enviando mensaje '{message}' a {panel.ip}:{panel.port or 5200}"
+                )
                 task_id = await protocol_service.send_text_v4(
                     panel_ip=panel.ip,
                     panel_port=panel.port or 5200,
@@ -267,8 +271,13 @@ class PanelType3And4UpdateService:
                     wait_for_response=False  # NO esperar respuesta inmediatamente
                 )
                 
-                # Obtener el resultado de la tarea (con timeout)
-                result = await protocol_service.get_task_result(task_id, timeout=10.0)
+                logger.debug(
+                    f"Panel {panel.id} ({panel.name}), ventana {window_id}: "
+                    f"Tarea {task_id} creada, esperando resultado (timeout: 15.0s)"
+                )
+                
+                # Obtener el resultado de la tarea (con timeout aumentado para procesamiento paralelo)
+                result = await protocol_service.get_task_result(task_id, timeout=15.0)
                 
                 if result and result.get('success'):
                     # Actualizar último mensaje en la tabla Panel
@@ -297,28 +306,47 @@ class PanelType3And4UpdateService:
                     }
                 else:
                     if result is None:
-                        error_msg = 'No result received from protocol service'
+                        error_msg = 'No result received from protocol service (timeout o tarea cancelada)'
                     elif isinstance(result, dict):
                         error_msg = result.get('error', result.get('error_message', 'Unknown error'))
                         if not error_msg or error_msg == 'Unknown error':
                             # Intentar obtener más información del resultado
-                            error_msg = f"Task failed: {result}"
+                            if 'success' in result and not result['success']:
+                                error_msg = f"Panel returned error: {result.get('return_value', 'unknown')}"
+                            else:
+                                error_msg = f"Task failed: {result}"
                     else:
                         error_msg = f"Unexpected result type: {type(result).__name__}"
                     
-                    logger.warning(f"Panel {panel.id} ({panel.name}), ventana {window_id}: {error_msg}")
+                    logger.warning(
+                        f"Panel {panel.id} ({panel.name}), ventana {window_id}: "
+                        f"Error en resultado - {error_msg}"
+                    )
                     logger.debug(f"Resultado completo: {result}")
                     return {
                         'success': False,
                         'window_id': window_id,
                         'error': error_msg
                     }
+            except asyncio.TimeoutError as e:
+                error_msg = f"Timeout esperando respuesta del panel (15s) - El panel puede no estar respondiendo o estar sobrecargado"
+                logger.error(
+                    f"Panel {panel.id} ({panel.name}), ventana {window_id}: {error_msg}"
+                )
+                return {
+                    'success': False,
+                    'window_id': window_id,
+                    'error': error_msg
+                }
             except Exception as e:
                 import traceback
                 error_type = type(e).__name__
                 error_msg = str(e) if str(e) else f"{error_type} (sin mensaje)"
                 full_error = f"{error_type}: {error_msg}"
-                logger.error(f"Error enviando mensaje a ventana {window_id} del panel {panel.id} ({panel.name}): {full_error}")
+                logger.error(
+                    f"Panel {panel.id} ({panel.name}), ventana {window_id}: "
+                    f"Error enviando mensaje - {full_error}"
+                )
                 logger.error(f"Traceback completo:\n{traceback.format_exc()}")
                 return {
                     'success': False,
