@@ -6,6 +6,7 @@ Servicio de actualización de paneles Tipo 3 y Tipo 4
 """
 
 import logging
+import asyncio
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
@@ -225,46 +226,61 @@ class PanelType3And4UpdateService:
                     if not message:
                         continue
                     
-                    # Enviar mensaje al panel usando protocolo v4
-                    result = protocol_service.send_text_v4(
-                        panel_ip=panel.ip,
-                        panel_port=panel.port or 5200,
-                        window_id=window_id,
-                        text=message,
-                        color=color,
-                        font_size=2,  # Tamaño medio
-                        effect=0,  # Sin efecto
-                        alignment=0  # Izquierda arriba
-                    )
-                    
-                    if result.get('success'):
-                        windows_updated += 1
-                        # Actualizar último mensaje en la tabla Panel
-                        if window_id == 0:
-                            panel.last_message = message
-                            panel.last_message_window_0 = message
-                            panel.last_update_window_0 = datetime.utcnow()
-                        elif window_id == 1:
-                            panel.last_message_window_1 = message
-                            panel.last_update_window_1 = datetime.utcnow()
-                            if not panel.last_message:
-                                panel.last_message = message
-                        
-                        panel.last_update = datetime.utcnow()
-                        self.db_session.commit()
-                        
-                        logger.info(
-                            f"Ventana {window_id} del panel {panel.id} ({panel.name}) "
-                            f"actualizada: {message}"
+                    # Enviar mensaje al panel usando protocolo v4 (síncrono)
+                    try:
+                        # Ejecutar la corrutina de forma síncrona
+                        task_id = asyncio.run(
+                            protocol_service.send_text_v4(
+                                panel_ip=panel.ip,
+                                panel_port=panel.port or 5200,
+                                window_id=window_id,
+                                text=message,
+                                color=color,
+                                font_size=2,  # Tamaño medio
+                                effect=0,  # Sin efecto
+                                alignment=0,  # Izquierda arriba
+                                wait_for_response=True  # Esperar respuesta
+                            )
                         )
-                    else:
+                        
+                        # Obtener el resultado de la tarea
+                        result = asyncio.run(
+                            protocol_service.get_task_result(task_id, timeout=10.0)
+                        )
+                        
+                        if result and result.get('success'):
+                            windows_updated += 1
+                            # Actualizar último mensaje en la tabla Panel
+                            if window_id == 0:
+                                panel.last_message = message
+                                panel.last_message_window_0 = message
+                                panel.last_update_window_0 = datetime.utcnow()
+                            elif window_id == 1:
+                                panel.last_message_window_1 = message
+                                panel.last_update_window_1 = datetime.utcnow()
+                                if not panel.last_message:
+                                    panel.last_message = message
+                            
+                            panel.last_update = datetime.utcnow()
+                            self.db_session.commit()
+                            
+                            logger.info(
+                                f"Ventana {window_id} del panel {panel.id} ({panel.name}) "
+                                f"actualizada: {message}"
+                            )
+                        else:
+                            errors.append({
+                                'window_id': window_id,
+                                'error': result.get('error', 'Unknown error') if result else 'No result received'
+                            })
+                    except Exception as e:
+                        logger.error(f"Error enviando mensaje a ventana {window_id} del panel {panel_id}: {e}")
                         errors.append({
                             'window_id': window_id,
-                            'error': result.get('error', 'Unknown error')
+                            'error': str(e)
                         })
-                        
                 except Exception as e:
-                    logger.error(f"Error actualizando ventana {window_id} del panel {panel.id}: {e}")
+                    logger.error(f"Error actualizando ventana {window_id} del panel {panel_id}: {e}")
                     errors.append({
                         'window_id': window_id,
                         'error': str(e)
@@ -346,52 +362,67 @@ class PanelType3And4UpdateService:
                     if not message:
                         continue
                     
-                    # Enviar mensaje al panel usando protocolo v4
-                    result = protocol_service.send_text_v4(
-                        panel_ip=panel.ip,
-                        panel_port=panel.port or 5200,
-                        window_id=window_id,
-                        text=message,
-                        color=color,  # Color dinámico según configuración
-                        font_size=2,  # Tamaño medio
-                        effect=0,  # Sin efecto
-                        alignment=0  # Izquierda arriba
-                    )
-                    
-                    if result.get('success'):
-                        windows_updated += 1
-                        # Actualizar último mensaje en la tabla Panel
-                        # Para ventana 0, actualizar last_message general
-                        # Para otras ventanas, actualizar last_message general con el mensaje más reciente
-                        if window_id == 0:
-                            panel.last_message = message
-                            panel.last_message_window_0 = message
-                            panel.last_update_window_0 = datetime.utcnow()
-                        elif window_id == 1:
-                            panel.last_message_window_1 = message
-                            panel.last_update_window_1 = datetime.utcnow()
-                            # Si no hay mensaje en ventana 0, usar el de ventana 1
-                            if not panel.last_message:
-                                panel.last_message = message
-                        
-                        # Actualizar last_update general con la fecha actual
-                        panel.last_update = datetime.utcnow()
-                        
-                        # Guardar cambios en la base de datos
-                        self.db_session.commit()
-                        
-                        logger.info(
-                            f"Ventana {window_id} del panel {panel.id} ({panel.name}) "
-                            f"actualizada: {message}"
+                    # Enviar mensaje al panel usando protocolo v4 (síncrono)
+                    try:
+                        # Ejecutar la corrutina de forma síncrona
+                        task_id = asyncio.run(
+                            protocol_service.send_text_v4(
+                                panel_ip=panel.ip,
+                                panel_port=panel.port or 5200,
+                                window_id=window_id,
+                                text=message,
+                                color=color,  # Color dinámico según configuración
+                                font_size=2,  # Tamaño medio
+                                effect=0,  # Sin efecto
+                                alignment=0,  # Izquierda arriba
+                                wait_for_response=True  # Esperar respuesta
+                            )
                         )
-                    else:
+                        
+                        # Obtener el resultado de la tarea
+                        result = asyncio.run(
+                            protocol_service.get_task_result(task_id, timeout=10.0)
+                        )
+                        
+                        if result and result.get('success'):
+                            windows_updated += 1
+                            # Actualizar último mensaje en la tabla Panel
+                            # Para ventana 0, actualizar last_message general
+                            # Para otras ventanas, actualizar last_message general con el mensaje más reciente
+                            if window_id == 0:
+                                panel.last_message = message
+                                panel.last_message_window_0 = message
+                                panel.last_update_window_0 = datetime.utcnow()
+                            elif window_id == 1:
+                                panel.last_message_window_1 = message
+                                panel.last_update_window_1 = datetime.utcnow()
+                                # Si no hay mensaje en ventana 0, usar el de ventana 1
+                                if not panel.last_message:
+                                    panel.last_message = message
+                            
+                            # Actualizar last_update general con la fecha actual
+                            panel.last_update = datetime.utcnow()
+                            
+                            # Guardar cambios en la base de datos
+                            self.db_session.commit()
+                            
+                            logger.info(
+                                f"Ventana {window_id} del panel {panel.id} ({panel.name}) "
+                                f"actualizada: {message}"
+                            )
+                        else:
+                            errors.append({
+                                'window_id': window_id,
+                                'error': result.get('error', 'Unknown error') if result else 'No result received'
+                            })
+                    except Exception as e:
+                        logger.error(f"Error enviando mensaje a ventana {window_id} del panel {panel_id}: {e}")
                         errors.append({
                             'window_id': window_id,
-                            'error': result.get('error', 'Unknown error')
+                            'error': str(e)
                         })
-                        
                 except Exception as e:
-                    logger.error(f"Error actualizando ventana {window_id} del panel {panel.id}: {e}")
+                    logger.error(f"Error actualizando ventana {window_id} del panel {panel_id}: {e}")
                     errors.append({
                         'window_id': window_id,
                         'error': str(e)
