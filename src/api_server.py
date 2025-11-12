@@ -1603,8 +1603,8 @@ def create_panel():
         session.add(new_panel)
         session.commit()
         
-        # Si es un panel Tipo 4, buscar y asociar configuraciones preparatorias de la empresa
-        if panel_type.windows_count == 16:
+        # Si es un panel Tipo 3 o Tipo 4, buscar y asociar configuraciones preparatorias de la empresa
+        if panel_type.windows_count in [2, 16]:  # Tipo 3 = 2 ventanas, Tipo 4 = 16 ventanas
             try:
                 from panel_window_service import PanelWindowService
                 window_service = PanelWindowService(session)
@@ -1657,12 +1657,14 @@ def create_panel():
                 'id': created_panel.panel_type.id,
                 'name': created_panel.panel_type.name,
                 'manufacturer': created_panel.panel_type.manufacturer.name,
-                'protocol': created_panel.panel_type.protocol_type
+                'protocol': created_panel.panel_type.protocol_type,
+                'windows_count': created_panel.panel_type.windows_count
             },
             'port': created_panel.port,
             'status': created_panel.status,
             'protocol_version': created_panel.protocol_version,
-            'is_active': created_panel.is_active
+            'is_active': created_panel.is_active,
+            'windows_count': created_panel.windows_count
         }
         
         session.close()
@@ -1781,6 +1783,45 @@ def update_panel(panel_id):
                 panel.windows_count = 1  # Por defecto
         
         session.commit()
+        
+        # Si cambió a Tipo 3 o Tipo 4, buscar y asociar configuraciones preparatorias de la empresa
+        if panel_type.windows_count in [2, 16] and old_panel_type_id != panel_type_id:
+            try:
+                from panel_window_service import PanelWindowService
+                window_service = PanelWindowService(session)
+                
+                # Obtener company_id del parking (a través de UserParking)
+                user_parking = session.query(UserParking).filter(
+                    UserParking.parking_id == parking_id
+                ).first()
+                
+                if user_parking:
+                    company_id = user_parking.user_id
+                    
+                    # Buscar configuraciones preparatorias (panel_id = NULL o 0) para esta empresa
+                    prep_configs = session.query(PanelWindowConfiguration).filter(
+                        and_(
+                            PanelWindowConfiguration.parking_id == parking_id,
+                            PanelWindowConfiguration.company_id == company_id,
+                            or_(
+                                PanelWindowConfiguration.panel_id.is_(None),
+                                PanelWindowConfiguration.panel_id == 0
+                            ),
+                            PanelWindowConfiguration.is_active == True
+                        )
+                    ).all()
+                    
+                    # Asociar cada configuración preparatoria al panel
+                    for prep_config in prep_configs:
+                        prep_config.panel_id = panel_id
+                        logger.info(f"Configuración preparatoria {prep_config.id} asociada al panel {panel_id}")
+                    
+                    if prep_configs:
+                        session.commit()
+                        logger.info(f"✅ {len(prep_configs)} configuración(es) preparatoria(s) asociada(s) automáticamente al panel {panel_id}")
+            except Exception as e:
+                logger.warning(f"No se pudieron asociar configuraciones preparatorias: {e}")
+                # No fallar la actualización del panel si hay error al asociar configuraciones
         
         # Obtener el panel actualizado con sus relaciones
         updated_panel = session.query(Panel).filter(Panel.id == panel_id).first()
@@ -5928,7 +5969,7 @@ def get_complete_dashboard():
 @require_auth
 @require_panel_access('panel_id')
 def assign_parking_to_window(panel_id, window_id):
-    """Asignar parking o grupo de sensores a una ventana (solo para paneles Tipo 4)"""
+    """Asignar parking o grupo de sensores a una ventana (solo para paneles Tipo 3 y Tipo 4)"""
     try:
         req = request.get_json(force=True)
         parking_id = req.get('parking_id')
@@ -5939,25 +5980,34 @@ def assign_parking_to_window(panel_id, window_id):
         if not parking_id:
             return jsonify({'error': 'parking_id es requerido'}), 400
         
-        # Validar window_id
-        if window_id < 0 or window_id > 15:
-            return jsonify({'error': 'window_id debe estar entre 0 y 15'}), 400
-        
         session = Session()
         
-        # Verificar que el panel es Tipo 4
+        # Verificar que el panel existe
         panel = session.query(Panel).filter(Panel.id == panel_id).first()
         if not panel:
             session.close()
             return jsonify({'error': 'Panel no encontrado'}), 404
         
+        # Verificar que el panel es Tipo 3 o Tipo 4
         if panel.panel_type_id:
             panel_type = session.query(PanelType).filter(PanelType.id == panel.panel_type_id).first()
-            if not panel_type or panel_type.windows_count != 16:
+            if not panel_type or panel_type.windows_count not in [2, 16]:
                 session.close()
                 return jsonify({
-                    'error': f'Esta operación solo está disponible para paneles Tipo 4. El panel actual es Tipo {panel_type.id if panel_type else "desconocido"} (soporta {panel_type.windows_count if panel_type else 0} ventanas)'
+                    'error': f'Esta operación solo está disponible para paneles Tipo 3 o Tipo 4. El panel actual es Tipo {panel_type.id if panel_type else "desconocido"} (soporta {panel_type.windows_count if panel_type else 0} ventanas)'
                 }), 400
+            
+            # Validar window_id según el tipo de panel
+            if panel_type.windows_count == 2:
+                # Tipo 3: solo ventanas 0 y 1
+                if window_id < 0 or window_id > 1:
+                    session.close()
+                    return jsonify({'error': 'window_id debe ser 0 o 1 para paneles Tipo 3'}), 400
+            elif panel_type.windows_count == 16:
+                # Tipo 4: ventanas 0 a 15
+                if window_id < 0 or window_id > 15:
+                    session.close()
+                    return jsonify({'error': 'window_id debe estar entre 0 y 15 para paneles Tipo 4'}), 400
         
         window_service = PanelWindowService(session)
         
@@ -5985,22 +6035,35 @@ def assign_parking_to_window(panel_id, window_id):
 @require_auth
 @require_panel_access('panel_id')
 def unassign_parking_from_window(panel_id, window_id):
-    """Eliminar asignación de parking/sensor de una ventana (solo para paneles Tipo 4)"""
+    """Eliminar asignación de parking/sensor de una ventana (solo para paneles Tipo 3 y Tipo 4)"""
     try:
-        # Verificar que el panel es Tipo 4
+        # Verificar que el panel existe
         session = Session()
         panel = session.query(Panel).filter(Panel.id == panel_id).first()
         if not panel:
             session.close()
             return jsonify({'error': 'Panel no encontrado'}), 404
         
+        # Verificar que el panel es Tipo 3 o Tipo 4
         if panel.panel_type_id:
             panel_type = session.query(PanelType).filter(PanelType.id == panel.panel_type_id).first()
-            if not panel_type or panel_type.windows_count != 16:
+            if not panel_type or panel_type.windows_count not in [2, 16]:
                 session.close()
                 return jsonify({
-                    'error': f'Esta operación solo está disponible para paneles Tipo 4. El panel actual es Tipo {panel_type.id if panel_type else "desconocido"}'
+                    'error': f'Esta operación solo está disponible para paneles Tipo 3 o Tipo 4. El panel actual es Tipo {panel_type.id if panel_type else "desconocido"} (soporta {panel_type.windows_count if panel_type else 0} ventanas)'
                 }), 400
+            
+            # Validar window_id según el tipo de panel
+            if panel_type.windows_count == 2:
+                # Tipo 3: solo ventanas 0 y 1
+                if window_id < 0 or window_id > 1:
+                    session.close()
+                    return jsonify({'error': 'window_id debe ser 0 o 1 para paneles Tipo 3'}), 400
+            elif panel_type.windows_count == 16:
+                # Tipo 4: ventanas 0 a 15
+                if window_id < 0 or window_id > 15:
+                    session.close()
+                    return jsonify({'error': 'window_id debe estar entre 0 y 15 para paneles Tipo 4'}), 400
         
         req = request.get_json(force=True)
         parking_id = req.get('parking_id')

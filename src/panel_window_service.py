@@ -50,27 +50,43 @@ class PanelWindowService:
             Dict con resultado de la operación
         """
         try:
-            # Validar window_id
-            if window_id < 0 or window_id > 15:
-                return {
-                    'success': False,
-                    'error': f'window_id debe estar entre 0 y 15, recibido: {window_id}'
-                }
-            
-            # Verificar que el panel existe y es Tipo 4
+            # Verificar que el panel existe
             panel = self.db_session.query(Panel).filter(Panel.id == panel_id).first()
             if not panel:
                 return {'success': False, 'error': f'Panel {panel_id} no encontrado'}
             
-            # Verificar que el panel es Tipo 4 (soporta 16 ventanas)
+            # Verificar que el panel es Tipo 3 o Tipo 4
             if panel.panel_type_id:
                 panel_type = self.db_session.query(PanelType).filter(
                     PanelType.id == panel.panel_type_id
                 ).first()
-                if panel_type and panel_type.windows_count < 16:
+                if not panel_type or panel_type.windows_count not in [2, 16]:
                     return {
                         'success': False,
-                        'error': f'El panel {panel_id} no es Tipo 4 (soporta {panel_type.windows_count} ventanas, se requieren 16)'
+                        'error': f'El panel {panel_id} no es Tipo 3 o Tipo 4 (soporta {panel_type.windows_count if panel_type else 0} ventanas, se requieren 2 o 16)'
+                    }
+                
+                # Validar window_id según el tipo de panel
+                if panel_type.windows_count == 2:
+                    # Tipo 3: solo ventanas 0 y 1
+                    if window_id < 0 or window_id > 1:
+                        return {
+                            'success': False,
+                            'error': f'window_id debe ser 0 o 1 para paneles Tipo 3, recibido: {window_id}'
+                        }
+                elif panel_type.windows_count == 16:
+                    # Tipo 4: ventanas 0 a 15
+                    if window_id < 0 or window_id > 15:
+                        return {
+                            'success': False,
+                            'error': f'window_id debe estar entre 0 y 15 para paneles Tipo 4, recibido: {window_id}'
+                        }
+            else:
+                # Si no tiene tipo, validar genéricamente
+                if window_id < 0 or window_id > 15:
+                    return {
+                        'success': False,
+                        'error': f'window_id debe estar entre 0 y 15, recibido: {window_id}'
                     }
             
             # Verificar que el parking existe
@@ -174,6 +190,8 @@ class PanelWindowService:
                     'parking_name': assignment.parking.name if assignment.parking else None,
                     'sensor_type': assignment.sensor_type,
                     'display_type': assignment.display_type,
+                    'texto_fijo_previo': assignment.texto_fijo_previo,
+                    'color': assignment.color,
                     'priority': assignment.priority,
                     'is_active': assignment.is_active,
                     'created_at': assignment.created_at.isoformat() if assignment.created_at else None

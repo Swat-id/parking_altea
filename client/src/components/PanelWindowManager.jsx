@@ -18,14 +18,23 @@ const PanelWindowManager = ({
   const [loading, setLoading] = useState(false)
   const [showAssignmentModal, setShowAssignmentModal] = useState(false)
   const [selectedWindowId, setSelectedWindowId] = useState(null)
-  const [isType4, setIsType4] = useState(false)
+  const [isType3Or4, setIsType3Or4] = useState(false)
+  const [panelTypeName, setPanelTypeName] = useState('')
 
   useEffect(() => {
-    // Verificar si es Tipo 4 (soporta 16 ventanas)
+    // Verificar si es Tipo 3 (2 ventanas) o Tipo 4 (16 ventanas)
     if (panelTypeId) {
-      // Asumimos que Tipo 4 tiene windows_count = 16
-      // Esto se puede verificar con una consulta a panelTypes si es necesario
-      setIsType4(windowsCount === 16 || panelTypeId === 4)
+      const isType3 = windowsCount === 2 || panelTypeId === 3
+      const isType4 = windowsCount === 16 || panelTypeId === 4
+      setIsType3Or4(isType3 || isType4)
+      
+      if (isType3) {
+        setPanelTypeName('Tipo 3')
+      } else if (isType4) {
+        setPanelTypeName('Tipo 4')
+      } else {
+        setPanelTypeName('')
+      }
     }
   }, [panelTypeId, windowsCount])
 
@@ -36,7 +45,7 @@ const PanelWindowManager = ({
       // Inicializar ventanas vacías para nuevo panel
       initializeWindows()
     }
-  }, [panelId, isEditing, windowsCount])
+  }, [panelId, isEditing, windowsCount, panelTypeId]) // Añadir panelTypeId para recargar cuando cambia el tipo
 
   // Efecto separado para actualizar asignaciones pendientes
   useEffect(() => {
@@ -181,29 +190,34 @@ const PanelWindowManager = ({
     return `Parking: ${assignment.parking_name || `Parking ${assignment.parking_id}`}`
   }
 
-  if (!isType4) {
-    return null // No mostrar para paneles que no son Tipo 4
+  if (!isType3Or4) {
+    return null // No mostrar para paneles que no son Tipo 3 o Tipo 4
   }
+
+  // Determinar el número máximo de ventanas según el tipo
+  const maxWindows = windowsCount === 2 ? 2 : 16
 
   return (
     <div className="mt-6 border-t pt-6">
       <div className="flex items-center justify-between mb-4">
         <h4 className="text-lg font-semibold text-gray-900">
-          Configuración de Ventanas (Tipo 4)
+          Configuración de Ventanas ({panelTypeName})
         </h4>
-        <div className="flex items-center space-x-2">
-          <label className="text-sm text-gray-700">Número de ventanas:</label>
-          <select
-            value={windowsCount}
-            onChange={(e) => onWindowsCountChange?.(parseInt(e.target.value))}
-            className="px-2 py-1 border border-gray-300 rounded-md text-sm"
-            disabled={isEditing}
-          >
-            {Array.from({ length: 16 }, (_, i) => i + 1).map(num => (
-              <option key={num} value={num}>{num}</option>
-            ))}
-          </select>
-        </div>
+        {windowsCount === 16 && (
+          <div className="flex items-center space-x-2">
+            <label className="text-sm text-gray-700">Número de ventanas:</label>
+            <select
+              value={windowsCount}
+              onChange={(e) => onWindowsCountChange?.(parseInt(e.target.value))}
+              className="px-2 py-1 border border-gray-300 rounded-md text-sm"
+              disabled={isEditing}
+            >
+              {Array.from({ length: 16 }, (_, i) => i + 1).map(num => (
+                <option key={num} value={num}>{num}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {loading ? (

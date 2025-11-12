@@ -160,11 +160,23 @@ const Panels = () => {
     }
   }, [panelTypes, editingPanel, showEditModal, editForm.panel_type_id])
 
+  // Función para verificar si un panel type es Tipo 3
+  const isPanelType3 = (panelTypeId) => {
+    if (!panelTypeId) return false
+    const panelType = panelTypes.find(pt => pt.id === parseInt(panelTypeId))
+    return panelType && (panelType.windows_count === 2 || panelType.id === 3)
+  }
+
   // Función para verificar si un panel type es Tipo 4
   const isPanelType4 = (panelTypeId) => {
     if (!panelTypeId) return false
     const panelType = panelTypes.find(pt => pt.id === parseInt(panelTypeId))
     return panelType && (panelType.windows_count === 16 || panelType.id === 4)
+  }
+
+  // Función para verificar si un panel type es Tipo 3 o Tipo 4
+  const isPanelType3Or4 = (panelTypeId) => {
+    return isPanelType3(panelTypeId) || isPanelType4(panelTypeId)
   }
 
   // Función para obtener windows_count del tipo de panel
@@ -487,22 +499,28 @@ const Panels = () => {
       return
     }
     
-    // Para Tipo 4, parking_id no es obligatorio (cada ventana puede tener su propio parking)
+    // Para Tipo 3 y Tipo 4, parking_id puede no ser obligatorio (cada ventana puede tener su propio parking)
     // Pero el backend lo requiere, así que usamos el primero disponible si no se ha seleccionado
+    const isType3Or4 = isPanelType3Or4(createForm.panel_type_id)
+    const isType3 = isPanelType3(createForm.panel_type_id)
     const isType4 = isPanelType4(createForm.panel_type_id)
     let parkingId = createForm.parking_id
     
-    if (isType4 && !parkingId && parkings.length > 0) {
+    if (isType3Or4 && !parkingId && parkings.length > 0) {
       // Usar el primer parking disponible como valor por defecto para crear el panel
       parkingId = parkings[0].id.toString()
     }
     
     if (!parkingId) {
-      toast.error('Debes seleccionar un parking (o al menos uno disponible para Tipo 4)')
+      toast.error('Debes seleccionar un parking (o al menos uno disponible para Tipo 3/4)')
       return
     }
     
-    // Validar número de ventanas para Tipo 4
+    // Validar número de ventanas
+    if (isType3 && (!createForm.windows_count || createForm.windows_count !== 2)) {
+      toast.error('El número de ventanas debe ser 2 para Tipo 3')
+      return
+    }
     if (isType4 && (!createForm.windows_count || createForm.windows_count < 1 || createForm.windows_count > 16)) {
       toast.error('El número de ventanas debe estar entre 1 y 16 para Tipo 4')
       return
@@ -518,8 +536,8 @@ const Panels = () => {
       onSuccess: async (response) => {
         const createdPanel = response.panel
         
-        // Si hay asignaciones pendientes y es Tipo 4, guardarlas
-        if (isType4 && pendingWindowAssignments.length > 0 && createdPanel?.id) {
+        // Si hay asignaciones pendientes y es Tipo 3 o Tipo 4, guardarlas
+        if (isType3Or4 && pendingWindowAssignments.length > 0 && createdPanel?.id) {
           try {
             // Guardar todas las asignaciones pendientes
             for (const assignment of pendingWindowAssignments) {
@@ -1486,13 +1504,18 @@ const Panels = () => {
                     onChange={(e) => {
                       const newTypeId = e.target.value
                       const windowsCount = getWindowsCountForType(newTypeId)
+                      const wasType3Or4 = isPanelType3Or4(createForm.panel_type_id)
+                      const isNowType3Or4 = isPanelType3Or4(newTypeId)
+                      
                       setCreateForm({
                         ...createForm, 
                         panel_type_id: newTypeId,
                         windows_count: windowsCount
                       })
-                      // Limpiar asignaciones pendientes si cambia el tipo
-                      if (!isPanelType4(newTypeId)) {
+                      
+                      // Limpiar asignaciones pendientes si cambia de Tipo 3/4 a otro tipo
+                      // o si cambia entre Tipo 3 y Tipo 4 (diferente número de ventanas)
+                      if (wasType3Or4 && (!isNowType3Or4 || windowsCount !== createForm.windows_count)) {
                         setPendingWindowAssignments([])
                       }
                     }}
@@ -1537,13 +1560,13 @@ const Panels = () => {
                   </div>
                 )}
 
-                {/* PanelWindowManager para Tipo 4 - ahora se muestra siempre que sea Tipo 4 */}
-                {isPanelType4(createForm.panel_type_id) && (
+                {/* PanelWindowManager para Tipo 3 y Tipo 4 */}
+                {isPanelType3Or4(createForm.panel_type_id) && (
                   <PanelWindowManager
                     panelId={null} // No existe aún
                     parkingId={createForm.parking_id ? parseInt(createForm.parking_id) : null}
                     panelTypeId={parseInt(createForm.panel_type_id)}
-                    windowsCount={createForm.windows_count || 16}
+                    windowsCount={createForm.windows_count || getWindowsCountForType(createForm.panel_type_id)}
                     onWindowsCountChange={(count) => setCreateForm({...createForm, windows_count: count})}
                     isEditing={false}
                     pendingAssignments={pendingWindowAssignments}
@@ -1644,11 +1667,19 @@ const Panels = () => {
                     onChange={(e) => {
                       const newTypeId = e.target.value
                       const windowsCount = getWindowsCountForType(newTypeId)
+                      const wasType3Or4 = isPanelType3Or4(editForm.panel_type_id)
+                      const isNowType3Or4 = isPanelType3Or4(newTypeId)
+                      
                       setEditForm({
                         ...editForm, 
                         panel_type_id: newTypeId,
                         windows_count: windowsCount
                       })
+                      
+                      // Si cambia de tipo, recargar asignaciones de ventanas
+                      if (isNowType3Or4 && editingPanel?.id) {
+                        // El PanelWindowManager se recargará automáticamente cuando cambie windowsCount
+                      }
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
@@ -1667,50 +1698,61 @@ const Panels = () => {
                   )}
                 </div>
 
-                {/* Campo de número de ventanas para Tipo 4 */}
-                {isPanelType4(editForm.panel_type_id) && (
+                {/* Campo de número de ventanas para Tipo 3 y Tipo 4 */}
+                {isPanelType3Or4(editForm.panel_type_id) && (
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Número de Ventanas (1-16) <span className="text-red-500">*</span>
+                      Número de Ventanas {isPanelType3(editForm.panel_type_id) ? '(2)' : '(1-16)'} <span className="text-red-500">*</span>
                     </label>
-                    <select
-                      value={editForm.windows_count || 16}
-                      onChange={(e) => {
-                        const newCount = parseInt(e.target.value)
-                        setEditForm({...editForm, windows_count: newCount})
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    >
-                      {Array.from({ length: 16 }, (_, i) => i + 1).map(num => (
-                        <option key={num} value={num}>{num}</option>
-                      ))}
-                    </select>
+                    {isPanelType3(editForm.panel_type_id) ? (
+                      <input
+                        type="number"
+                        value={2}
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
+                      />
+                    ) : (
+                      <select
+                        value={editForm.windows_count || 16}
+                        onChange={(e) => {
+                          const newCount = parseInt(e.target.value)
+                          setEditForm({...editForm, windows_count: newCount})
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      >
+                        {Array.from({ length: 16 }, (_, i) => i + 1).map(num => (
+                          <option key={num} value={num}>{num}</option>
+                        ))}
+                      </select>
+                    )}
                     <p className="mt-1 text-xs text-gray-500">
-                      Selecciona cuántas ventanas tendrá este panel (máximo 16)
+                      {isPanelType3(editForm.panel_type_id) 
+                        ? 'Los paneles Tipo 3 tienen 2 ventanas fijas'
+                        : 'Selecciona cuántas ventanas tendrá este panel (máximo 16)'}
                     </p>
                   </div>
                 )}
 
-                {/* PanelWindowManager para Tipo 4 */}
-                {isPanelType4(editForm.panel_type_id) && editForm.parking_id && editingPanel && (
+                {/* PanelWindowManager para Tipo 3 y Tipo 4 */}
+                {isPanelType3Or4(editForm.panel_type_id) && editForm.parking_id && editingPanel && (
                   <div className="mb-4">
                     <PanelWindowManager
                       panelId={editingPanel.id}
                       parkingId={parseInt(editForm.parking_id)}
                       panelTypeId={parseInt(editForm.panel_type_id)}
-                      windowsCount={editForm.windows_count || 16}
+                      windowsCount={editForm.windows_count || getWindowsCountForType(editForm.panel_type_id)}
                       onWindowsCountChange={(count) => setEditForm({...editForm, windows_count: count})}
                       isEditing={true}
                     />
                   </div>
                 )}
 
-                {/* Mensaje informativo si es Tipo 4 pero no hay parking seleccionado */}
-                {isPanelType4(editForm.panel_type_id) && !editForm.parking_id && (
+                {/* Mensaje informativo si es Tipo 3 o Tipo 4 pero no hay parking seleccionado */}
+                {isPanelType3Or4(editForm.panel_type_id) && !editForm.parking_id && (
                   <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
                     <p className="text-sm text-blue-800">
-                      <strong>Panel Tipo 4:</strong> Selecciona un parking para configurar las ventanas. 
+                      <strong>Panel {isPanelType3(editForm.panel_type_id) ? 'Tipo 3' : 'Tipo 4'}:</strong> Selecciona un parking para configurar las ventanas. 
                       Puedes asignar diferentes parkings o grupos de sensores a cada ventana.
                     </p>
                   </div>
