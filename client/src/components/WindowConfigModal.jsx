@@ -29,6 +29,8 @@ const WindowConfigModal = ({
   const [availableSensorTypes, setAvailableSensorTypes] = useState([])
   const [companyId, setCompanyId] = useState(null)
   const [companies, setCompanies] = useState([])
+  const [panelUpdateIntervalSeconds, setPanelUpdateIntervalSeconds] = useState(120) // Tiempo de actualización del worker
+  const [loadingUserConfig, setLoadingUserConfig] = useState(false)
   const isInitialLoad = useRef(true)
   
   // Obtener company_id por defecto del usuario actual (si no es superadmin o no se especifica)
@@ -61,6 +63,7 @@ const WindowConfigModal = ({
       // Cargar configuración (puede ser preparatoria si no hay panelId)
       loadConfig()
       loadSensorTypes()
+      loadUserPanelConfig() // Cargar configuración de tiempo de actualización
       if (isSuperadmin) {
         loadCompanies()
       }
@@ -77,6 +80,7 @@ const WindowConfigModal = ({
     if (isOpen && isSuperadmin && !isInitialLoad.current && companyId !== null && companyId !== undefined && parkingId !== null && parkingId !== undefined && windowId !== undefined) {
       // Solo recargar si el modal ya estaba abierto y no es la carga inicial
       loadConfig()
+      loadUserPanelConfig() // También recargar configuración del usuario
     }
   }, [companyId])
 
@@ -142,6 +146,23 @@ const WindowConfigModal = ({
       console.error('Error cargando empresas:', error)
       toast.error('Error al cargar la lista de empresas')
       setCompanies([])
+    }
+  }
+
+  const loadUserPanelConfig = async () => {
+    try {
+      setLoadingUserConfig(true)
+      const effectiveCompanyId = isSuperadmin && companyId ? companyId : null
+      const config = await windowService.getUserPanelConfig(effectiveCompanyId)
+      
+      if (config && config.panel_update_interval_seconds) {
+        setPanelUpdateIntervalSeconds(config.panel_update_interval_seconds)
+      }
+    } catch (error) {
+      console.error('Error cargando configuración de usuario:', error)
+      // No mostrar error, usar valor por defecto
+    } finally {
+      setLoadingUserConfig(false)
     }
   }
 
@@ -263,6 +284,16 @@ const WindowConfigModal = ({
       )
 
       if (result.success) {
+        // Guardar también la configuración del usuario (tiempo de actualización)
+        try {
+          const effectiveCompanyId = isSuperadmin && companyId ? companyId : null
+          await windowService.updateUserPanelConfig(panelUpdateIntervalSeconds, effectiveCompanyId)
+        } catch (userConfigError) {
+          console.error('Error guardando configuración de usuario:', userConfigError)
+          // No fallar si hay error en la configuración del usuario, solo mostrar advertencia
+          toast.error('Configuración de ventana guardada, pero hubo un error al guardar el tiempo de actualización')
+        }
+        
         toast.success('Configuración guardada exitosamente')
         onSuccess?.()
         onClose()
@@ -603,6 +634,44 @@ const WindowConfigModal = ({
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Configuración de tiempo de actualización del worker */}
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Configuración de Actualización
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Define el intervalo de tiempo en que el sistema actualizará los paneles Tipo 3 y Tipo 4
+            </p>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Intervalo de Actualización (segundos) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                min="30"
+                step="30"
+                value={panelUpdateIntervalSeconds}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value) || 120
+                  // Asegurar que sea al menos 30 segundos
+                  const rounded = Math.max(30, value)
+                  setPanelUpdateIntervalSeconds(rounded)
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+                disabled={loadingUserConfig}
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                Tiempo entre actualizaciones del worker (mínimo 30 segundos)
+              </p>
+              <p className="mt-1 text-xs text-gray-400">
+                Este valor se aplica a todos los paneles Tipo 3 y Tipo 4 del usuario/empresa.
+                Valor por defecto: 120 segundos (2 minutos).
+              </p>
             </div>
           </div>
 

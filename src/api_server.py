@@ -348,6 +348,80 @@ def get_user_cameras():
         logger.error(f"Error obteniendo cámaras del usuario: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@api_bp.route('/user/panel-config', methods=['GET'])
+@require_auth
+def get_user_panel_config():
+    """Obtener configuración de paneles del usuario autenticado"""
+    try:
+        user_id = request.user_data['user_id']
+        user_role = request.user_data.get('role', 'user')
+        
+        # Si es superadmin, puede especificar company_id para ver configuración de otra empresa
+        company_id = request.args.get('company_id', type=int)
+        target_user_id = company_id if (user_role == 'superadmin' and company_id) else user_id
+        
+        session = Session()
+        
+        from user_panel_config_service import UserPanelConfigService
+        config_service = UserPanelConfigService(session)
+        
+        config = config_service.get_user_config(target_user_id)
+        session.close()
+        
+        if config:
+            return jsonify(config), 200
+        else:
+            return jsonify({'error': 'Configuración no encontrada'}), 404
+            
+    except Exception as e:
+        logger.error(f"Error obteniendo configuración de paneles del usuario: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/user/panel-config', methods=['POST', 'PUT'])
+@require_auth
+def update_user_panel_config():
+    """Actualizar configuración de paneles del usuario autenticado"""
+    try:
+        user_id = request.user_data['user_id']
+        user_role = request.user_data.get('role', 'user')
+        req = request.get_json() or {}
+        
+        # Si es superadmin, puede especificar company_id para actualizar configuración de otra empresa
+        company_id = req.get('company_id')
+        target_user_id = company_id if (user_role == 'superadmin' and company_id) else user_id
+        
+        session = Session()
+        
+        from user_panel_config_service import UserPanelConfigService
+        config_service = UserPanelConfigService(session)
+        
+        # Preparar datos de configuración
+        config_data = {
+            'panel_update_interval_seconds': req.get('panel_update_interval_seconds'),
+            'is_active': req.get('is_active', True)
+        }
+        
+        # Validar que panel_update_interval_seconds esté presente y sea válido
+        if 'panel_update_interval_seconds' not in config_data or config_data['panel_update_interval_seconds'] is None:
+            session.close()
+            return jsonify({'error': 'panel_update_interval_seconds es requerido'}), 400
+        
+        if config_data['panel_update_interval_seconds'] <= 0:
+            session.close()
+            return jsonify({'error': 'panel_update_interval_seconds debe ser mayor que 0'}), 400
+        
+        result = config_service.update_user_config(target_user_id, config_data)
+        session.close()
+        
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        logger.error(f"Error actualizando configuración de paneles del usuario: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 @api_bp.route('/user/parking/<int:pid>', methods=['GET'])
 @require_auth
 def get_user_parking(pid):
@@ -6260,8 +6334,8 @@ def get_window_next_changes(panel_id, window_id):
                     'error': f'Esta operación solo está disponible para paneles Tipo 4. El panel actual es Tipo {panel_type.id if panel_type else "desconocido"}'
                 }), 400
         
-        from panel_type4_update_service import PanelType4UpdateService
-        update_service = PanelType4UpdateService(session)
+        from panel_type4_update_service import PanelType3And4UpdateService
+        update_service = PanelType3And4UpdateService(session)
         
         changes = update_service.get_next_changes(panel_id, window_id)
         
@@ -6287,14 +6361,15 @@ def get_window_next_changes(panel_id, window_id):
         return jsonify({'error': 'Internal server error'}), 500
 
 @api_bp.route('/v1/panels/<int:panel_id>/update-type4', methods=['POST'])
+@api_bp.route('/v1/panels/<int:panel_id>/update-type3', methods=['POST'])
 @require_auth
 @require_panel_access('panel_id')
-def update_panel_type4(panel_id):
-    """Forzar actualización de un panel Tipo 4 (solo para paneles Tipo 4)"""
+def update_panel_type3_or_type4(panel_id):
+    """Forzar actualización de un panel Tipo 3 o Tipo 4"""
     try:
         session = Session()
         
-        # Verificar que el panel es Tipo 4
+        # Verificar que el panel existe
         panel = session.query(Panel).filter(Panel.id == panel_id).first()
         if not panel:
             session.close()
@@ -6302,14 +6377,14 @@ def update_panel_type4(panel_id):
         
         if panel.panel_type_id:
             panel_type = session.query(PanelType).filter(PanelType.id == panel.panel_type_id).first()
-            if not panel_type or panel_type.windows_count != 16:
+            if not panel_type or panel_type.windows_count not in [2, 16]:
                 session.close()
                 return jsonify({
-                    'error': f'Esta operación solo está disponible para paneles Tipo 4. El panel actual es Tipo {panel_type.id if panel_type else "desconocido"}'
+                    'error': f'Esta operación solo está disponible para paneles Tipo 3 o Tipo 4. El panel actual es Tipo {panel_type.id if panel_type else "desconocido"} (windows_count: {panel_type.windows_count if panel_type else "N/A"})'
                 }), 400
         
-        from panel_type4_update_service import PanelType4UpdateService
-        update_service = PanelType4UpdateService(session)
+        from panel_type4_update_service import PanelType3And4UpdateService
+        update_service = PanelType3And4UpdateService(session)
         
         result = update_service.update_panel(panel_id)
         

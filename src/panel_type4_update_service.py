@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Servicio de actualización de paneles Tipo 4
-Actualiza el contenido de las ventanas según la configuración de rotación
+Servicio de actualización de paneles Tipo 3 y Tipo 4
+- Tipo 3: Actualiza ventanas 0 y 1 con valores numéricos simples (plazas libres, PMR)
+- Tipo 4: Actualiza hasta 16 ventanas con contenido rotado según configuración
 """
 
 import logging
@@ -14,8 +15,8 @@ from models import Panel, PanelType, Parking, ParkingPanelWindow, PanelWindowCon
 logger = logging.getLogger(__name__)
 
 
-class PanelType4UpdateService:
-    """Servicio para actualizar paneles Tipo 4 con contenido rotado"""
+class PanelType3And4UpdateService:
+    """Servicio para actualizar paneles Tipo 3 y Tipo 4"""
     
     def __init__(self, db_session: Session):
         """
@@ -26,20 +27,20 @@ class PanelType4UpdateService:
         """
         self.db_session = db_session
     
-    def update_all_type4_panels(self) -> Dict[str, Any]:
+    def update_all_type3_and_type4_panels(self) -> Dict[str, Any]:
         """
-        Actualiza todos los paneles Tipo 4 con su contenido configurado
+        Actualiza todos los paneles Tipo 3 y Tipo 4 con su contenido configurado
         
         Returns:
             Dict con estadísticas de actualización
         """
         try:
-            # Obtener todos los paneles Tipo 4 activos
-            type4_panels = self.db_session.query(Panel).join(PanelType).filter(
+            # Obtener todos los paneles Tipo 3 y Tipo 4 activos
+            type3_and_4_panels = self.db_session.query(Panel).join(PanelType).filter(
                 and_(
                     Panel.is_active == True,
-                    PanelType.windows_count == 16,
-                    Panel.panel_type_id == PanelType.id
+                    Panel.panel_type_id == PanelType.id,
+                    PanelType.windows_count.in_([2, 16])  # Tipo 3 = 2 ventanas, Tipo 4 = 16 ventanas
                 )
             ).all()
             
@@ -48,11 +49,22 @@ class PanelType4UpdateService:
                 'panels_updated': 0,
                 'panels_failed': 0,
                 'windows_updated': 0,
+                'type3_panels': 0,
+                'type4_panels': 0,
                 'errors': []
             }
             
-            for panel in type4_panels:
+            for panel in type3_and_4_panels:
                 try:
+                    # Determinar tipo de panel
+                    is_type3 = panel.panel_type and panel.panel_type.windows_count == 2
+                    is_type4 = panel.panel_type and panel.panel_type.windows_count == 16
+                    
+                    if is_type3:
+                        stats['type3_panels'] += 1
+                    elif is_type4:
+                        stats['type4_panels'] += 1
+                    
                     result = self.update_panel(panel.id)
                     stats['panels_processed'] += 1
                     if result['success']:
@@ -77,18 +89,202 @@ class PanelType4UpdateService:
             return stats
             
         except Exception as e:
-            logger.error(f"Error en update_all_type4_panels: {e}")
+            logger.error(f"Error en update_all_type3_and_type4_panels: {e}")
             return {
                 'panels_processed': 0,
                 'panels_updated': 0,
                 'panels_failed': 0,
                 'windows_updated': 0,
+                'type3_panels': 0,
+                'type4_panels': 0,
                 'errors': [{'error': str(e)}]
             }
     
+    # Mantener método anterior para compatibilidad
+    def update_all_type4_panels(self) -> Dict[str, Any]:
+        """Método de compatibilidad - redirige a update_all_type3_and_type4_panels"""
+        return self.update_all_type3_and_type4_panels()
+    
     def update_panel(self, panel_id: int) -> Dict[str, Any]:
         """
-        Actualiza un panel Tipo 4 específico
+        Actualiza un panel Tipo 3 o Tipo 4 específico (detecta automáticamente el tipo)
+        
+        Args:
+            panel_id: ID del panel
+            
+        Returns:
+            Dict con resultado de la actualización
+        """
+        try:
+            # Obtener el panel
+            panel = self.db_session.query(Panel).filter(Panel.id == panel_id).first()
+            if not panel:
+                return {'success': False, 'error': 'Panel no encontrado'}
+            
+            # Detectar tipo de panel
+            if not panel.panel_type:
+                return {'success': False, 'error': 'Panel no tiene tipo asignado'}
+            
+            windows_count = panel.panel_type.windows_count
+            
+            # Tipo 3: 2 ventanas
+            if windows_count == 2:
+                return self.update_type3_panel(panel_id)
+            # Tipo 4: 16 ventanas
+            elif windows_count == 16:
+                return self.update_type4_panel(panel_id)
+            else:
+                return {'success': False, 'error': f'Panel tipo no soportado (windows_count: {windows_count})'}
+    
+    def update_type3_panel(self, panel_id: int) -> Dict[str, Any]:
+        """
+        Actualiza un panel Tipo 3 (2 ventanas con valores numéricos simples)
+        
+        Args:
+            panel_id: ID del panel
+            
+        Returns:
+            Dict con resultado de la actualización
+        """
+        try:
+            from panel_protocol.panel_protocol_service import PanelProtocolService
+            
+            # Obtener el panel
+            panel = self.db_session.query(Panel).filter(Panel.id == panel_id).first()
+            if not panel:
+                return {'success': False, 'error': 'Panel no encontrado'}
+            
+            # Verificar que es Tipo 3
+            if not panel.panel_type or panel.panel_type.windows_count != 2:
+                return {'success': False, 'error': 'Panel no es Tipo 3'}
+            
+            # Obtener parking
+            parking = self.db_session.query(Parking).filter(
+                Parking.id == panel.parking_id
+            ).first()
+            
+            if not parking:
+                return {'success': False, 'error': 'Parking no encontrado'}
+            
+            # Inicializar servicio de protocolo
+            protocol_service = PanelProtocolService()
+            
+            windows_updated = 0
+            errors = []
+            
+            # Actualizar ventanas 0 y 1
+            for window_id in [0, 1]:
+                try:
+                    # Obtener asignación de la ventana
+                    assignment = self.db_session.query(ParkingPanelWindow).filter(
+                        and_(
+                            ParkingPanelWindow.panel_id == panel_id,
+                            ParkingPanelWindow.window_id == window_id,
+                            ParkingPanelWindow.is_active == True
+                        )
+                    ).first()
+                    
+                    if not assignment:
+                        logger.debug(f"Panel {panel_id}, ventana {window_id}: Sin asignación configurada")
+                        continue
+                    
+                    # Obtener contenido según el tipo de asignación
+                    message = None
+                    color = 2  # Verde por defecto
+                    
+                    if assignment.display_type == 'parking':
+                        # Ventana con datos del parking (plazas libres totales)
+                        free_spaces = parking.max_capacity - parking.current_occupancy
+                        message = str(free_spaces)
+                        color = 2  # Verde para plazas libres
+                    elif assignment.display_type == 'sensor_group' and assignment.sensor_type:
+                        # Ventana con datos de sensores agrupados (ej: PMR)
+                        from panel_window_service import PanelWindowService
+                        window_service = PanelWindowService(self.db_session)
+                        sensor_data = window_service.get_sensor_data_for_window(panel_id, window_id)
+                        
+                        if sensor_data:
+                            free_count = sensor_data.get('free', 0)
+                            texto_fijo = assignment.texto_fijo_previo or ''
+                            
+                            if texto_fijo:
+                                message = f"{texto_fijo} {free_count}"
+                            else:
+                                message = str(free_count)
+                            
+                            # Usar color de la asignación si está configurado
+                            if assignment.color:
+                                color = assignment.color
+                            else:
+                                color = 2  # Verde por defecto
+                        else:
+                            message = "0"  # Sin datos disponibles
+                    else:
+                        logger.warning(f"Panel {panel_id}, ventana {window_id}: Tipo de asignación no reconocido")
+                        continue
+                    
+                    if not message:
+                        continue
+                    
+                    # Enviar mensaje al panel usando protocolo v4
+                    result = protocol_service.send_text_v4(
+                        panel_ip=panel.ip,
+                        panel_port=panel.port or 5200,
+                        window_id=window_id,
+                        text=message,
+                        color=color,
+                        font_size=2,  # Tamaño medio
+                        effect=0,  # Sin efecto
+                        alignment=0  # Izquierda arriba
+                    )
+                    
+                    if result.get('success'):
+                        windows_updated += 1
+                        # Actualizar último mensaje en la tabla Panel
+                        if window_id == 0:
+                            panel.last_message = message
+                            panel.last_message_window_0 = message
+                            panel.last_update_window_0 = datetime.utcnow()
+                        elif window_id == 1:
+                            panel.last_message_window_1 = message
+                            panel.last_update_window_1 = datetime.utcnow()
+                            if not panel.last_message:
+                                panel.last_message = message
+                        
+                        panel.last_update = datetime.utcnow()
+                        self.db_session.commit()
+                        
+                        logger.info(
+                            f"Ventana {window_id} del panel {panel.id} ({panel.name}) "
+                            f"actualizada: {message}"
+                        )
+                    else:
+                        errors.append({
+                            'window_id': window_id,
+                            'error': result.get('error', 'Unknown error')
+                        })
+                        
+                except Exception as e:
+                    logger.error(f"Error actualizando ventana {window_id} del panel {panel.id}: {e}")
+                    errors.append({
+                        'window_id': window_id,
+                        'error': str(e)
+                    })
+            
+            return {
+                'success': windows_updated > 0,
+                'windows_updated': windows_updated,
+                'total_windows': 2,
+                'errors': errors
+            }
+            
+        except Exception as e:
+            logger.error(f"Error en update_type3_panel {panel_id}: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def update_type4_panel(self, panel_id: int) -> Dict[str, Any]:
+        """
+        Actualiza un panel Tipo 4 específico (contenido rotado)
         
         Args:
             panel_id: ID del panel

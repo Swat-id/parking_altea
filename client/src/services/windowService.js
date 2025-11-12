@@ -188,6 +188,42 @@ const windowService = {
       console.error('Error actualizando panel Tipo 4:', error)
       throw error
     }
+  },
+
+  /**
+   * Obtener configuración de paneles del usuario
+   * @param {number|null} companyId - ID de la empresa (solo para superadmin)
+   */
+  async getUserPanelConfig(companyId = null) {
+    try {
+      const params = companyId ? { company_id: companyId } : {}
+      const response = await api.get('/api/user/panel-config', { params })
+      return response.data
+    } catch (error) {
+      console.error('Error obteniendo configuración de paneles del usuario:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Actualizar configuración de paneles del usuario
+   * @param {number} panelUpdateIntervalSeconds - Intervalo de actualización en segundos
+   * @param {number|null} companyId - ID de la empresa (solo para superadmin)
+   */
+  async updateUserPanelConfig(panelUpdateIntervalSeconds, companyId = null) {
+    try {
+      const data = {
+        panel_update_interval_seconds: panelUpdateIntervalSeconds
+      }
+      if (companyId) {
+        data.company_id = companyId
+      }
+      const response = await api.put('/api/user/panel-config', data)
+      return response.data
+    } catch (error) {
+      console.error('Error actualizando configuración de paneles del usuario:', error)
+      throw error
+    }
   }
 }
 

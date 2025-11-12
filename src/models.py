@@ -24,6 +24,9 @@ class User(Base):
     alarm_configurations = relationship('AlarmConfiguration', back_populates='user')
     alarms = relationship('Alarm', back_populates='user')
     
+    # Relación con configuración de paneles
+    panel_config = relationship('UserPanelConfig', back_populates='user', uselist=False, cascade='all, delete-orphan')
+    
     def __repr__(self):
         return f"<User(id={self.id}, name='{self.name}', email='{self.email}', role='{self.role}')>"
     
@@ -815,3 +818,26 @@ class PanelWindowConfiguration(Base):
     
     def __repr__(self):
         return f"<PanelWindowConfiguration(id={self.id}, panel_id={self.panel_id}, window_id={self.window_id}, parking_id={self.parking_id})>"
+
+
+class UserPanelConfig(Base):
+    """Configuración de actualización de paneles por usuario/empresa"""
+    __tablename__ = 'user_panel_configs'
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, unique=True)
+    panel_update_interval_seconds = Column(Integer, default=120, nullable=False)  # Tiempo de actualización en segundos (2 minutos por defecto)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relaciones
+    user = relationship('User', back_populates='panel_config')
+    
+    # Constraints
+    __table_args__ = (
+        CheckConstraint('panel_update_interval_seconds > 0', name='check_update_interval_positive'),
+    )
+    
+    def __repr__(self):
+        return f"<UserPanelConfig(id={self.id}, user_id={self.user_id}, panel_update_interval_seconds={self.panel_update_interval_seconds})>"
