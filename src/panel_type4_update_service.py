@@ -265,14 +265,20 @@ class PanelType3And4UpdateService:
                         'error': error_msg
                     }
             except Exception as e:
-                logger.error(f"Error enviando mensaje a ventana {window_id} del panel {panel.id}: {e}")
+                import traceback
+                error_msg = str(e)
+                logger.error(f"Error enviando mensaje a ventana {window_id} del panel {panel.id}: {error_msg}")
+                logger.debug(f"Traceback completo: {traceback.format_exc()}")
                 return {
                     'success': False,
                     'window_id': window_id,
-                    'error': str(e)
+                    'error': error_msg
                 }
         except Exception as e:
-            logger.error(f"Error actualizando ventana {window_id} del panel {panel.id}: {e}")
+            import traceback
+            error_msg = str(e)
+            logger.error(f"Error actualizando ventana {window_id} del panel {panel.id}: {error_msg}")
+            logger.debug(f"Traceback completo: {traceback.format_exc()}")
             # Hacer rollback para limpiar la transacción en caso de error
             try:
                 self.db_session.rollback()
@@ -281,7 +287,7 @@ class PanelType3And4UpdateService:
             return {
                 'success': False,
                 'window_id': window_id,
-                'error': str(e)
+                'error': error_msg
             }
     
     async def update_type3_panel_async(self, panel_id: int) -> Dict[str, Any]:

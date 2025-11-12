@@ -377,11 +377,17 @@ class PanelType3And4Worker:
                                 user_stats['windows_updated'] += result.get('windows_updated', 0)
                             else:
                                 user_stats['panels_failed'] += 1
+                                error_msg = result.get('error', 'Unknown error')
+                                # Si hay errores de ventanas, incluir detalles
+                                if result.get('errors'):
+                                    error_details = [e.get('error', 'Unknown') for e in result.get('errors', [])]
+                                    error_msg = f"{error_msg} (ventanas: {', '.join(error_details)})"
                                 user_stats['errors'].append({
                                     'panel_id': panel_result['panel_id'],
                                     'panel_name': panel_result['panel_name'],
-                                    'error': result.get('error', 'Unknown error')
+                                    'error': error_msg
                                 })
+                                logger.warning(f"Panel {panel_result['panel_id']} ({panel_result['panel_name']}) falló: {error_msg}")
                     
                     stats = user_stats
                     
