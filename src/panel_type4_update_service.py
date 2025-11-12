@@ -145,9 +145,149 @@ class PanelType3And4UpdateService:
                 logger.error(f"Error haciendo rollback: {rollback_error}")
             return {'success': False, 'error': str(e)}
     
-    def update_type3_panel(self, panel_id: int) -> Dict[str, Any]:
+    async def _update_window_async(
+        self,
+        protocol_service,
+        panel: Panel,
+        parking: Parking,
+        window_id: int
+    ) -> Dict[str, Any]:
         """
-        Actualiza un panel Tipo 3 (2 ventanas con valores numéricos simples)
+        Actualiza una ventana específica de forma asíncrona
+        
+        Args:
+            protocol_service: Servicio de protocolo
+            panel: Objeto Panel
+            parking: Objeto Parking
+            window_id: ID de la ventana
+            
+        Returns:
+            Dict con resultado de la actualización de la ventana
+        """
+        try:
+            # Obtener asignación de la ventana
+            assignment = self.db_session.query(ParkingPanelWindow).filter(
+                and_(
+                    ParkingPanelWindow.panel_id == panel.id,
+                    ParkingPanelWindow.window_id == window_id,
+                    ParkingPanelWindow.is_active == True
+                )
+            ).first()
+            
+            if not assignment:
+                logger.debug(f"Panel {panel.id}, ventana {window_id}: Sin asignación configurada")
+                return {'success': False, 'skipped': True}
+            
+            # Obtener contenido según el tipo de asignación
+            message = None
+            color = 2  # Verde por defecto
+            
+            if assignment.display_type == 'parking':
+                # Ventana con datos del parking (plazas libres totales)
+                free_spaces = parking.max_capacity - parking.current_occupancy
+                message = str(free_spaces)
+                color = 2  # Verde para plazas libres
+            elif assignment.display_type == 'sensor_group' and assignment.sensor_type:
+                # Ventana con datos de sensores agrupados (ej: PMR)
+                from panel_window_service import PanelWindowService
+                window_service = PanelWindowService(self.db_session)
+                sensor_data = window_service.get_sensor_data_for_window(panel.id, window_id)
+                
+                if sensor_data:
+                    # CORRECCIÓN: La clave es 'free_sensors', no 'free'
+                    free_count = sensor_data.get('free_sensors', 0)
+                    # Para Tipo 3, NO usar texto_fijo_previo (solo valores numéricos)
+                    message = str(free_count)
+                    
+                    # Usar color de la asignación si está configurado
+                    if assignment.color:
+                        color = assignment.color
+                    else:
+                        color = 2  # Verde por defecto
+                else:
+                    message = "0"  # Sin datos disponibles
+            else:
+                logger.warning(f"Panel {panel.id}, ventana {window_id}: Tipo de asignación no reconocido")
+                return {'success': False, 'skipped': True}
+            
+            if not message:
+                return {'success': False, 'skipped': True}
+            
+            # Enviar mensaje al panel usando protocolo v4 (asíncrono)
+            try:
+                # Lanzar tarea asíncrona (no esperar respuesta inmediatamente)
+                task_id = await protocol_service.send_text_v4(
+                    panel_ip=panel.ip,
+                    panel_port=panel.port or 5200,
+                    window_id=window_id,
+                    text=message,
+                    color=color,
+                    font_size=2,  # Tamaño medio
+                    effect=0,  # Sin efecto
+                    alignment=0,  # Izquierda arriba
+                    wait_for_response=False  # NO esperar respuesta inmediatamente
+                )
+                
+                # Obtener el resultado de la tarea (con timeout)
+                result = await protocol_service.get_task_result(task_id, timeout=10.0)
+                
+                if result and result.get('success'):
+                    # Actualizar último mensaje en la tabla Panel
+                    if window_id == 0:
+                        panel.last_message = message
+                        panel.last_message_window_0 = message
+                        panel.last_update_window_0 = datetime.utcnow()
+                    elif window_id == 1:
+                        panel.last_message_window_1 = message
+                        panel.last_update_window_1 = datetime.utcnow()
+                        if not panel.last_message:
+                            panel.last_message = message
+                    
+                    panel.last_update = datetime.utcnow()
+                    self.db_session.commit()
+                    
+                    logger.info(
+                        f"Ventana {window_id} del panel {panel.id} ({panel.name}) "
+                        f"actualizada: {message}"
+                    )
+                    
+                    return {
+                        'success': True,
+                        'window_id': window_id,
+                        'message': message
+                    }
+                else:
+                    error_msg = result.get('error', 'Unknown error') if result else 'No result received'
+                    logger.warning(f"Panel {panel.id}, ventana {window_id}: {error_msg}")
+                    return {
+                        'success': False,
+                        'window_id': window_id,
+                        'error': error_msg
+                    }
+            except Exception as e:
+                logger.error(f"Error enviando mensaje a ventana {window_id} del panel {panel.id}: {e}")
+                return {
+                    'success': False,
+                    'window_id': window_id,
+                    'error': str(e)
+                }
+        except Exception as e:
+            logger.error(f"Error actualizando ventana {window_id} del panel {panel.id}: {e}")
+            # Hacer rollback para limpiar la transacción en caso de error
+            try:
+                self.db_session.rollback()
+            except Exception as rollback_error:
+                logger.error(f"Error haciendo rollback: {rollback_error}")
+            return {
+                'success': False,
+                'window_id': window_id,
+                'error': str(e)
+            }
+    
+    async def update_type3_panel_async(self, panel_id: int) -> Dict[str, Any]:
+        """
+        Actualiza un panel Tipo 3 (2 ventanas con valores numéricos simples) de forma asíncrona
+        Procesa ambas ventanas en paralelo
         
         Args:
             panel_id: ID del panel
@@ -178,123 +318,31 @@ class PanelType3And4UpdateService:
             # Inicializar servicio de protocolo
             protocol_service = PanelProtocolService()
             
+            # Actualizar ambas ventanas EN PARALELO usando asyncio.gather
+            window_tasks = [
+                self._update_window_async(protocol_service, panel, parking, 0),
+                self._update_window_async(protocol_service, panel, parking, 1)
+            ]
+            
+            # Esperar todas las ventanas en paralelo
+            window_results = await asyncio.gather(*window_tasks, return_exceptions=True)
+            
+            # Procesar resultados
             windows_updated = 0
             errors = []
             
-            # Actualizar ventanas 0 y 1
-            for window_id in [0, 1]:
-                try:
-                    # Obtener asignación de la ventana
-                    assignment = self.db_session.query(ParkingPanelWindow).filter(
-                        and_(
-                            ParkingPanelWindow.panel_id == panel_id,
-                            ParkingPanelWindow.window_id == window_id,
-                            ParkingPanelWindow.is_active == True
-                        )
-                    ).first()
-                    
-                    if not assignment:
-                        logger.debug(f"Panel {panel_id}, ventana {window_id}: Sin asignación configurada")
-                        continue
-                    
-                    # Obtener contenido según el tipo de asignación
-                    message = None
-                    color = 2  # Verde por defecto
-                    
-                    if assignment.display_type == 'parking':
-                        # Ventana con datos del parking (plazas libres totales)
-                        free_spaces = parking.max_capacity - parking.current_occupancy
-                        message = str(free_spaces)
-                        color = 2  # Verde para plazas libres
-                    elif assignment.display_type == 'sensor_group' and assignment.sensor_type:
-                        # Ventana con datos de sensores agrupados (ej: PMR)
-                        from panel_window_service import PanelWindowService
-                        window_service = PanelWindowService(self.db_session)
-                        sensor_data = window_service.get_sensor_data_for_window(panel_id, window_id)
-                        
-                        if sensor_data:
-                            # CORRECCIÓN: La clave es 'free_sensors', no 'free'
-                            free_count = sensor_data.get('free_sensors', 0)
-                            # Para Tipo 3, NO usar texto_fijo_previo (solo valores numéricos)
-                            message = str(free_count)
-                            
-                            # Usar color de la asignación si está configurado
-                            if assignment.color:
-                                color = assignment.color
-                            else:
-                                color = 2  # Verde por defecto
-                        else:
-                            message = "0"  # Sin datos disponibles
-                    else:
-                        logger.warning(f"Panel {panel_id}, ventana {window_id}: Tipo de asignación no reconocido")
-                        continue
-                    
-                    if not message:
-                        continue
-                    
-                    # Enviar mensaje al panel usando protocolo v4 (síncrono)
-                    try:
-                        # Ejecutar la corrutina de forma síncrona
-                        task_id = asyncio.run(
-                            protocol_service.send_text_v4(
-                                panel_ip=panel.ip,
-                                panel_port=panel.port or 5200,
-                                window_id=window_id,
-                                text=message,
-                                color=color,
-                                font_size=2,  # Tamaño medio
-                                effect=0,  # Sin efecto
-                                alignment=0,  # Izquierda arriba
-                                wait_for_response=True  # Esperar respuesta
-                            )
-                        )
-                        
-                        # Obtener el resultado de la tarea
-                        result = asyncio.run(
-                            protocol_service.get_task_result(task_id, timeout=10.0)
-                        )
-                        
-                        if result and result.get('success'):
-                            windows_updated += 1
-                            # Actualizar último mensaje en la tabla Panel
-                            if window_id == 0:
-                                panel.last_message = message
-                                panel.last_message_window_0 = message
-                                panel.last_update_window_0 = datetime.utcnow()
-                            elif window_id == 1:
-                                panel.last_message_window_1 = message
-                                panel.last_update_window_1 = datetime.utcnow()
-                                if not panel.last_message:
-                                    panel.last_message = message
-                            
-                            panel.last_update = datetime.utcnow()
-                            self.db_session.commit()
-                            
-                            logger.info(
-                                f"Ventana {window_id} del panel {panel.id} ({panel.name}) "
-                                f"actualizada: {message}"
-                            )
-                        else:
-                            errors.append({
-                                'window_id': window_id,
-                                'error': result.get('error', 'Unknown error') if result else 'No result received'
-                            })
-                    except Exception as e:
-                        logger.error(f"Error enviando mensaje a ventana {window_id} del panel {panel_id}: {e}")
-                        errors.append({
-                            'window_id': window_id,
-                            'error': str(e)
-                        })
-                except Exception as e:
-                    logger.error(f"Error actualizando ventana {window_id} del panel {panel_id}: {e}")
-                    # Hacer rollback para limpiar la transacción en caso de error
-                    try:
-                        self.db_session.rollback()
-                    except Exception as rollback_error:
-                        logger.error(f"Error haciendo rollback: {rollback_error}")
+            for i, result in enumerate(window_results):
+                if isinstance(result, Exception):
                     errors.append({
-                        'window_id': window_id,
-                        'error': str(e)
+                        'window_id': i,
+                        'error': str(result)
+                    })
+                elif result.get('success'):
+                    windows_updated += 1
+                elif not result.get('skipped'):
+                    errors.append({
+                        'window_id': result.get('window_id', i),
+                        'error': result.get('error', 'Unknown error')
                     })
             
             return {
@@ -305,12 +353,30 @@ class PanelType3And4UpdateService:
             }
             
         except Exception as e:
-            logger.error(f"Error en update_type3_panel {panel_id}: {e}")
+            logger.error(f"Error en update_type3_panel_async {panel_id}: {e}")
             # Hacer rollback para limpiar la transacción en caso de error
             try:
                 self.db_session.rollback()
             except Exception as rollback_error:
                 logger.error(f"Error haciendo rollback: {rollback_error}")
+            return {'success': False, 'error': str(e)}
+    
+    def update_type3_panel(self, panel_id: int) -> Dict[str, Any]:
+        """
+        Actualiza un panel Tipo 3 (2 ventanas con valores numéricos simples)
+        Wrapper síncrono que ejecuta la versión asíncrona
+        
+        Args:
+            panel_id: ID del panel
+            
+        Returns:
+            Dict con resultado de la actualización
+        """
+        try:
+            # Ejecutar versión asíncrona en un nuevo event loop
+            return asyncio.run(self.update_type3_panel_async(panel_id))
+        except Exception as e:
+            logger.error(f"Error ejecutando update_type3_panel {panel_id}: {e}")
             return {'success': False, 'error': str(e)}
     
     def update_type4_panel(self, panel_id: int) -> Dict[str, Any]:

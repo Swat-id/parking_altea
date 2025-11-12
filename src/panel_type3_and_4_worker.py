@@ -283,7 +283,7 @@ class PanelType3And4Worker:
                     from panel_type4_update_service import PanelType3And4UpdateService
                     update_service = PanelType3And4UpdateService(session)
                     
-                    # Actualizar solo los paneles del usuario actual
+                    # Actualizar solo los paneles del usuario actual EN PARALELO
                     user_stats = {
                         'panels_processed': 0,
                         'panels_updated': 0,
@@ -294,37 +294,73 @@ class PanelType3And4Worker:
                         'errors': []
                     }
                     
-                    for panel in panels:
+                    # Procesar todos los paneles en paralelo usando asyncio
+                    async def update_panel_async(panel):
+                        """Actualiza un panel de forma asíncrona"""
                         try:
                             # Determinar tipo de panel
                             is_type3 = panel.panel_type and panel.panel_type.windows_count == 2
                             is_type4 = panel.panel_type and panel.panel_type.windows_count == 16
                             
+                            # Usar la versión asíncrona si está disponible
                             if is_type3:
-                                user_stats['type3_panels'] += 1
+                                result = await update_service.update_type3_panel_async(panel.id)
                             elif is_type4:
+                                # Para Tipo 4, aún no tenemos versión asíncrona, usar la síncrona
+                                result = update_service.update_type4_panel(panel.id)
+                            else:
+                                result = {'success': False, 'error': 'Tipo de panel no soportado'}
+                            
+                            return {
+                                'panel_id': panel.id,
+                                'panel_name': panel.name,
+                                'is_type3': is_type3,
+                                'is_type4': is_type4,
+                                'result': result
+                            }
+                        except Exception as e:
+                            logger.error(f"Error actualizando panel {panel.id}: {e}")
+                            return {
+                                'panel_id': panel.id,
+                                'panel_name': panel.name,
+                                'is_type3': False,
+                                'is_type4': False,
+                                'result': {'success': False, 'error': str(e)}
+                            }
+                    
+                    # Ejecutar todas las actualizaciones en paralelo
+                    panel_tasks = [update_panel_async(panel) for panel in panels]
+                    panel_results = asyncio.run(asyncio.gather(*panel_tasks, return_exceptions=True))
+                    
+                    # Procesar resultados
+                    for panel_result in panel_results:
+                        if isinstance(panel_result, Exception):
+                            user_stats['panels_processed'] += 1
+                            user_stats['panels_failed'] += 1
+                            user_stats['errors'].append({
+                                'panel_id': None,
+                                'panel_name': 'Unknown',
+                                'error': str(panel_result)
+                            })
+                        else:
+                            user_stats['panels_processed'] += 1
+                            
+                            if panel_result['is_type3']:
+                                user_stats['type3_panels'] += 1
+                            elif panel_result['is_type4']:
                                 user_stats['type4_panels'] += 1
                             
-                            result = update_service.update_panel(panel.id)
-                            user_stats['panels_processed'] += 1
+                            result = panel_result['result']
                             if result['success']:
                                 user_stats['panels_updated'] += 1
                                 user_stats['windows_updated'] += result.get('windows_updated', 0)
                             else:
                                 user_stats['panels_failed'] += 1
                                 user_stats['errors'].append({
-                                    'panel_id': panel.id,
-                                    'panel_name': panel.name,
+                                    'panel_id': panel_result['panel_id'],
+                                    'panel_name': panel_result['panel_name'],
                                     'error': result.get('error', 'Unknown error')
                                 })
-                        except Exception as e:
-                            logger.error(f"Error actualizando panel {panel.id}: {e}")
-                            user_stats['panels_failed'] += 1
-                            user_stats['errors'].append({
-                                'panel_id': panel.id,
-                                'panel_name': panel.name,
-                                'error': str(e)
-                            })
                     
                     stats = user_stats
                     
