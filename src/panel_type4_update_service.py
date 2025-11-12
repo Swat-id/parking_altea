@@ -257,8 +257,18 @@ class PanelType3And4UpdateService:
                         'message': message
                     }
                 else:
-                    error_msg = result.get('error', 'Unknown error') if result else 'No result received'
-                    logger.warning(f"Panel {panel.id}, ventana {window_id}: {error_msg}")
+                    if result is None:
+                        error_msg = 'No result received from protocol service'
+                    elif isinstance(result, dict):
+                        error_msg = result.get('error', result.get('error_message', 'Unknown error'))
+                        if not error_msg or error_msg == 'Unknown error':
+                            # Intentar obtener más información del resultado
+                            error_msg = f"Task failed: {result}"
+                    else:
+                        error_msg = f"Unexpected result type: {type(result).__name__}"
+                    
+                    logger.warning(f"Panel {panel.id} ({panel.name}), ventana {window_id}: {error_msg}")
+                    logger.debug(f"Resultado completo: {result}")
                     return {
                         'success': False,
                         'window_id': window_id,
@@ -266,19 +276,23 @@ class PanelType3And4UpdateService:
                     }
             except Exception as e:
                 import traceback
-                error_msg = str(e)
-                logger.error(f"Error enviando mensaje a ventana {window_id} del panel {panel.id}: {error_msg}")
-                logger.debug(f"Traceback completo: {traceback.format_exc()}")
+                error_type = type(e).__name__
+                error_msg = str(e) if str(e) else f"{error_type} (sin mensaje)"
+                full_error = f"{error_type}: {error_msg}"
+                logger.error(f"Error enviando mensaje a ventana {window_id} del panel {panel.id} ({panel.name}): {full_error}")
+                logger.error(f"Traceback completo:\n{traceback.format_exc()}")
                 return {
                     'success': False,
                     'window_id': window_id,
-                    'error': error_msg
+                    'error': full_error
                 }
         except Exception as e:
             import traceback
-            error_msg = str(e)
-            logger.error(f"Error actualizando ventana {window_id} del panel {panel.id}: {error_msg}")
-            logger.debug(f"Traceback completo: {traceback.format_exc()}")
+            error_type = type(e).__name__
+            error_msg = str(e) if str(e) else f"{error_type} (sin mensaje)"
+            full_error = f"{error_type}: {error_msg}"
+            logger.error(f"Error actualizando ventana {window_id} del panel {panel.id} ({panel.name}): {full_error}")
+            logger.error(f"Traceback completo:\n{traceback.format_exc()}")
             # Hacer rollback para limpiar la transacción en caso de error
             try:
                 self.db_session.rollback()
@@ -287,7 +301,7 @@ class PanelType3And4UpdateService:
             return {
                 'success': False,
                 'window_id': window_id,
-                'error': error_msg
+                'error': full_error
             }
     
     async def update_type3_panel_async(self, panel_id: int) -> Dict[str, Any]:
