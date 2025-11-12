@@ -569,18 +569,37 @@ class PanelProtocolService:
         
         logger.info(f"Enviando texto '{text}' a ventana {window_id} (v4) en {panel_ip}:{panel_port}")
         
-        # Construir paquete usando protocolo v4
-        protocol_v4 = PanelProtocolV4(panel_ip, panel_port)
-        packet = protocol_v4.build_text_packet(
-            text=text,
-            window_number=window_id,
-            color=color,
-            font_size=font_size,
-            alignment=alignment,
-            effect=effect,
-            speed=speed,
-            wait_time=wait_time
+        # Construir paquete usando PacketBuilder (sigue la documentación correctamente)
+        # PacketBuilder tiene el byte de confirmación en la posición correcta (Additional Info)
+        # Convertir enums a valores enteros para PacketBuilder
+        from .constants import CARD_ID_BROADCAST
+        
+        # Convertir enums a enteros
+        color_int = color.value if hasattr(color, 'value') else int(color)
+        font_size_int = font_size.value if hasattr(font_size, 'value') else int(font_size)
+        effect_int = effect.value if hasattr(effect, 'value') else int(effect)
+        alignment_int = alignment.value if hasattr(alignment, 'value') else int(alignment)
+        
+        logger.debug(
+            f"Construyendo paquete v4 - window_id={window_id}, color={color_int}, "
+            f"font_size={font_size_int}, effect={effect_int}, alignment={alignment_int}, "
+            f"request_confirmation=True"
         )
+        
+        packet = PacketBuilder.build_send_text_packet(
+            card_id=CARD_ID_BROADCAST,  # 0xFF para broadcast
+            window_id=window_id,
+            text=text,
+            color=color_int,
+            font_size=font_size_int,
+            effect=effect_int,
+            alignment=alignment_int,
+            speed=speed,
+            stay_time=wait_time,
+            request_confirmation=True  # SIEMPRE solicitar confirmación para que el panel responda
+        )
+        
+        logger.debug(f"Paquete construido: {len(packet)} bytes - {packet.hex()}")
         
         task_id = await self.task_queue.add_task(
             panel_ip=panel_ip,

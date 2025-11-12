@@ -272,22 +272,40 @@ class ConnectionPool:
         Returns:
             bytes: Respuesta completa
         """
+        loop = asyncio.get_event_loop()
+        
         # Leer header mínimo (12 bytes: ID + length + reserved + packet_type)
-        header = await asyncio.get_event_loop().sock_recv(conn, 12)
+        # Intentar leer con un pequeño timeout para detectar si hay datos disponibles
+        logger.debug("Leyendo header de respuesta (12 bytes)...")
+        try:
+            header = await loop.sock_recv(conn, 12)
+            logger.debug(f"Header recibido: {len(header)} bytes - {header.hex() if header else 'vacío'}")
+        except Exception as e:
+            logger.error(f"Error leyendo header: {e}")
+            raise
         
         if len(header) < 12:
-            raise Exception("Respuesta incompleta")
+            logger.warning(f"Header incompleto: solo {len(header)} bytes recibidos")
+            raise Exception(f"Respuesta incompleta: solo {len(header)} bytes en header (esperados 12)")
         
         # Leer longitud de red (bytes 4-5, little-endian)
         import struct
         network_length = struct.unpack('<H', header[4:6])[0]
+        logger.debug(f"Longitud de red leída: {network_length} bytes")
         
         # Leer el resto del paquete
         remaining = network_length - 4  # Ya leímos 4 bytes (packet_type + card_type + card_id + command)
         if remaining > 0:
-            body = await asyncio.get_event_loop().sock_recv(conn, remaining)
-            return header + body
+            logger.debug(f"Leyendo cuerpo del paquete: {remaining} bytes restantes")
+            try:
+                body = await loop.sock_recv(conn, remaining)
+                logger.debug(f"Cuerpo recibido: {len(body)} bytes")
+                return header + body
+            except Exception as e:
+                logger.error(f"Error leyendo cuerpo: {e}")
+                raise
         
+        logger.debug("Paquete completo (solo header)")
         return header
     
     async def close_all(self):
