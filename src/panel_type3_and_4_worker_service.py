@@ -10,8 +10,12 @@ import signal
 import sys
 import time
 import json
+import os
 from datetime import datetime
 from panel_type3_and_4_worker import PanelType3And4Worker
+
+# Crear directorio de logs si no existe
+os.makedirs('logs', exist_ok=True)
 
 # Configurar logging específico para el servicio
 logging.basicConfig(
