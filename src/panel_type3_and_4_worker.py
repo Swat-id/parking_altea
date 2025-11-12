@@ -19,7 +19,6 @@ import logging
 import threading
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
-from dataclasses import dataclass
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from models import Panel, PanelType, UserPanelConfig, UserParking
@@ -27,22 +26,6 @@ from config import DB_URL
 
 # Configurar logging específico para el worker
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class Type3And4UpdateStats:
-    """Estadísticas de actualización de paneles Tipo 3 y 4"""
-    panels_processed: int = 0
-    panels_updated: int = 0
-    panels_failed: int = 0
-    windows_updated: int = 0
-    type3_panels: int = 0
-    type4_panels: int = 0
-    errors: List[Dict] = None
-    
-    def __post_init__(self):
-        if self.errors is None:
-            self.errors = []
 
 
 class PanelType3And4Worker:
