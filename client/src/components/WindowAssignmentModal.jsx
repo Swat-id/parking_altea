@@ -5,7 +5,16 @@ import panelService from '../services/panelService'
 import parkingService from '../services/parkingService'
 import toast from 'react-hot-toast'
 
-const WindowAssignmentModal = ({ isOpen, onClose, panelId, windowId, onSuccess, isCreating = false }) => {
+const WindowAssignmentModal = ({ 
+  isOpen, 
+  onClose, 
+  panelId, 
+  windowId, 
+  onSuccess, 
+  isCreating = false,
+  parkingId = null, // Parking del panel (para Tipo 3)
+  panelTypeId = null // Tipo de panel (para determinar si es Tipo 3)
+}) => {
   const [parkings, setParkings] = useState([])
   const [selectedParkingId, setSelectedParkingId] = useState(null)
   const [sensorTypes, setSensorTypes] = useState([])
@@ -16,12 +25,38 @@ const WindowAssignmentModal = ({ isOpen, onClose, panelId, windowId, onSuccess, 
   const [loading, setLoading] = useState(false)
   const [loadingParkings, setLoadingParkings] = useState(false)
   const [loadingSensorTypes, setLoadingSensorTypes] = useState(false)
+  
+  // Determinar si es Tipo 3
+  const isType3 = panelTypeId === 3 || (windowId !== undefined && windowId < 2 && parkingId !== null)
 
   useEffect(() => {
     if (isOpen) {
+      // Siempre cargar parkings para poder mostrar nombres
       loadParkings()
+      
+      // Si es Tipo 3 y tiene parkingId, usar ese parking directamente
+      if (isType3 && parkingId) {
+        setSelectedParkingId(parkingId)
+        // Para Tipo 3: ventana 0 = parking general, ventana 1 = PMR
+        if (windowId === 0) {
+          setDisplayType('parking')
+        } else if (windowId === 1) {
+          setDisplayType('sensor_group')
+          // Cargar tipos de sensores automáticamente después de un pequeño delay
+          setTimeout(() => {
+            loadSensorTypes(parkingId)
+          }, 100)
+        }
+      }
+    } else {
+      // Reset al cerrar
+      setSelectedParkingId(null)
+      setDisplayType('parking')
+      setSelectedSensorType(null)
+      setTextoFijoPrevio('')
+      setColor(2)
     }
-  }, [isOpen])
+  }, [isOpen, parkingId, windowId, isType3])
 
   useEffect(() => {
     if (selectedParkingId && displayType === 'sensor_group') {
@@ -31,6 +66,17 @@ const WindowAssignmentModal = ({ isOpen, onClose, panelId, windowId, onSuccess, 
       setSelectedSensorType(null)
     }
   }, [selectedParkingId, displayType])
+  
+  // Para Tipo 3, pre-seleccionar PMR en ventana 1
+  useEffect(() => {
+    if (isType3 && windowId === 1 && displayType === 'sensor_group' && sensorTypes.length > 0) {
+      const pmrType = sensorTypes.find(t => t === 'PMR')
+      if (pmrType && !selectedSensorType) {
+        setSelectedSensorType('PMR')
+        setTextoFijoPrevio('PMR')
+      }
+    }
+  }, [isType3, windowId, displayType, sensorTypes, selectedSensorType])
 
   const loadParkings = async () => {
     try {
@@ -109,14 +155,22 @@ const WindowAssignmentModal = ({ isOpen, onClose, panelId, windowId, onSuccess, 
 
       if (result.success) {
         toast.success('Asignación creada exitosamente')
+        // NO cerrar el modal aquí, solo llamar onSuccess para que recargue las asignaciones
         onSuccess?.()
-        onClose()
-        // Reset form
-        setSelectedParkingId(null)
+        // Reset form pero mantener parkingId si es Tipo 3
+        if (!isType3 || !parkingId) {
+          setSelectedParkingId(null)
+        }
         setSelectedSensorType(null)
-        setDisplayType('parking')
+        if (!isType3) {
+          setDisplayType('parking')
+        }
         setTextoFijoPrevio('')
         setColor(2) // Reset a verde
+        // Cerrar el modal después de un pequeño delay para que el usuario vea el mensaje
+        setTimeout(() => {
+          onClose()
+        }, 500)
       } else {
         toast.error(result.error || 'Error al crear la asignación')
       }
@@ -131,8 +185,20 @@ const WindowAssignmentModal = ({ isOpen, onClose, panelId, windowId, onSuccess, 
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
+      onClick={(e) => {
+        // Prevenir que el clic en el overlay cierre el modal padre
+        e.stopPropagation()
+        if (e.target === e.currentTarget) {
+          onClose()
+        }
+      }}
+    >
+      <div 
+        className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b">
           <h2 className="text-xl font-bold text-gray-900">
@@ -148,58 +214,88 @@ const WindowAssignmentModal = ({ isOpen, onClose, panelId, windowId, onSuccess, 
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Tipo de asignación */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tipo de asignación
-            </label>
-            <div className="space-y-2">
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  value="parking"
-                  checked={displayType === 'parking'}
-                  onChange={(e) => setDisplayType(e.target.value)}
-                  className="mr-2"
-                />
-                <span>Ocupación general del parking</span>
+          {/* Tipo de asignación - Para Tipo 3, mostrar según la ventana */}
+          {isType3 ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tipo de asignación
               </label>
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  value="sensor_group"
-                  checked={displayType === 'sensor_group'}
-                  onChange={(e) => setDisplayType(e.target.value)}
-                  className="mr-2"
-                />
-                <span>Grupo de sensores (PMR, Eléctrico, Caravanas, etc.)</span>
-              </label>
+              <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                {windowId === 0 
+                  ? 'Ocupación general del parking (Plazas libres totales)'
+                  : 'Grupo de sensores PMR (Plazas PMR libres)'}
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Para paneles Tipo 3: Ventana 0 = Plazas totales, Ventana 1 = Plazas PMR
+              </p>
             </div>
-          </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tipo de asignación
+              </label>
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    value="parking"
+                    checked={displayType === 'parking'}
+                    onChange={(e) => setDisplayType(e.target.value)}
+                    className="mr-2"
+                  />
+                  <span>Ocupación general del parking</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    value="sensor_group"
+                    checked={displayType === 'sensor_group'}
+                    onChange={(e) => setDisplayType(e.target.value)}
+                    className="mr-2"
+                  />
+                  <span>Grupo de sensores (PMR, Eléctrico, Caravanas, etc.)</span>
+                </label>
+              </div>
+            </div>
+          )}
 
-          {/* Selección de parking */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Parking <span className="text-red-500">*</span>
-            </label>
-            {loadingParkings ? (
-              <div className="text-sm text-gray-500">Cargando parkings...</div>
-            ) : (
-              <select
-                value={selectedParkingId || ''}
-                onChange={(e) => setSelectedParkingId(parseInt(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              >
-                <option value="">Seleccionar parking...</option>
-                {parkings.map((parking) => (
-                  <option key={parking.id} value={parking.id}>
-                    {parking.name} {parking.location ? `(${parking.location})` : ''}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
+          {/* Selección de parking - Para Tipo 3, mostrar solo el parking del panel */}
+          {isType3 && parkingId ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Parking
+              </label>
+              <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                {parkings.find(p => p.id === parkingId)?.name || `Parking ${parkingId}`}
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Para paneles Tipo 3, el parking está vinculado al panel
+              </p>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Parking <span className="text-red-500">*</span>
+              </label>
+              {loadingParkings ? (
+                <div className="text-sm text-gray-500">Cargando parkings...</div>
+              ) : (
+                <select
+                  value={selectedParkingId || ''}
+                  onChange={(e) => setSelectedParkingId(parseInt(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">Seleccionar parking...</option>
+                  {parkings.map((parking) => (
+                    <option key={parking.id} value={parking.id}>
+                      {parking.name} {parking.location ? `(${parking.location})` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
 
           {/* Selección de tipo de sensor (solo si displayType === 'sensor_group') */}
           {displayType === 'sensor_group' && (

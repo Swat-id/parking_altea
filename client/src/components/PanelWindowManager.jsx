@@ -45,7 +45,7 @@ const PanelWindowManager = ({
       // Inicializar ventanas vacías para nuevo panel
       initializeWindows()
     }
-  }, [panelId, isEditing, windowsCount, panelTypeId]) // Añadir panelTypeId para recargar cuando cambia el tipo
+  }, [panelId, isEditing, windowsCount, panelTypeId, parkingId]) // Añadir parkingId para recargar cuando cambia el parking
 
   // Efecto separado para actualizar asignaciones pendientes
   useEffect(() => {
@@ -96,7 +96,9 @@ const PanelWindowManager = ({
     
     try {
       setLoading(true)
+      console.log(`[PanelWindowManager] Cargando asignaciones para panel ${panelId}, windowsCount: ${windowsCount}`)
       const assignments = await windowService.getWindowAssignments(panelId)
+      console.log(`[PanelWindowManager] Asignaciones recibidas:`, assignments)
       
       // Agrupar asignaciones por window_id
       const windowsMap = {}
@@ -116,10 +118,13 @@ const PanelWindowManager = ({
         assignments: windowsMap[wid]
       }))
       
+      console.log(`[PanelWindowManager] Ventanas agrupadas:`, windowsArray)
       setWindows(windowsArray)
     } catch (error) {
       console.error('Error cargando asignaciones de ventanas:', error)
       toast.error('Error al cargar las asignaciones de ventanas')
+      // Inicializar ventanas vacías en caso de error
+      initializeWindows()
     } finally {
       setLoading(false)
     }
@@ -281,6 +286,8 @@ const PanelWindowManager = ({
           windowId={selectedWindowId}
           onSuccess={handleAssignmentSuccess}
           isCreating={!panelId && !isEditing} // Indica si se está creando el panel
+          parkingId={parkingId} // Parking del panel (para Tipo 3)
+          panelTypeId={panelTypeId} // Tipo de panel
         />
       )}
 
