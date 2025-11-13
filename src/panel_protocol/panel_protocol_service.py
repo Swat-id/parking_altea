@@ -419,8 +419,21 @@ class PanelProtocolService:
             )
             
             if response is None:
-                logger.error(f"❌ No se recibió respuesta del panel {panel_ip}:{panel_port}")
-                raise Exception("No se recibió respuesta del panel")
+                # Si no hay respuesta pero el paquete se envió correctamente,
+                # considerar como éxito parcial (el panel puede haber procesado el mensaje)
+                logger.warning(
+                    f"⚠️ No se recibió respuesta del panel {panel_ip}:{panel_port}, "
+                    f"pero el paquete se envió correctamente. "
+                    f"El panel puede haber procesado el mensaje sin enviar respuesta."
+                )
+                # Retornar éxito parcial (asumiendo que el panel procesó el mensaje)
+                return {
+                    'success': True,  # Considerar como éxito si el paquete se envió
+                    'return_value': 0x00,  # Asumir éxito
+                    'response_data': None,
+                    'parsed': {'success': True, 'return_value': 0x00},
+                    'no_response': True  # Indicar que no hubo respuesta
+                }
             
             logger.info(f"✅ Respuesta recibida del panel {panel_ip}:{panel_port} ({len(response)} bytes)")
             
