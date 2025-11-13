@@ -51,10 +51,13 @@ class PacketBuilder:
         additional_info = CONFIRMATION_REQUESTED if request_confirmation else NO_CONFIRMATION
         
         # Construir parte del paquete desde Packet Type hasta Additional Info
+        # Según el paquete correcto del usuario, hay un byte 0x00 después del Card ID
+        # Formato: Packet Type, Card Type, Card ID, 0x00 (reservado), Command, Additional Info
         packet_header = bytes([
             PACKET_TYPE_SEND,      # 0x68
             CARD_TYPE,             # 0x32
             card_id,               # 0x01-0xFE o 0xFF
+            0x00,                  # Byte reservado (según paquete correcto del usuario)
             command,               # 0x7B
             additional_info        # 0x01 o 0x00
         ])
