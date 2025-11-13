@@ -62,21 +62,22 @@ class PacketBuilder:
             additional_info        # 0x01 o 0x00
         ])
         
-        # Según la documentación (Ejemplo-protocolos-texto-network.txt, línea 44):
+        # Según el análisis del usuario, el Packet Data Length es de 2 bytes, no 4
         # Después de Additional Info viene directamente:
-        # - Packet data length (4 bytes, little-endian) - Longitud del comando CC
-        # NO hay Packet Number ni Last Packet Number en el formato de red
+        # - Packet data length (2 bytes, little-endian) - Longitud del comando CC
         packet_data_length = len(packet_data)
-        packet_info = struct.pack('<I', packet_data_length)  # Packet data length (4 bytes, little-endian)
+        packet_info = struct.pack('<H', packet_data_length)  # Packet data length (2 bytes, little-endian)
         
         # Datos completos para calcular checksum (desde Packet Type hasta Packet Data)
         data_for_checksum = packet_header + packet_info + packet_data
         
         # Calcular checksum (suma desde Packet Type hasta Packet Data)
+        # El checksum se calcula sobre todos los bytes desde Packet Type hasta Packet Data
         checksum = calculate_checksum(data_for_checksum)
         
         # Calcular longitud de red (desde Packet Type hasta Checksum)
         # Según el protocolo, la longitud es de 2 bytes (little-endian)
+        # Network Length = longitud desde Packet Type (incluido) hasta Checksum (incluido)
         network_length = len(data_for_checksum) + len(checksum)
         
         # Construir paquete completo según documentación:
