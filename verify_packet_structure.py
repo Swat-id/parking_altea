@@ -3,18 +3,16 @@
 Verificar la estructura del paquete actual vs el correcto
 """
 
-import struct
-
 # Paquete actual (del log)
-current_hex = "ffffffff1b0000006832ff7b011000000002000005030300220039220030000000df02"
+current_hex = "ffffffff1b0000006832017b011000000002000005030300220039220030000000e101"
 current = bytes.fromhex(current_hex)
 
 # Paquete correcto según usuario
-correct_hex = "ffffffff1b000000683215007b011000000002000005030300220039220030000000110202"
+correct_hex = "ffffffff1b0000006832017b011600000002000005030300220039220030000000e101"
 correct = bytes.fromhex(correct_hex)
 
 print("=" * 80)
-print("ANÁLISIS DETALLADO")
+print("COMPARACIÓN DE PAQUETES")
 print("=" * 80)
 
 print("\n📦 PAQUETE ACTUAL:")
@@ -26,104 +24,48 @@ print(" ".join(f"{b:02x}" for b in correct))
 print(f"Longitud: {len(correct)} bytes")
 
 print("\n" + "=" * 80)
-print("DESGLOSE DEL PAQUETE ACTUAL:")
+print("DIFERENCIAS:")
 print("=" * 80)
 
-offset = 0
-print(f"\n[{offset:2d}-{offset+3:2d}] ID Code: {' '.join(f'{b:02x}' for b in current[offset:offset+4])}")
-offset += 4
+# Comparar byte por byte
+for i in range(min(len(current), len(correct))):
+    if current[i] != correct[i]:
+        print(f"  Posición {i:2d}: Actual={current[i]:02x}, Correcto={correct[i]:02x}")
 
-network_length = int.from_bytes(current[offset:offset+2], 'little')
-print(f"[{offset:2d}-{offset+1:2d}] Network Length: {network_length:04x} ({network_length} bytes)")
-offset += 2
-
-print(f"[{offset:2d}-{offset+1:2d}] Reserved: {' '.join(f'{b:02x}' for b in current[offset:offset+2])}")
-offset += 2
-
-print(f"[{offset:2d}] Packet Type: {current[offset]:02x}")
-offset += 1
-
-print(f"[{offset:2d}] Card Type: {current[offset]:02x}")
-offset += 1
-
-print(f"[{offset:2d}] Card ID: {current[offset]:02x}")
-offset += 1
-
-print(f"[{offset:2d}] Command: {current[offset]:02x}")
-offset += 1
-
-print(f"[{offset:2d}] Additional Info: {current[offset]:02x}")
-offset += 1
-
-packet_data_length = int.from_bytes(current[offset:offset+4], 'little')
-print(f"[{offset:2d}-{offset+3:2d}] Packet Data Length: {packet_data_length:08x} ({packet_data_length} bytes)")
-offset += 4
-
-packet_data = current[offset:-2]
-print(f"[{offset:2d}-{len(current)-3:2d}] Packet Data ({len(packet_data)} bytes): {' '.join(f'{b:02x}' for b in packet_data)}")
-print(f"[{len(current)-2:2d}-{len(current)-1:2d}] Checksum: {' '.join(f'{b:02x}' for b in current[-2:])}")
-
+# Analizar Packet Data Length
 print("\n" + "=" * 80)
-print("DESGLOSE DEL PAQUETE CORRECTO:")
+print("ANÁLISIS DE PACKET DATA LENGTH:")
 print("=" * 80)
 
-offset = 0
-print(f"\n[{offset:2d}-{offset+3:2d}] ID Code: {' '.join(f'{b:02x}' for b in correct[offset:offset+4])}")
-offset += 4
+# En el paquete actual, Packet Data Length está en bytes 13-16
+packet_data_length_current = int.from_bytes(current[13:17], 'little')
+packet_data_length_correct = int.from_bytes(correct[13:17], 'little')
 
-network_length = int.from_bytes(correct[offset:offset+2], 'little')
-print(f"[{offset:2d}-{offset+1:2d}] Network Length: {network_length:04x} ({network_length} bytes)")
-offset += 2
+print(f"\nPacket Data Length actual: {packet_data_length_current} bytes (0x{packet_data_length_current:08x})")
+print(f"Packet Data Length correcto: {packet_data_length_correct} bytes (0x{packet_data_length_correct:08x})")
 
-print(f"[{offset:2d}-{offset+1:2d}] Reserved: {' '.join(f'{b:02x}' for b in correct[offset:offset+2])}")
-offset += 2
+# Analizar el comando CC real
+packet_data_current = current[17:-2]
+packet_data_correct = correct[17:-2]
 
-print(f"[{offset:2d}] Packet Type: {correct[offset]:02x}")
-offset += 1
+print(f"\nPacket Data actual: {len(packet_data_current)} bytes")
+print(f"  {' '.join(f'{b:02x}' for b in packet_data_current)}")
 
-print(f"[{offset:2d}] Card Type: {correct[offset]:02x}")
-offset += 1
+print(f"\nPacket Data correcto: {len(packet_data_correct)} bytes")
+print(f"  {' '.join(f'{b:02x}' for b in packet_data_correct)}")
 
-print(f"[{offset:2d}] Card ID: {correct[offset]:02x}")
-offset += 1
+print(f"\n¿Coinciden los datos? {'✓ SÍ' if packet_data_current == packet_data_correct else '✗ NO'}")
 
-# Aquí está la diferencia - hay un byte extra en el paquete correcto
-if offset < len(correct):
-    print(f"[{offset:2d}] Byte extra: {correct[offset]:02x}")
-    offset += 1
+if packet_data_current != packet_data_correct:
+    print("\nDiferencias en Packet Data:")
+    for i in range(min(len(packet_data_current), len(packet_data_correct))):
+        if packet_data_current[i] != packet_data_correct[i]:
+            print(f"  Posición {i:2d}: Actual={packet_data_current[i]:02x}, Correcto={packet_data_correct[i]:02x}")
 
-print(f"[{offset:2d}] Command: {correct[offset]:02x}")
-offset += 1
-
-print(f"[{offset:2d}] Additional Info: {correct[offset]:02x}")
-offset += 1
-
-packet_data_length = int.from_bytes(correct[offset:offset+4], 'little')
-print(f"[{offset:2d}-{offset+3:2d}] Packet Data Length: {packet_data_length:08x} ({packet_data_length} bytes)")
-offset += 4
-
-packet_data = correct[offset:-2]
-print(f"[{offset:2d}-{len(correct)-3:2d}] Packet Data ({len(packet_data)} bytes): {' '.join(f'{b:02x}' for b in packet_data)}")
-print(f"[{len(correct)-2:2d}-{len(correct)-1:2d}] Checksum: {' '.join(f'{b:02x}' for b in correct[-2:])}")
-
-print("\n" + "=" * 80)
-print("DIFERENCIAS CLAVE:")
-print("=" * 80)
-
-# Comparar sección por sección
-print("\n1. Card ID:")
-print(f"   Actual: 0x{current[10]:02x} (0xFF = broadcast)")
-print(f"   Correcto: 0x{correct[10]:02x} (0x15)")
-
-print("\n2. Byte después de Card ID:")
-print(f"   Actual: No existe (siguiente byte es Command)")
-print(f"   Correcto: 0x{correct[11]:02x} (0x00)")
-
-print("\n3. Command:")
-print(f"   Actual: 0x{current[11]:02x}")
-print(f"   Correcto: 0x{correct[12]:02x}")
-
-print("\n4. Checksum:")
-print(f"   Actual: {' '.join(f'{b:02x}' for b in current[-2:])}")
-print(f"   Correcto: {' '.join(f'{b:02x}' for b in correct[-2:])}")
-
+# Verificar si el problema es solo el Packet Data Length declarado
+if packet_data_current == packet_data_correct:
+    print("\n✅ El Packet Data es idéntico, solo el Packet Data Length declarado es diferente")
+    print(f"   Actual declara: {packet_data_length_current} bytes")
+    print(f"   Correcto declara: {packet_data_length_correct} bytes")
+    print(f"   Real tiene: {len(packet_data_current)} bytes")
+    print(f"   → El problema es que estamos declarando {packet_data_length_current} cuando deberíamos declarar {len(packet_data_current)}")
