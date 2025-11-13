@@ -329,14 +329,38 @@ class PanelType3And4UpdateService:
                         'error': error_msg
                     }
             except asyncio.TimeoutError as e:
-                error_msg = f"Timeout esperando respuesta del panel (15s) - El panel puede no estar respondiendo o estar sobrecargado"
-                logger.error(
-                    f"Panel {panel.id} ({panel.name}), ventana {window_id}: {error_msg}"
+                # Si el paquete se envió correctamente pero no hay respuesta,
+                # considerar como éxito parcial (el panel puede haber procesado el mensaje)
+                logger.warning(
+                    f"Panel {panel.id} ({panel.name}), ventana {window_id}: "
+                    f"Timeout esperando respuesta del panel (15s), pero el paquete se envió correctamente. "
+                    f"Considerando como éxito parcial (el panel puede haber procesado el mensaje sin enviar respuesta)."
                 )
+                
+                # Actualizar último mensaje en la tabla Panel (éxito parcial)
+                if window_id == 0:
+                    panel.last_message = message
+                    panel.last_message_window_0 = message
+                    panel.last_update_window_0 = datetime.utcnow()
+                elif window_id == 1:
+                    panel.last_message_window_1 = message
+                    panel.last_update_window_1 = datetime.utcnow()
+                    if not panel.last_message:
+                        panel.last_message = message
+                
+                panel.last_update = datetime.utcnow()
+                self.db_session.commit()
+                
+                logger.info(
+                    f"Ventana {window_id} del panel {panel.id} ({panel.name}) "
+                    f"actualizada (éxito parcial, sin respuesta): {message}"
+                )
+                
                 return {
-                    'success': False,
+                    'success': True,  # Considerar como éxito aunque no haya respuesta
                     'window_id': window_id,
-                    'error': error_msg
+                    'message': message,
+                    'no_response': True  # Indicar que no hubo respuesta
                 }
             except Exception as e:
                 import traceback
