@@ -25,10 +25,10 @@ class PacketBuilder:
         """
         Construye un paquete completo de red según el protocolo.
         
-        Formato según estructura correcta:
+        Formato según estructura de referencia (panel_protocol.py):
         - ID Code: 4 bytes (0xFF, 0xFF, 0xFF, 0xFF)
-        - Network Length: 4 bytes (little-endian) - desde Packet Type hasta Checksum
-        - NO hay bytes Reserved
+        - Network Length: 2 bytes (little-endian) - desde Packet Type hasta Checksum
+        - Reserved: 2 bytes (0x00, 0x00)
         - Packet Type: 1 byte (0x68)
         - Card Type: 1 byte (0x32)
         - Card ID: 1 byte (0x01-0xFE o 0xFF)
@@ -77,19 +77,20 @@ class PacketBuilder:
         checksum = calculate_checksum(data_for_checksum)
         
         # Calcular longitud de red (desde Packet Type hasta Checksum)
-        # Según la estructura correcta del usuario, Network Length es de 4 bytes (little-endian)
+        # Según la referencia panel_protocol.py, Network Length es de 2 bytes (little-endian)
         # Network Length = longitud desde Packet Type (incluido) hasta Checksum (incluido)
         # Esto incluye: Packet Type + Card Type + Card ID + Command + Additional Info + Packet Data Length + Packet Data + Checksum
         network_length = len(data_for_checksum) + len(checksum)
         
-        # Construir paquete completo según estructura correcta del usuario:
+        # Construir paquete completo según estructura de referencia (panel_protocol.py):
         # - ID Code: 4 bytes (0xFF, 0xFF, 0xFF, 0xFF)
-        # - Network Length: 4 bytes (little-endian) - desde Packet Type hasta Checksum
-        # - NO hay bytes Reserved
+        # - Network Length: 2 bytes (little-endian) - desde Packet Type hasta Checksum
+        # - Reserved: 2 bytes (0x00, 0x00)
         # - Packet Type hasta Checksum
         packet = (
             ID_CODE +                                    # 4 bytes: ID Code
-            struct.pack('<I', network_length) +          # 4 bytes: Network Length (little-endian)
+            struct.pack('<H', network_length) +          # 2 bytes: Network Length (little-endian)
+            b'\x00\x00' +                                # 2 bytes: Reserved
             data_for_checksum +                          # Packet Type + Card Type + Card ID + Command + Additional Info + Packet Data Length + Packet Data
             checksum                                     # 2 bytes: Checksum
         )
