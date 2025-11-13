@@ -20,20 +20,29 @@ class PacketBuilder:
         card_id: int,
         command: int,
         packet_data: bytes,
-        request_confirmation: bool = True,
-        packet_number: int = 0x00,
-        last_packet_number: int = 0x00
+        request_confirmation: bool = True
     ) -> bytes:
         """
         Construye un paquete completo de red según el protocolo.
         
+        Formato según documentación (Ejemplo-protocolos-texto-network.txt):
+        - ID Code: 4 bytes (0xFF, 0xFF, 0xFF, 0xFF)
+        - Network Length: 2 bytes (desde Packet Type hasta Checksum)
+        - Reserved: 2 bytes (0x00, 0x00)
+        - Packet Type: 1 byte (0x68)
+        - Card Type: 1 byte (0x32)
+        - Card ID: 1 byte (0x01-0xFE o 0xFF)
+        - Command: 1 byte (0x7B)
+        - Additional Info: 1 byte (0x01 o 0x00)
+        - Packet Data Length: 4 bytes (little-endian) - Longitud del comando CC
+        - Packet Data: Variable (comando CC)
+        - Checksum: 2 bytes
+        
         Args:
             card_id: ID de la tarjeta (0x01-0xFE) o 0xFF para broadcast
-            command: Código de comando
+            command: Código de comando (0x7B para protocolo)
             packet_data: Datos del comando CC (sin incluir headers adicionales)
             request_confirmation: Si True, solicita confirmación (bit 0 = 1)
-            packet_number: Número de secuencia del paquete (0x00-0xFF)
-            last_packet_number: Número total de paquetes - 1 (0x00 para un solo paquete)
             
         Returns:
             bytes: Paquete completo listo para enviar
@@ -50,16 +59,12 @@ class PacketBuilder:
             additional_info        # 0x01 o 0x00
         ])
         
-        # Según la documentación, después de Additional Info vienen:
-        # - Packet data length (2 bytes) - Longitud de la parte "CC..."
-        # - Packet number (1 byte)
-        # - Last packet number (1 byte)
+        # Según la documentación (Ejemplo-protocolos-texto-network.txt, línea 44):
+        # Después de Additional Info viene directamente:
+        # - Packet data length (4 bytes, little-endian) - Longitud del comando CC
+        # NO hay Packet Number ni Last Packet Number en el formato de red
         packet_data_length = len(packet_data)
-        packet_info = (
-            struct.pack('<H', packet_data_length) +  # Packet data length (2 bytes, little-endian)
-            bytes([packet_number]) +                  # Packet number (1 byte)
-            bytes([last_packet_number])               # Last packet number (1 byte)
-        )
+        packet_info = struct.pack('<I', packet_data_length)  # Packet data length (4 bytes, little-endian)
         
         # Datos completos para calcular checksum (desde Packet Type hasta Packet Data)
         data_for_checksum = packet_header + packet_info + packet_data
