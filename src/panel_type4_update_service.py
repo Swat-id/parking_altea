@@ -273,11 +273,11 @@ class PanelType3And4UpdateService:
                 
                 logger.debug(
                     f"Panel {panel.id} ({panel.name}), ventana {window_id}: "
-                    f"Tarea {task_id} creada, esperando resultado (timeout: 15.0s)"
+                    f"Tarea {task_id} creada, esperando resultado (timeout: 30.0s)"
                 )
                 
-                # Obtener el resultado de la tarea (con timeout aumentado para procesamiento paralelo)
-                result = await protocol_service.get_task_result(task_id, timeout=15.0)
+                # Obtener el resultado de la tarea (con timeout aumentado para mayor latencia)
+                result = await protocol_service.get_task_result(task_id, timeout=30.0)
                 
                 if result and result.get('success'):
                     # Actualizar último mensaje en la tabla Panel
@@ -333,7 +333,7 @@ class PanelType3And4UpdateService:
                 # considerar como éxito parcial (el panel puede haber procesado el mensaje)
                 logger.warning(
                     f"Panel {panel.id} ({panel.name}), ventana {window_id}: "
-                    f"Timeout esperando respuesta del panel (15s), pero el paquete se envió correctamente. "
+                    f"Timeout esperando respuesta del panel (30s), pero el paquete se envió correctamente. "
                     f"Considerando como éxito parcial (el panel puede haber procesado el mensaje sin enviar respuesta)."
                 )
                 
@@ -430,8 +430,8 @@ class PanelType3And4UpdateService:
             protocol_service = PanelProtocolService(
                 max_concurrent_tasks=20,  # Aumentar para procesar más paneles en paralelo
                 max_connections_per_panel=5,
-                connection_timeout=5.0,
-                read_timeout=15.0  # Aumentar timeout de lectura para procesamiento paralelo
+                connection_timeout=10.0,  # Aumentado para mayor latencia
+                read_timeout=30.0  # Aumentado significativamente para mayor latencia
             )
             
             # Actualizar ambas ventanas EN PARALELO usando asyncio.gather

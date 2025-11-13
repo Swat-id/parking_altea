@@ -74,8 +74,8 @@ class Alignment:
 
 # Configuración por defecto
 DEFAULT_PORT = 5200  # Puerto TCP para comunicación con paneles
-DEFAULT_TIMEOUT = 10.0  # segundos
-DEFAULT_CONNECTION_TIMEOUT = 5.0  # segundos
+DEFAULT_TIMEOUT = 30.0  # segundos (aumentado para mayor latencia)
+DEFAULT_CONNECTION_TIMEOUT = 10.0  # segundos (aumentado para mayor latencia)
 
 # Puerto del servicio HTTP/REST
 PANEL_PROTOCOL_SERVICE_PORT = 7110  # Puerto fijo para el servicio HTTP

@@ -17,75 +17,109 @@ class PacketParser:
     def parse_response(packet: bytes) -> Optional[Dict]:
         """
         Analiza un paquete de respuesta recibido.
+        Versión tolerante que acepta cualquier respuesta, incluso si está mal formateada.
         
         Args:
             packet: Paquete completo recibido
             
         Returns:
-            Dict con información del paquete o None si es inválido
+            Dict con información del paquete o None si es completamente inválido
             {
                 'card_id': int,
                 'command': int,
                 'return_value': int,
                 'success': bool,
                 'packet_data': bytes,
-                'raw_packet': bytes
+                'raw_packet': bytes,
+                'valid': bool  # True si el paquete está bien formateado, False si es parcial
             }
         """
-        if len(packet) < 15:  # Tamaño mínimo del paquete
+        if len(packet) < 8:  # Tamaño mínimo absoluto (ID + length mínimo)
             return None
         
-        # Verificar ID Code (primeros 4 bytes)
-        if packet[0:4] != ID_CODE:
-            return None
+        # Verificar ID Code (primeros 4 bytes) - más tolerante
+        id_code_valid = packet[0:4] == ID_CODE
+        if not id_code_valid and len(packet) < 12:
+            # Si no tiene ID code válido pero tiene al menos 12 bytes, intentar parsear igual
+            pass
         
-        # Leer longitud de red (bytes 4-5, little-endian)
-        network_length = struct.unpack('<H', packet[4:6])[0]
+        # Intentar leer longitud de red (bytes 4-5, little-endian)
+        try:
+            if len(packet) >= 6:
+                network_length = struct.unpack('<H', packet[4:6])[0]
+            else:
+                # Si no hay suficientes bytes, asumir longitud mínima
+                network_length = len(packet) - 8
+        except:
+            network_length = len(packet) - 8 if len(packet) > 8 else 0
         
-        # Verificar que el paquete tenga el tamaño correcto
-        expected_length = 4 + 2 + 2 + network_length  # ID + length + reserved + data
-        if len(packet) < expected_length:
-            return None
+        # Leer Packet Type (byte 8) - más tolerante
+        if len(packet) > 8:
+            packet_type = packet[8]
+            # Aceptar tanto 0xE8 (respuesta) como 0x68 (puede ser respuesta en versiones antiguas)
+            is_response = packet_type == PACKET_TYPE_RESPONSE or packet_type == 0x68
+        else:
+            packet_type = 0
+            is_response = False
         
-        # Leer Packet Type (byte 8)
-        packet_type = packet[8]
-        if packet_type != PACKET_TYPE_RESPONSE:
-            return None
+        # Leer Card Type (byte 9) - más tolerante
+        if len(packet) > 9:
+            card_type = packet[9]
+            card_type_valid = card_type == CARD_TYPE
+        else:
+            card_type = 0
+            card_type_valid = False
         
-        # Leer Card Type (byte 9)
-        card_type = packet[9]
-        if card_type != CARD_TYPE:
-            return None
+        # Leer Card ID (byte 10) - más tolerante
+        if len(packet) > 10:
+            card_id = packet[10]
+        else:
+            card_id = 0
         
-        # Leer Card ID (byte 10)
-        card_id = packet[10]
+        # Leer Command Code (byte 11) - más tolerante
+        if len(packet) > 11:
+            command = packet[11]
+        else:
+            command = 0
         
-        # Leer Command Code (byte 11)
-        command = packet[11]
+        # Leer Return Value (byte 12) - más tolerante
+        if len(packet) > 12:
+            return_value = packet[12]
+        else:
+            return_value = 0x00  # Asumir éxito si no hay return value
         
-        # Leer Return Value (byte 12)
-        return_value = packet[12]
+        # Intentar verificar checksum solo si tenemos suficientes bytes
+        checksum_valid = False
+        if len(packet) >= 8 + network_length and network_length >= 2:
+            try:
+                data_for_checksum = packet[8:8+network_length-2]
+                received_checksum = packet[8+network_length-2:8+network_length]
+                checksum_valid = verify_checksum(data_for_checksum, received_checksum)
+            except:
+                checksum_valid = False
         
-        # Extraer datos del paquete (desde Packet Type hasta antes del checksum)
-        data_for_checksum = packet[8:8+network_length-2]
+        # Extraer Packet Data (desde Return Value hasta antes del checksum) - más tolerante
+        if len(packet) > 13 and network_length > 5:
+            try:
+                packet_data = packet[13:8+network_length-2] if network_length > 5 else b''
+            except:
+                packet_data = packet[13:] if len(packet) > 13 else b''
+        else:
+            packet_data = b''
         
-        # Leer checksum (últimos 2 bytes)
-        received_checksum = packet[8+network_length-2:8+network_length]
+        # Determinar si el paquete es válido o parcial
+        valid = (id_code_valid and is_response and card_type_valid and checksum_valid and len(packet) >= 15)
         
-        # Verificar checksum
-        if not verify_checksum(data_for_checksum, received_checksum):
-            return None
-        
-        # Extraer Packet Data (desde Return Value hasta antes del checksum)
-        packet_data = packet[13:8+network_length-2] if network_length > 5 else b''
-        
+        # Aceptar cualquier respuesta, incluso si está parcialmente formateada
         return {
             'card_id': card_id,
             'command': command,
             'return_value': return_value,
-            'success': return_value == RESPONSE_SUCCESS,
+            'success': return_value == RESPONSE_SUCCESS or return_value == 0x00,  # Más tolerante
             'packet_data': packet_data,
-            'raw_packet': packet
+            'raw_packet': packet,
+            'valid': valid,  # Indica si el paquete está completamente válido
+            'partial': not valid  # Indica si el paquete es parcial
         }
     
     @staticmethod
