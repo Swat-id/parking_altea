@@ -288,18 +288,28 @@ class ConnectionPool:
             logger.warning(f"Header incompleto: solo {len(header)} bytes recibidos")
             raise Exception(f"Respuesta incompleta: solo {len(header)} bytes en header (esperados 12)")
         
-        # Leer longitud de red (bytes 4-5, little-endian)
+        # Leer longitud de red (bytes 4-5, little-endian) - según documentación, respuesta tiene Network Length de 2 bytes
         import struct
         network_length = struct.unpack('<H', header[4:6])[0]
         logger.debug(f"Longitud de red leída: {network_length} bytes")
         
-        # Leer el resto del paquete
-        remaining = network_length - 4  # Ya leímos 4 bytes (packet_type + card_type + card_id + command)
+        # Según documentación, la respuesta tiene:
+        # - ID Code (4 bytes) - ya leído en header[0:4]
+        # - Network Length (2 bytes) - ya leído en header[4:6]
+        # - Reserved (2 bytes) - ya leído en header[6:8]
+        # - Packet Type hasta Checksum (network_length bytes)
+        # El header ya tiene 12 bytes, pero necesitamos leer el resto según network_length
+        # El network_length es desde Packet Type hasta Checksum, así que:
+        # - Ya leímos Packet Type en header[8]
+        # - Necesitamos leer: network_length - 1 bytes más (Card Type + Card ID + Command + Return Value + Packet Data + Checksum)
+        remaining = network_length - 1  # Ya leímos Packet Type (1 byte)
         if remaining > 0:
-            logger.debug(f"Leyendo cuerpo del paquete: {remaining} bytes restantes")
+            logger.debug(f"Leyendo cuerpo del paquete: {remaining} bytes restantes (network_length={network_length})")
             try:
                 body = await loop.sock_recv(conn, remaining)
                 logger.debug(f"Cuerpo recibido: {len(body)} bytes")
+                if len(body) < remaining:
+                    logger.warning(f"Cuerpo incompleto: solo {len(body)} bytes de {remaining} esperados")
                 return header + body
             except Exception as e:
                 logger.error(f"Error leyendo cuerpo: {e}")
