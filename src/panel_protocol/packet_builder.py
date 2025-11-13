@@ -69,15 +69,17 @@ class PacketBuilder:
         packet_info = struct.pack('<H', packet_data_length)  # Packet data length (2 bytes, little-endian)
         
         # Datos completos para calcular checksum (desde Packet Type hasta Packet Data)
+        # IMPORTANTE: El checksum se calcula sobre: Packet Type + Card Type + Card ID + Byte reservado + Command + Additional Info + Packet Data Length + Packet Data
         data_for_checksum = packet_header + packet_info + packet_data
         
         # Calcular checksum (suma desde Packet Type hasta Packet Data)
-        # El checksum se calcula sobre todos los bytes desde Packet Type hasta Packet Data
+        # El checksum se calcula sobre todos los bytes desde Packet Type hasta Packet Data (sin incluir el checksum mismo)
         checksum = calculate_checksum(data_for_checksum)
         
         # Calcular longitud de red (desde Packet Type hasta Checksum)
         # Según el protocolo, la longitud es de 2 bytes (little-endian)
         # Network Length = longitud desde Packet Type (incluido) hasta Checksum (incluido)
+        # Esto incluye: Packet Type + Card Type + Card ID + Byte reservado + Command + Additional Info + Packet Data Length + Packet Data + Checksum
         network_length = len(data_for_checksum) + len(checksum)
         
         # Construir paquete completo según documentación:
