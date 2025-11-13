@@ -572,7 +572,8 @@ class PanelProtocolService:
         # Construir paquete usando PacketBuilder (sigue la documentación correctamente)
         # PacketBuilder tiene el byte de confirmación en la posición correcta (Additional Info)
         # Convertir enums a valores enteros para PacketBuilder
-        from .constants import CARD_ID_BROADCAST
+        # IMPORTANTE: Usar Card ID 0x01 (específico) en lugar de 0xFF (broadcast)
+        # Según la documentación, 0x01 es el Card ID estándar para paneles individuales
         
         # Convertir enums a enteros
         color_int = color.value if hasattr(color, 'value') else int(color)
@@ -583,11 +584,11 @@ class PanelProtocolService:
         logger.debug(
             f"Construyendo paquete v4 - window_id={window_id}, color={color_int}, "
             f"font_size={font_size_int}, effect={effect_int}, alignment={alignment_int}, "
-            f"request_confirmation=True"
+            f"request_confirmation=True, card_id=0x01"
         )
         
         packet = PacketBuilder.build_send_text_packet(
-            card_id=CARD_ID_BROADCAST,  # 0xFF para broadcast
+            card_id=0x01,  # Card ID específico (0x01) en lugar de broadcast (0xFF)
             window_id=window_id,
             text=text,
             color=color_int,
