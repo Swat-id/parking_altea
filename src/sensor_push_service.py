@@ -520,7 +520,7 @@ def receive_push():
         # Loggear mensaje completo para diagnóstico
         serial_number = push_data.get('sensor_info', {}).get('serial_number') or push_data.get('serial_number')
         logger.info(f"📥 Push recibido desde {client_ip} - Serial: {serial_number or 'UNKNOWN'}")
-        logger.debug(f"📦 Mensaje completo: {json.dumps(push_data, indent=2)}")
+        logger.info(f"📦 JSON COMPLETO:\n{json.dumps(push_data, indent=2, ensure_ascii=False)}")
         
         # Procesar el mensaje
         result = processor.process_push_message(push_data)
@@ -606,7 +606,7 @@ def receive_sensor_root():
                 serial_number = serial_number or push_data.get('serial_number') or push_data.get('device_id') or push_data.get('device_serial')
                 
                 logger.info(f"📦 Datos JSON recibidos desde {client_ip} - Serial: {serial_number or 'UNKNOWN'}")
-                logger.debug(f"📋 Mensaje completo: {json.dumps(push_data, indent=2)}")
+                logger.info(f"📋 JSON COMPLETO:\n{json.dumps(push_data, indent=2, ensure_ascii=False)}")
                 
                 # Intentar procesar el mensaje (incluso si no tiene sensor_info)
                 # El procesador intentará extraer serial_number de diferentes ubicaciones
