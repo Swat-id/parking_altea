@@ -16,12 +16,31 @@ const sensorService = {
       if (filters.parking_id) params.append('parking_id', filters.parking_id)
       if (filters.sensor_type) params.append('sensor_type', filters.sensor_type)
       if (filters.is_active !== undefined) params.append('is_active', filters.is_active)
+      // NUEVO v4.3.0: Buscar por serial_number (incluye sensores no accesibles)
+      if (filters.search_serial) params.append('search_serial', filters.search_serial)
       
       const url = `/api/sensors${params.toString() ? `?${params.toString()}` : ''}`
       const response = await api.get(url)
       return response.data
     } catch (error) {
       console.error('Error obteniendo sensores:', error)
+      throw error
+    }
+  },
+
+  /**
+   * NUEVO v4.3.0: Buscar un sensor específico por serial_number
+   * Útil para encontrar sensores que no aparecen en el listado normal
+   */
+  async getSensorBySerial(serialNumber) {
+    try {
+      const response = await api.get(`/api/sensors/by-serial/${serialNumber}`)
+      return response.data
+    } catch (error) {
+      if (error.response?.status === 404) {
+        return null
+      }
+      console.error(`Error obteniendo sensor por serial ${serialNumber}:`, error)
       throw error
     }
   },

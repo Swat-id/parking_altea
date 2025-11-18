@@ -59,14 +59,31 @@ const Sensors = () => {
   // Estados de vista
   const [viewMode, setViewMode] = useState('table') // 'table', 'cards', 'dashboard'
 
+  // Detectar si la búsqueda parece un serial_number (formato: letras/números como FD010E56)
+  const isSerialNumberSearch = (search) => {
+    if (!search) return false
+    // Patrón: empieza con letras, seguido de números y letras (ej: FD010E56, FC072308)
+    const serialPattern = /^[A-Z]{2,3}[0-9A-F]{6,8}$/i
+    return serialPattern.test(search.trim())
+  }
+
   // Obtener datos
   const { data: sensors = [], isLoading, refetch } = useQuery(
     ['sensors', filters],
-    () => sensorService.getAllSensors({
-      parking_id: filters.parking_id || undefined,
-      sensor_type: filters.sensor_type || undefined,
-      is_active: filters.is_active
-    }),
+    () => {
+      const queryFilters = {
+        parking_id: filters.parking_id || undefined,
+        sensor_type: filters.sensor_type || undefined,
+        is_active: filters.is_active
+      }
+      
+      // Si la búsqueda parece un serial_number, usar search_serial para encontrar sensores ocultos
+      if (filters.search && isSerialNumberSearch(filters.search)) {
+        queryFilters.search_serial = filters.search.trim()
+      }
+      
+      return sensorService.getAllSensors(queryFilters)
+    },
     {
       refetchInterval: 30000, // Refrescar cada 30 segundos
     }
@@ -272,8 +289,20 @@ const Sensors = () => {
   }
 
   // Filtrar sensores localmente por búsqueda
+  // Si la búsqueda es un serial_number, el backend ya filtró, solo aplicar filtro de nombre/parking
   const filteredSensors = sensors.filter(sensor => {
     if (!filters.search) return true
+    
+    // Si es búsqueda por serial_number, el backend ya filtró, solo buscar en nombre/parking
+    if (isSerialNumberSearch(filters.search)) {
+      const searchLower = filters.search.toLowerCase()
+      return (
+        sensor.name.toLowerCase().includes(searchLower) ||
+        (sensor.parking_name && sensor.parking_name.toLowerCase().includes(searchLower))
+      )
+    }
+    
+    // Búsqueda normal: filtrar por serial_number, nombre o parking
     const searchLower = filters.search.toLowerCase()
     return (
       sensor.serial_number.toLowerCase().includes(searchLower) ||
