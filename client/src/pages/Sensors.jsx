@@ -52,7 +52,8 @@ const Sensors = () => {
     parking_id: '',
     sensor_type: '',
     is_active: true,
-    search: ''
+    search: '',
+    show_all: false  // NUEVO v4.3.0: Mostrar todos los sensores (incluyendo sin parking)
   })
   const [showFilters, setShowFilters] = useState(false)
 
@@ -74,7 +75,8 @@ const Sensors = () => {
       const queryFilters = {
         parking_id: filters.parking_id || undefined,
         sensor_type: filters.sensor_type || undefined,
-        is_active: filters.is_active
+        is_active: filters.is_active,
+        show_all: filters.show_all  // NUEVO v4.3.0: Incluir todos los sensores
       }
       
       // Si la búsqueda parece un serial_number, usar search_serial para encontrar sensores ocultos
@@ -524,6 +526,24 @@ const Sensors = () => {
                 <option value="false">Solo inactivos</option>
               </select>
             </div>
+          </div>
+          
+          {/* NUEVO v4.3.0: Opción para mostrar todos los sensores (incluyendo sin parking) */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={filters.show_all}
+                onChange={(e) => setFilters(prev => ({ ...prev, show_all: e.target.checked }))}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                Mostrar todos los sensores (incluyendo sin parking asignado)
+              </span>
+            </label>
+            <p className="text-xs text-gray-500 mt-1 ml-6">
+              Activa esta opción para ver y gestionar todos los sensores, incluso los que no tienen parking asignado o están en parkings no accesibles.
+            </p>
           </div>
         </div>
       )}

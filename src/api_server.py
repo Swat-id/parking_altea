@@ -4777,13 +4777,18 @@ def get_individual_sensors():
         
         # Permitir buscar por serial_number sin filtros de parking (para encontrar sensores "ocultos")
         search_serial = request.args.get('search_serial')
+        # NUEVO v4.3.0: Permitir mostrar todos los sensores (incluyendo sin parking)
+        show_all = request.args.get('show_all', 'false').lower() == 'true'
         
         if accessible_parking_ids:
-            if search_serial:
-                # Si se busca por serial_number, mostrar todos los sensores con ese serial (incluyendo inactivos)
-                query = query.filter(
-                    IndividualSensor.serial_number.ilike(f'%{search_serial}%')
-                )
+            if show_all or search_serial:
+                # Si show_all está activado o se busca por serial_number, mostrar todos los sensores
+                # (incluyendo sin parking y en parkings no accesibles)
+                if search_serial:
+                    query = query.filter(
+                        IndividualSensor.serial_number.ilike(f'%{search_serial}%')
+                    )
+                # Si show_all, no aplicar filtro de parking
             else:
                 # Filtrar solo sensores de parkings accesibles (excluyendo sensores sin parking)
                 query = query.filter(
@@ -4792,16 +4797,18 @@ def get_individual_sensors():
             
             # Debug: contar sensores después del filtro
             sensors_after_filter = query.count()
-            logger.info(f"DEBUG - Sensores después del filtro por parking: {sensors_after_filter}")
+            logger.info(f"DEBUG - Sensores después del filtro: {sensors_after_filter} (show_all={show_all}, search_serial={search_serial})")
             
         else:
-            # Si no tiene acceso a ningún parking, solo permitir búsqueda por serial_number
-            if search_serial:
-                query = query.filter(
-                    IndividualSensor.serial_number.ilike(f'%{search_serial}%')
-                )
+            # Si no tiene acceso a ningún parking, solo permitir búsqueda por serial_number o show_all
+            if show_all or search_serial:
+                if search_serial:
+                    query = query.filter(
+                        IndividualSensor.serial_number.ilike(f'%{search_serial}%')
+                    )
+                # Si show_all, no aplicar filtro de parking
             else:
-                # Si no tiene acceso a ningún parking y no busca por serial, devolver vacío
+                # Si no tiene acceso a ningún parking y no busca por serial ni show_all, devolver vacío
                 logger.warning(f"Usuario {user_id} no tiene acceso a ningún parking - devolviendo lista vacía")
                 session.close()
                 return jsonify([])

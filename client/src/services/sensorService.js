@@ -18,6 +18,8 @@ const sensorService = {
       if (filters.is_active !== undefined) params.append('is_active', filters.is_active)
       // NUEVO v4.3.0: Buscar por serial_number (incluye sensores no accesibles)
       if (filters.search_serial) params.append('search_serial', filters.search_serial)
+      // NUEVO v4.3.0: Mostrar todos los sensores (incluyendo sin parking)
+      if (filters.show_all) params.append('show_all', 'true')
       
       const url = `/api/sensors${params.toString() ? `?${params.toString()}` : ''}`
       const response = await api.get(url)
