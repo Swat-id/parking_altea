@@ -96,24 +96,50 @@ class SensorPushProcessor:
             Resultado del procesamiento
         """
         try:
+            # Extraer serial_number de diferentes ubicaciones posibles
+            serial_number = None
+            
+            # Intentar desde sensor_info (formato estándar)
+            sensor_info = push_data.get('sensor_info', {})
+            if isinstance(sensor_info, dict):
+                serial_number = sensor_info.get('serial_number')
+            
+            # Si no está en sensor_info, intentar en el root del mensaje
+            if not serial_number:
+                serial_number = push_data.get('serial_number')
+            
+            # Si aún no está, intentar desde device_id o id
+            if not serial_number:
+                serial_number = push_data.get('device_id') or push_data.get('device_serial')
+            
+            # Loggear intento de extracción
+            if not serial_number:
+                self.logger.warning(f"⚠️ No se pudo extraer serial_number del mensaje. Estructura: {list(push_data.keys())}")
+                self.logger.debug(f"Mensaje completo: {json.dumps(push_data, indent=2)}")
+            
             # Validar estructura del mensaje
-            validation_result = self._validate_push_data(push_data)
+            validation_result = self._validate_push_data(push_data, serial_number)
             if not validation_result['valid']:
+                self.logger.warning(f"❌ Validación falló para mensaje: {validation_result['errors']}")
                 return {
                     'success': False,
                     'error': 'Datos inválidos',
                     'details': validation_result['errors']
                 }
             
-            # Extraer información del sensor
-            sensor_info = push_data.get('sensor_info', {})
-            serial_number = sensor_info.get('serial_number')
-            
+            # Si no hay serial_number después de la validación, es un error crítico
             if not serial_number:
                 return {
                     'success': False,
-                    'error': 'serial_number es obligatorio en sensor_info'
+                    'error': 'serial_number es obligatorio (no encontrado en sensor_info, root, device_id ni device_serial)'
                 }
+            
+            # Asegurar que sensor_info tenga serial_number
+            if not isinstance(sensor_info, dict):
+                sensor_info = {}
+            if 'serial_number' not in sensor_info:
+                sensor_info['serial_number'] = serial_number
+                push_data['sensor_info'] = sensor_info
             
             # Crear sesión de base de datos
             session = Session()
@@ -188,22 +214,36 @@ class SensorPushProcessor:
                 'details': str(e)
             }
     
-    def _validate_push_data(self, push_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _validate_push_data(self, push_data: Dict[str, Any], serial_number: Optional[str] = None) -> Dict[str, Any]:
         """Valida la estructura del mensaje push"""
         errors = []
-        required_fields = ['status', 'timestamp', 'sensor_info']
         
+        # Validar que hay datos
+        if not push_data or not isinstance(push_data, dict):
+            errors.append("push_data debe ser un objeto JSON válido")
+            return {'valid': False, 'errors': errors}
+        
+        # Validar campos requeridos (status y timestamp son críticos)
+        required_fields = ['status', 'timestamp']
         for field in required_fields:
             if field not in push_data:
                 errors.append(f"Campo obligatorio faltante: {field}")
         
-        # Validar sensor_info
+        # Validar sensor_info (puede no estar si serial_number está en root)
         if 'sensor_info' in push_data:
             sensor_info = push_data['sensor_info']
             if not isinstance(sensor_info, dict):
                 errors.append("sensor_info debe ser un objeto")
-            elif 'serial_number' not in sensor_info:
-                errors.append("serial_number es obligatorio en sensor_info")
+            # serial_number puede estar en sensor_info o en root, así que no es obligatorio aquí
+        
+        # Validar que tenemos serial_number de alguna forma
+        if not serial_number:
+            if 'sensor_info' in push_data and isinstance(push_data['sensor_info'], dict):
+                serial_number = push_data['sensor_info'].get('serial_number')
+            if not serial_number:
+                serial_number = push_data.get('serial_number')
+            if not serial_number:
+                errors.append("serial_number es obligatorio (debe estar en sensor_info.serial_number, root.serial_number, device_id o device_serial)")
         
         # Validar y normalizar estado
         if 'status' in push_data:
@@ -456,8 +496,13 @@ def receive_push():
     Recibe: CarparkSlotStatusBody según especificación Fleximodo
     """
     try:
+        client_ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
+        
         # Validar Content-Type
         if not request.is_json:
+            raw_data = request.get_data(as_text=True)
+            logger.warning(f"⚠️ Push recibido sin Content-Type JSON desde {client_ip}")
+            logger.warning(f"Raw data (primeros 500 chars): {raw_data[:500]}")
             return jsonify({
                 'success': False,
                 'error': 'Content-Type debe ser application/json'
@@ -466,23 +511,30 @@ def receive_push():
         push_data = request.get_json()
         
         if not push_data:
+            logger.warning(f"⚠️ Push recibido con datos vacíos desde {client_ip}")
             return jsonify({
                 'success': False,
                 'error': 'Datos JSON requeridos'
             }), 400
         
-        logger.info(f"Push recibido: {push_data.get('sensor_info', {}).get('serial_number', 'UNKNOWN')}")
+        # Loggear mensaje completo para diagnóstico
+        serial_number = push_data.get('sensor_info', {}).get('serial_number') or push_data.get('serial_number')
+        logger.info(f"📥 Push recibido desde {client_ip} - Serial: {serial_number or 'UNKNOWN'}")
+        logger.debug(f"📦 Mensaje completo: {json.dumps(push_data, indent=2)}")
         
         # Procesar el mensaje
         result = processor.process_push_message(push_data)
         
         if result['success']:
+            logger.info(f"✅ Push procesado exitosamente - Serial: {serial_number or 'UNKNOWN'}")
             return jsonify(result), 200
         else:
+            logger.warning(f"❌ Push falló - Serial: {serial_number or 'UNKNOWN'}, Error: {result.get('error', 'Unknown')}")
+            logger.debug(f"Detalles del error: {result.get('details', 'N/A')}")
             return jsonify(result), 400
             
     except Exception as e:
-        logger.error(f"Error en endpoint push: {str(e)}")
+        logger.error(f"💥 Error en endpoint push: {str(e)}", exc_info=True)
         return jsonify({
             'success': False,
             'error': 'Error interno del servidor',
@@ -542,28 +594,39 @@ def receive_sensor_root():
     """
     try:
         client_ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
-        logger.info(f"Recibiendo datos de sensor desde IP: {client_ip}")
+        logger.info(f"📥 Recibiendo datos de sensor desde IP: {client_ip}")
         
         # Intentar procesar como JSON primero
         if request.is_json:
             try:
                 push_data = request.get_json()
-                logger.info(f"Datos JSON recibidos: {push_data}")
                 
-                # Si los datos tienen la estructura esperada, procesarlos normalmente
-                if isinstance(push_data, dict) and 'sensor_info' in push_data:
+                # Loggear mensaje completo para diagnóstico
+                serial_number = push_data.get('sensor_info', {}).get('serial_number') if isinstance(push_data.get('sensor_info'), dict) else None
+                serial_number = serial_number or push_data.get('serial_number') or push_data.get('device_id') or push_data.get('device_serial')
+                
+                logger.info(f"📦 Datos JSON recibidos desde {client_ip} - Serial: {serial_number or 'UNKNOWN'}")
+                logger.debug(f"📋 Mensaje completo: {json.dumps(push_data, indent=2)}")
+                
+                # Intentar procesar el mensaje (incluso si no tiene sensor_info)
+                # El procesador intentará extraer serial_number de diferentes ubicaciones
+                if isinstance(push_data, dict):
                     result = processor.process_push_message(push_data)
                     
                     if result['success']:
+                        logger.info(f"✅ Mensaje procesado exitosamente desde {client_ip} - Serial: {serial_number or 'UNKNOWN'}")
                         return jsonify(result), 200
                     else:
+                        logger.warning(f"❌ Mensaje falló desde {client_ip} - Serial: {serial_number or 'UNKNOWN'}, Error: {result.get('error', 'Unknown')}")
+                        logger.debug(f"Detalles del error: {result.get('details', 'N/A')}")
                         return jsonify(result), 400
                 else:
-                    # Datos JSON pero estructura desconocida - logear para análisis
-                    logger.warning(f"Estructura JSON desconocida desde {client_ip}: {push_data}")
+                    # Datos JSON pero no es un objeto - logear para análisis
+                    logger.warning(f"⚠️ Datos JSON no son un objeto desde {client_ip}: {type(push_data)}")
+                    logger.debug(f"Contenido: {push_data}")
                     return jsonify({
                         'status': 'received',
-                        'message': 'Datos JSON recibidos pero estructura desconocida',
+                        'message': 'Datos JSON recibidos pero no es un objeto',
                         'timestamp': datetime.utcnow().isoformat(),
                         'client_ip': client_ip
                     }), 200
