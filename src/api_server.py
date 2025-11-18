@@ -4775,21 +4775,36 @@ def get_individual_sensors():
         total_sensors_before = session.query(IndividualSensor).count()
         logger.info(f"DEBUG - Total sensores en BD antes del filtro: {total_sensors_before}")
         
+        # Permitir buscar por serial_number sin filtros de parking (para encontrar sensores "ocultos")
+        search_serial = request.args.get('search_serial')
+        
         if accessible_parking_ids:
-            # Filtrar solo sensores de parkings accesibles (excluyendo sensores sin parking)
-            query = query.filter(
-                IndividualSensor.parking_id.in_(accessible_parking_ids)
-            )
+            if search_serial:
+                # Si se busca por serial_number, mostrar todos los sensores con ese serial (incluyendo inactivos)
+                query = query.filter(
+                    IndividualSensor.serial_number.ilike(f'%{search_serial}%')
+                )
+            else:
+                # Filtrar solo sensores de parkings accesibles (excluyendo sensores sin parking)
+                query = query.filter(
+                    IndividualSensor.parking_id.in_(accessible_parking_ids)
+                )
             
             # Debug: contar sensores después del filtro
             sensors_after_filter = query.count()
             logger.info(f"DEBUG - Sensores después del filtro por parking: {sensors_after_filter}")
             
         else:
-            # Si no tiene acceso a ningún parking, devolver vacío
-            logger.warning(f"Usuario {user_id} no tiene acceso a ningún parking - devolviendo lista vacía")
-            session.close()
-            return jsonify([])
+            # Si no tiene acceso a ningún parking, solo permitir búsqueda por serial_number
+            if search_serial:
+                query = query.filter(
+                    IndividualSensor.serial_number.ilike(f'%{search_serial}%')
+                )
+            else:
+                # Si no tiene acceso a ningún parking y no busca por serial, devolver vacío
+                logger.warning(f"Usuario {user_id} no tiene acceso a ningún parking - devolviendo lista vacía")
+                session.close()
+                return jsonify([])
         
         # Aplicar filtros adicionales
         if parking_id:
@@ -4852,14 +4867,33 @@ def create_individual_sensor():
         
         session = Session()
         
-        # Verificar que el serial_number no exista
+        # Verificar que el serial_number no exista (solo sensores activos o en parkings accesibles)
+        # Permitir reutilizar serial_numbers de sensores inactivos o no accesibles
         existing_sensor = session.query(IndividualSensor).filter(
-            IndividualSensor.serial_number == data['serial_number']
+            IndividualSensor.serial_number == data['serial_number'],
+            IndividualSensor.is_active == True
         ).first()
         
+        # Si existe un sensor activo con ese serial, verificar si está en parkings accesibles
         if existing_sensor:
-            session.close()
-            return jsonify({'error': 'Serial number already exists'}), 400
+            accessible_parking_ids = getattr(request, 'accessible_parking_ids', [])
+            user_role = request.user_data.get('role', 'user')
+            
+            # Superadmin puede ver todos los sensores, así que no puede duplicar
+            if user_role == 'superadmin':
+                session.close()
+                return jsonify({'error': 'Serial number already exists'}), 400
+            
+            # Si el sensor existente está en un parking accesible, no permitir duplicar
+            if existing_sensor.parking_id and existing_sensor.parking_id in accessible_parking_ids:
+                session.close()
+                return jsonify({'error': 'Serial number already exists'}), 400
+            
+            # Si el sensor existente no está en parkings accesibles, permitir reutilizar
+            # pero primero desactivar el sensor anterior
+            logger.info(f"Reutilizando serial_number {data['serial_number']} de sensor inactivo/no accesible (ID: {existing_sensor.id})")
+            existing_sensor.is_active = False
+            session.commit()
         
         # Verificar que el parking existe si se especifica
         parking_id = data.get('parking_id')
@@ -4914,6 +4948,46 @@ def create_individual_sensor():
         
     except Exception as e:
         logger.error(f"Error creando sensor individual: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@api_bp.route('/sensors/by-serial/<serial_number>', methods=['GET'])
+@require_auth
+def get_sensor_by_serial(serial_number):
+    """Obtener un sensor por su serial_number (sin filtros de parking, útil para encontrar sensores ocultos)"""
+    try:
+        session = Session()
+        sensor = session.query(IndividualSensor).filter(
+            IndividualSensor.serial_number == serial_number
+        ).first()
+        
+        if not sensor:
+            session.close()
+            return jsonify({'error': 'Sensor not found'}), 404
+        
+        response_data = {
+            'id': sensor.id,
+            'serial_number': sensor.serial_number,
+            'name': sensor.name,
+            'sensor_type': sensor.sensor_type,
+            'parking_id': sensor.parking_id,
+            'parking_name': sensor.parking.name if sensor.parking else None,
+            'description': sensor.description,
+            'location_coordinates': sensor.location_coordinates,
+            'manufacturer': sensor.manufacturer,
+            'is_active': sensor.is_active,
+            'created_at': sensor.created_at.isoformat() if sensor.created_at else None,
+            'updated_at': sensor.updated_at.isoformat() if sensor.updated_at else None,
+            'current_status': sensor.current_status,
+            'last_update': sensor.last_update.isoformat() if sensor.last_update else None,
+            'battery_info': sensor.battery_info
+        }
+        
+        session.close()
+        return jsonify(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo sensor por serial {serial_number}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 
@@ -4993,14 +5067,33 @@ def update_individual_sensor(sensor_id):
                 return jsonify({'error': f'Invalid sensor_type. Must be one of: {valid_types}'}), 400
         
         # Verificar serial_number único si se cambia
+        # Permitir reutilizar serial_numbers de sensores inactivos o no accesibles
         if 'serial_number' in data and data['serial_number'] != sensor.serial_number:
             existing = session.query(IndividualSensor).filter(
                 IndividualSensor.serial_number == data['serial_number'],
-                IndividualSensor.id != sensor_id
+                IndividualSensor.id != sensor_id,
+                IndividualSensor.is_active == True
             ).first()
+            
             if existing:
-                session.close()
-                return jsonify({'error': 'Serial number already exists'}), 400
+                accessible_parking_ids = getattr(request, 'accessible_parking_ids', [])
+                user_role = request.user_data.get('role', 'user')
+                
+                # Superadmin puede ver todos los sensores, así que no puede duplicar
+                if user_role == 'superadmin':
+                    session.close()
+                    return jsonify({'error': 'Serial number already exists'}), 400
+                
+                # Si el sensor existente está en un parking accesible, no permitir duplicar
+                if existing.parking_id and existing.parking_id in accessible_parking_ids:
+                    session.close()
+                    return jsonify({'error': 'Serial number already exists'}), 400
+                
+                # Si el sensor existente no está en parkings accesibles, permitir reutilizar
+                # pero primero desactivar el sensor anterior
+                logger.info(f"Reutilizando serial_number {data['serial_number']} de sensor inactivo/no accesible (ID: {existing.id})")
+                existing.is_active = False
+                session.commit()
         
         # Verificar parking si se proporciona
         if 'parking_id' in data and data['parking_id']:
