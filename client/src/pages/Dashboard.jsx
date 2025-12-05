@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import parkingService from '../services/parkingService'
 import sensorService from '../services/sensorService'
 import SensorDashboardSection from '../components/SensorDashboardSection'
+import ParkingMap from '../components/ParkingMap'
 import { 
   Car, 
   Monitor, 
@@ -12,7 +13,8 @@ import {
   Clock,
   MapPin,
   Cpu,
-  Activity
+  Activity,
+  Map
 } from 'lucide-react'
 
 const Dashboard = () => {
@@ -219,6 +221,38 @@ const Dashboard = () => {
             <AlertCircle className="h-6 w-6 sm:h-8 sm:w-8 text-red-600" />
           </div>
         </div>
+      </div>
+
+      {/* Mapa de Parkings */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center">
+            <Map className="h-5 w-5 text-primary-600 mr-2" />
+            <h2 className="text-lg font-medium text-gray-900">Mapa de Parkings</h2>
+          </div>
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
+              <span className="text-gray-600">Libre</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
+              <span className="text-gray-600">Denso</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+              <span className="text-gray-600">Completo</span>
+            </div>
+          </div>
+        </div>
+        <ParkingMap 
+          parkings={parkings} 
+          height="450px"
+          className="rounded-lg overflow-hidden"
+        />
+        <p className="mt-3 text-sm text-gray-500 text-center">
+          Haz clic en un parking para ver su información detallada
+        </p>
       </div>
 
       {/* Lista de parkings */}

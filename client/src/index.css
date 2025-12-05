@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Leaflet Map Styles */
+@import 'leaflet/dist/leaflet.css';
+
 @layer base {
   html {
     font-family: 'Inter', system-ui, sans-serif;
@@ -10,6 +13,66 @@
   body {
     @apply bg-gray-50 text-gray-900;
   }
+}
+
+/* Parking Map Custom Styles */
+.parking-map-container {
+  position: relative;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+}
+
+.parking-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Popup Styles */
+.leaflet-popup-content-wrapper {
+  padding: 0;
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.15), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+.leaflet-popup-content {
+  margin: 0;
+  width: auto !important;
+}
+
+.parking-popup .leaflet-popup-content-wrapper {
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.parking-popup-content {
+  padding: 1rem;
+  min-width: 260px;
+  max-width: 300px;
+}
+
+.leaflet-popup-close-button {
+  display: none !important;
+}
+
+.leaflet-popup-tip {
+  background: white;
+}
+
+/* Marker animations */
+.parking-marker svg {
+  transition: transform 0.2s ease-out;
+  filter: drop-shadow(0 2px 4px rgb(0 0 0 / 0.2));
+}
+
+.parking-marker:hover svg {
+  transform: scale(1.1) translateY(-2px);
+  filter: drop-shadow(0 4px 8px rgb(0 0 0 / 0.25));
+}
+
+/* Legend positioning fix */
+.parking-map-container .leaflet-bottom.leaflet-left {
+  bottom: 60px;
 }
 
 @layer components {
