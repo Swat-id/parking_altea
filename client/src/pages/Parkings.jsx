@@ -83,7 +83,7 @@ const Parkings = () => {
 
   // Mutación para editar información general del parking
   const editParkingMutation = useMutation(
-    ({ parkingId, parkingData }) => parkingService.editParking(parkingId, parkingData),
+    ({ parkingId, parkingData }) => parkingService.updateParking(parkingId, parkingData),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('allParkings')
