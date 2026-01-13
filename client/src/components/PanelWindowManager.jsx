@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, Settings, X } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronUp, Check, X } from 'lucide-react'
 import windowService from '../services/windowService'
-import WindowAssignmentModal from './WindowAssignmentModal'
+import parkingService from '../services/parkingService'
 import toast from 'react-hot-toast'
 
 const PanelWindowManager = ({ 
@@ -11,28 +11,46 @@ const PanelWindowManager = ({
   windowsCount = 1,
   onWindowsCountChange,
   isEditing = false,
-  pendingAssignments = [], // Asignaciones pendientes (para creación de panel)
-  onPendingAssignmentsChange = null // Callback para actualizar asignaciones pendientes
+  pendingAssignments = [],
+  onPendingAssignmentsChange = null
 }) => {
-  const [windows, setWindows] = useState([]) // Array de asignaciones por ventana
-  const [windowConfigs, setWindowConfigs] = useState({}) // Configuraciones por ventana {windowId: config}
+  const [windows, setWindows] = useState([])
+  const [windowConfigs, setWindowConfigs] = useState({})
   const [loading, setLoading] = useState(false)
   const [loadingConfigs, setLoadingConfigs] = useState(false)
-  const [showAssignmentModal, setShowAssignmentModal] = useState(false)
-  const [selectedWindowId, setSelectedWindowId] = useState(null)
   const [isType3Or4, setIsType3Or4] = useState(false)
   const [panelTypeName, setPanelTypeName] = useState('')
+  
+  // Estado para el formulario inline de cada ventana
+  const [expandedWindow, setExpandedWindow] = useState(null)
+  const [parkings, setParkings] = useState([])
+  const [loadingParkings, setLoadingParkings] = useState(false)
+  const [sensorTypes, setSensorTypes] = useState([])
+  const [loadingSensorTypes, setLoadingSensorTypes] = useState(false)
+  
+  // Estado del formulario inline
+  const [inlineForm, setInlineForm] = useState({
+    parking_id: null,
+    content_type: 'numeric',
+    status_language: 'valenciano',
+    sensor_type: null,
+    texto_fijo_previo: '',
+    color: 2
+  })
+
+  // Determinar si es Tipo 3
+  const isType3 = panelTypeId === 3 || (windowsCount === 2 && panelTypeId)
+  const isType4 = panelTypeId === 4
 
   useEffect(() => {
-    // Verificar si es Tipo 3 (2 ventanas) o Tipo 4 (16 ventanas)
     if (panelTypeId) {
-      const isType3 = windowsCount === 2 || panelTypeId === 3
-      const isType4 = windowsCount === 16 || panelTypeId === 4
-      setIsType3Or4(isType3 || isType4)
+      const type3 = windowsCount === 2 || panelTypeId === 3
+      const type4 = windowsCount === 16 || panelTypeId === 4
+      setIsType3Or4(type3 || type4)
       
-      if (isType3) {
+      if (type3) {
         setPanelTypeName('Tipo 3')
-      } else if (isType4) {
+      } else if (type4) {
         setPanelTypeName('Tipo 4')
       } else {
         setPanelTypeName('')
@@ -42,30 +60,16 @@ const PanelWindowManager = ({
 
   useEffect(() => {
     if (panelId && isEditing) {
-      console.log(`[PanelWindowManager] useEffect: panelId=${panelId}, isEditing=${isEditing}, windowsCount=${windowsCount}`)
-      // Cargar asignaciones y configuraciones
       loadWindowAssignments()
       loadWindowConfigurations()
     } else {
-      // Inicializar ventanas vacías para nuevo panel
       initializeWindows()
     }
-  }, [panelId, isEditing, windowsCount, panelTypeId, parkingId]) // Añadir parkingId para recargar cuando cambia el parking
-  
-  // Recargar asignaciones y configuraciones cuando el componente se monta o cuando cambia el panelId
-  useEffect(() => {
-    if (panelId && isEditing) {
-      console.log(`[PanelWindowManager] Recargando asignaciones y configuraciones: panelId=${panelId}`)
-      loadWindowAssignments()
-      loadWindowConfigurations()
-    }
-  }, [panelId]) // Solo cuando cambia panelId
+  }, [panelId, isEditing, windowsCount, panelTypeId, parkingId])
 
-  // Efecto separado para actualizar asignaciones pendientes
   useEffect(() => {
     if (!panelId && !isEditing) {
       if (pendingAssignments && pendingAssignments.length > 0) {
-        // Agrupar asignaciones pendientes por window_id
         const windowsMap = {}
         for (let i = 0; i < windowsCount; i++) {
           windowsMap[i] = []
@@ -88,11 +92,17 @@ const PanelWindowManager = ({
         
         setWindows(windowsArray)
       } else {
-        // Si no hay asignaciones pendientes, reinicializar
         initializeWindows()
       }
     }
   }, [pendingAssignments, windowsCount, panelId, isEditing])
+
+  // Cargar parkings cuando se expande una ventana
+  useEffect(() => {
+    if (expandedWindow !== null && parkings.length === 0) {
+      loadParkings()
+    }
+  }, [expandedWindow])
 
   const initializeWindows = () => {
     const initialWindows = []
@@ -105,16 +115,40 @@ const PanelWindowManager = ({
     setWindows(initialWindows)
   }
 
+  const loadParkings = async () => {
+    try {
+      setLoadingParkings(true)
+      const data = await parkingService.getParkings()
+      setParkings(data || [])
+    } catch (error) {
+      console.error('Error cargando parkings:', error)
+      toast.error('Error al cargar los parkings')
+    } finally {
+      setLoadingParkings(false)
+    }
+  }
+
+  const loadSensorTypes = async (selectedParkingId) => {
+    if (!selectedParkingId) return
+    try {
+      setLoadingSensorTypes(true)
+      const types = await windowService.getParkingSensorTypes(selectedParkingId)
+      setSensorTypes(types || [])
+    } catch (error) {
+      console.error('Error cargando tipos de sensores:', error)
+      setSensorTypes([])
+    } finally {
+      setLoadingSensorTypes(false)
+    }
+  }
+
   const loadWindowAssignments = async () => {
     if (!panelId) return
     
     try {
       setLoading(true)
-      console.log(`[PanelWindowManager] Cargando asignaciones para panel ${panelId}, windowsCount: ${windowsCount}`)
       const assignments = await windowService.getWindowAssignments(panelId)
-      console.log(`[PanelWindowManager] Asignaciones recibidas:`, assignments)
       
-      // Agrupar asignaciones por window_id
       const windowsMap = {}
       for (let i = 0; i < windowsCount; i++) {
         windowsMap[i] = []
@@ -132,12 +166,10 @@ const PanelWindowManager = ({
         assignments: windowsMap[wid]
       }))
       
-      console.log(`[PanelWindowManager] Ventanas agrupadas:`, windowsArray)
       setWindows(windowsArray)
     } catch (error) {
       console.error('Error cargando asignaciones de ventanas:', error)
       toast.error('Error al cargar las asignaciones de ventanas')
-      // Inicializar ventanas vacías en caso de error
       initializeWindows()
     } finally {
       setLoading(false)
@@ -149,38 +181,152 @@ const PanelWindowManager = ({
     
     try {
       setLoadingConfigs(true)
-      console.log(`[PanelWindowManager] Cargando configuraciones para panel ${panelId}, parking ${parkingId}`)
-      
       const configs = {}
-      // Cargar configuraciones para cada ventana
       for (let windowId = 0; windowId < windowsCount; windowId++) {
         try {
           const config = await windowService.getWindowConfig(parkingId, panelId, windowId)
           if (config) {
             configs[windowId] = config
-            console.log(`[PanelWindowManager] Configuración cargada para ventana ${windowId}:`, config)
           }
         } catch (error) {
-          // Si no existe configuración, no es error (puede no estar configurada)
           if (error.response?.status !== 404) {
-            console.warn(`[PanelWindowManager] Error cargando configuración para ventana ${windowId}:`, error)
+            console.warn(`Error cargando configuración para ventana ${windowId}:`, error)
           }
         }
       }
-      
       setWindowConfigs(configs)
-      console.log(`[PanelWindowManager] Configuraciones cargadas:`, configs)
     } catch (error) {
       console.error('Error cargando configuraciones de ventanas:', error)
-      // No mostrar error al usuario, las configuraciones son opcionales
     } finally {
       setLoadingConfigs(false)
     }
   }
 
-  const handleAddAssignment = (windowId) => {
-    setSelectedWindowId(windowId)
-    setShowAssignmentModal(true)
+  const handleExpandWindow = (windowId) => {
+    if (expandedWindow === windowId) {
+      setExpandedWindow(null)
+      resetInlineForm()
+    } else {
+      setExpandedWindow(windowId)
+      resetInlineForm()
+      // Si es Tipo 3 y hay parkingId, preseleccionarlo
+      if (isType3 && parkingId) {
+        setInlineForm(prev => ({ ...prev, parking_id: parkingId }))
+      }
+    }
+  }
+
+  const resetInlineForm = () => {
+    setInlineForm({
+      parking_id: isType3 && parkingId ? parkingId : null,
+      content_type: 'numeric',
+      status_language: 'valenciano',
+      sensor_type: null,
+      texto_fijo_previo: '',
+      color: 2
+    })
+    setSensorTypes([])
+  }
+
+  const handleParkingChange = (parkingIdValue) => {
+    const pid = parseInt(parkingIdValue)
+    setInlineForm(prev => ({ ...prev, parking_id: pid, sensor_type: null }))
+    if (inlineForm.content_type === 'sensor_group') {
+      loadSensorTypes(pid)
+    }
+  }
+
+  const handleContentTypeChange = (contentType) => {
+    setInlineForm(prev => ({ ...prev, content_type: contentType, sensor_type: null }))
+    if (contentType === 'sensor_group' && inlineForm.parking_id) {
+      loadSensorTypes(inlineForm.parking_id)
+    }
+  }
+
+  const handleSaveAssignment = async (windowId) => {
+    if (!inlineForm.parking_id) {
+      toast.error('Debes seleccionar un parking')
+      return
+    }
+
+    if (inlineForm.content_type === 'sensor_group' && !inlineForm.sensor_type) {
+      toast.error('Debes seleccionar un tipo de sensor')
+      return
+    }
+
+    const parking = parkings.find(p => p.id === inlineForm.parking_id)
+    
+    // Determinar el tipo de sensor y texto según el tipo de contenido
+    let sensorType = null
+    let textoFijo = null
+    let assignmentColor = null
+
+    switch (inlineForm.content_type) {
+      case 'numeric':
+        sensorType = null
+        textoFijo = null
+        assignmentColor = null
+        break
+      case 'status':
+        sensorType = '__STATUS__'
+        textoFijo = inlineForm.status_language
+        assignmentColor = null
+        break
+      case 'pmr':
+        sensorType = 'PMR'
+        textoFijo = isType3 ? null : 'PMR'
+        assignmentColor = inlineForm.color
+        break
+      case 'sensor_group':
+        sensorType = inlineForm.sensor_type
+        textoFijo = isType3 ? null : (inlineForm.texto_fijo_previo || null)
+        assignmentColor = inlineForm.color
+        break
+    }
+
+    const newAssignment = {
+      window_id: windowId,
+      parking_id: inlineForm.parking_id,
+      parking_name: parking?.name || `Parking ${inlineForm.parking_id}`,
+      sensor_type: sensorType,
+      content_type: inlineForm.content_type,
+      status_language: inlineForm.content_type === 'status' ? inlineForm.status_language : null,
+      texto_fijo_previo: textoFijo,
+      color: assignmentColor
+    }
+
+    if (panelId && isEditing) {
+      // Si el panel ya existe, guardar en la base de datos
+      try {
+        const result = await windowService.assignParkingToWindow(
+          panelId,
+          windowId,
+          inlineForm.parking_id,
+          sensorType,
+          textoFijo,
+          assignmentColor
+        )
+
+        if (result.success) {
+          toast.success('Asignación guardada')
+          loadWindowAssignments()
+          setExpandedWindow(null)
+          resetInlineForm()
+        } else {
+          toast.error(result.error || 'Error al guardar la asignación')
+        }
+      } catch (error) {
+        console.error('Error guardando asignación:', error)
+        toast.error(error?.response?.data?.error || 'Error al guardar la asignación')
+      }
+    } else if (onPendingAssignmentsChange) {
+      // Agregar a asignaciones pendientes
+      const updated = [...(pendingAssignments || []), newAssignment]
+      onPendingAssignmentsChange(updated)
+      toast.success('Asignación agregada')
+      setExpandedWindow(null)
+      resetInlineForm()
+    }
   }
 
   const handleRemoveAssignment = async (windowId, assignment) => {
@@ -189,7 +335,6 @@ const PanelWindowManager = ({
     }
 
     if (panelId && isEditing) {
-      // Eliminar de la base de datos
       try {
         await windowService.unassignParkingFromWindow(
           panelId,
@@ -203,43 +348,20 @@ const PanelWindowManager = ({
         console.error('Error eliminando asignación:', error)
         toast.error('Error al eliminar la asignación')
       }
-    } else {
-      // Eliminar de asignaciones pendientes
-      if (onPendingAssignmentsChange) {
-        const updated = pendingAssignments.filter(a => 
-          !(a.window_id === windowId && 
-            a.parking_id === assignment.parking_id && 
-            (a.sensor_type || null) === (assignment.sensor_type || null))
-        )
-        onPendingAssignmentsChange(updated)
-        toast.success('Asignación eliminada')
-      }
-    }
-  }
-
-  const handleAssignmentSuccess = (newAssignment) => {
-    if (panelId && isEditing) {
-      loadWindowAssignments()
-      loadWindowConfigurations() // Recargar también configuraciones
-      setShowAssignmentModal(false)
-      setSelectedWindowId(null)
-    } else if (onPendingAssignmentsChange && newAssignment) {
-      // Agregar a asignaciones pendientes
-      const updated = [...(pendingAssignments || []), newAssignment]
+    } else if (onPendingAssignmentsChange) {
+      const updated = pendingAssignments.filter(a => 
+        !(a.window_id === windowId && 
+          a.parking_id === assignment.parking_id && 
+          (a.sensor_type || null) === (assignment.sensor_type || null))
+      )
       onPendingAssignmentsChange(updated)
-      setShowAssignmentModal(false)
-      setSelectedWindowId(null)
-      // La visualización se actualizará automáticamente por el useEffect
-    } else {
-      setShowAssignmentModal(false)
-      setSelectedWindowId(null)
+      toast.success('Asignación eliminada')
     }
   }
 
   const getAssignmentLabel = (assignment) => {
     const parkingName = assignment.parking_name || `Parking ${assignment.parking_id}`
     
-    // Verificar el tipo de contenido
     if (assignment.content_type) {
       switch (assignment.content_type) {
         case 'numeric':
@@ -257,7 +379,6 @@ const PanelWindowManager = ({
       }
     }
     
-    // Compatibilidad con asignaciones antiguas
     if (assignment.sensor_type === '__STATUS__') {
       const lang = assignment.texto_fijo_previo === 'castellano' ? 'Castellano' : 'Valenciano'
       return `📝 Estado (${lang}) - ${parkingName}`
@@ -276,11 +397,8 @@ const PanelWindowManager = ({
   }
 
   if (!isType3Or4) {
-    return null // No mostrar para paneles que no son Tipo 3 o Tipo 4
+    return null
   }
-
-  // Determinar el número máximo de ventanas según el tipo
-  const maxWindows = windowsCount === 2 ? 2 : 16
 
   return (
     <div className="mt-6 border-t pt-6">
@@ -288,9 +406,9 @@ const PanelWindowManager = ({
         <h4 className="text-lg font-semibold text-gray-900">
           Configuración de Ventanas ({panelTypeName})
         </h4>
-        {windowsCount === 16 && (
+        {panelTypeId === 4 && (
           <div className="flex items-center space-x-2">
-            <label className="text-sm text-gray-700">Número de ventanas:</label>
+            <label className="text-sm text-gray-700">Ventanas:</label>
             <select
               value={windowsCount}
               onChange={(e) => onWindowsCountChange?.(parseInt(e.target.value))}
@@ -307,40 +425,41 @@ const PanelWindowManager = ({
 
       {(loading || loadingConfigs) ? (
         <div className="text-center py-4 text-gray-500">
-          Cargando {loading ? 'asignaciones' : ''} {loading && loadingConfigs ? 'y ' : ''} {loadingConfigs ? 'configuraciones' : ''}...
+          Cargando configuración...
         </div>
       ) : (
-        <div className="space-y-4">
-          {windows.map((window) => {
-            const windowConfig = windowConfigs[window.window_id]
+        <div className="space-y-3">
+          {windows.map((windowItem) => {
+            const windowConfig = windowConfigs[windowItem.window_id]
+            const isExpanded = expandedWindow === windowItem.window_id
+            
             return (
-              <div key={window.window_id} className="border rounded-lg p-4 bg-gray-50">
-                <div className="flex items-center justify-between mb-3">
+              <div key={windowItem.window_id} className="border rounded-lg bg-gray-50 overflow-hidden">
+                {/* Header de la ventana */}
+                <div className="flex items-center justify-between p-3 bg-gray-100">
                   <h5 className="font-medium text-gray-900">
-                    Ventana {window.window_id}
-                    {windowConfig && (
-                      <span className="ml-2 text-xs text-gray-500">
-                        (Configurada: {windowConfig.rotation_enabled ? 'Rotación activa' : 'Sin rotación'})
+                    Ventana {windowItem.window_id}
+                    {windowItem.assignments.length > 0 && (
+                      <span className="ml-2 text-xs text-green-600">
+                        ({windowItem.assignments.length} asignación{windowItem.assignments.length > 1 ? 'es' : ''})
                       </span>
                     )}
                   </h5>
                   <button
                     type="button"
-                    onClick={() => handleAddAssignment(window.window_id)}
+                    onClick={() => handleExpandWindow(windowItem.window_id)}
                     className="flex items-center px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
                   >
                     <Plus className="h-4 w-4 mr-1" />
                     Agregar
+                    {isExpanded ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />}
                   </button>
                 </div>
 
-                {window.assignments.length === 0 ? (
-                  <p className="text-sm text-gray-500 italic">
-                    No hay asignaciones para esta ventana
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {window.assignments.map((assignment, idx) => (
+                {/* Asignaciones existentes */}
+                {windowItem.assignments.length > 0 && (
+                  <div className="p-3 space-y-2 border-t">
+                    {windowItem.assignments.map((assignment, idx) => (
                       <div
                         key={idx}
                         className="flex items-center justify-between bg-white p-2 rounded border"
@@ -350,8 +469,8 @@ const PanelWindowManager = ({
                         </span>
                         <button
                           type="button"
-                          onClick={() => handleRemoveAssignment(window.window_id, assignment)}
-                          className="text-red-600 hover:text-red-800"
+                          onClick={() => handleRemoveAssignment(windowItem.window_id, assignment)}
+                          className="text-red-600 hover:text-red-800 p-1"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -359,37 +478,193 @@ const PanelWindowManager = ({
                     ))}
                   </div>
                 )}
-                
-                {/* Mostrar información de configuración si existe (solo para Tipo 4) */}
-                {windowConfig && panelTypeId === 4 && (
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <p className="text-xs text-gray-600">
-                      <strong>Configuración:</strong> {windowConfig.rotation_enabled ? 'Rotación activa' : 'Sin rotación'} | 
-                      Refresco: {windowConfig.refresh_time_seconds}s | 
-                      Elementos: {windowConfig.rotation_order?.length || 0}
-                    </p>
+
+                {/* Formulario inline expandible */}
+                {isExpanded && (
+                  <div className="p-4 border-t bg-white space-y-4">
+                    {/* Selector de parking */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Parking
+                      </label>
+                      {isType3 && parkingId ? (
+                        <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 text-sm">
+                          {parkings.find(p => p.id === parkingId)?.name || `Parking ${parkingId}`}
+                        </div>
+                      ) : (
+                        <select
+                          value={inlineForm.parking_id || ''}
+                          onChange={(e) => handleParkingChange(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="">Seleccionar parking...</option>
+                          {parkings.map((p) => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+
+                    {/* Tipo de contenido */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        ¿Qué mostrar?
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { value: 'numeric', label: '📊 Plazas libres', desc: 'Número' },
+                          { value: 'status', label: '📝 Estado', desc: 'LIBRE/DENSO/COMPLETO' },
+                          { value: 'pmr', label: '♿ Plazas PMR', desc: 'Minusválidos' },
+                          { value: 'sensor_group', label: '🔌 Sensores', desc: 'Grupo específico' }
+                        ].map((option) => (
+                          <label
+                            key={option.value}
+                            className={`flex flex-col p-2 border rounded-md cursor-pointer text-sm transition-colors ${
+                              inlineForm.content_type === option.value
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'border-gray-200 hover:bg-gray-50'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              value={option.value}
+                              checked={inlineForm.content_type === option.value}
+                              onChange={(e) => handleContentTypeChange(e.target.value)}
+                              className="sr-only"
+                            />
+                            <span className="font-medium">{option.label}</span>
+                            <span className="text-xs text-gray-500">{option.desc}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Opciones según tipo de contenido */}
+                    {inlineForm.content_type === 'status' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Idioma
+                        </label>
+                        <div className="flex gap-3">
+                          {[
+                            { value: 'valenciano', label: 'Valenciano', texts: 'LLIURE, DENS, COMPLET' },
+                            { value: 'castellano', label: 'Castellano', texts: 'LIBRE, DENSO, COMPLETO' }
+                          ].map((lang) => (
+                            <label
+                              key={lang.value}
+                              className={`flex-1 p-3 border rounded-md cursor-pointer text-center transition-colors ${
+                                inlineForm.status_language === lang.value
+                                  ? 'border-blue-500 bg-blue-50'
+                                  : 'border-gray-200 hover:bg-gray-50'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                value={lang.value}
+                                checked={inlineForm.status_language === lang.value}
+                                onChange={(e) => setInlineForm(prev => ({ ...prev, status_language: e.target.value }))}
+                                className="sr-only"
+                              />
+                              <span className="block font-medium text-sm">{lang.label}</span>
+                              <span className="block text-xs text-gray-500 mt-1">{lang.texts}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {(inlineForm.content_type === 'pmr' || inlineForm.content_type === 'sensor_group') && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Color
+                        </label>
+                        <select
+                          value={inlineForm.color}
+                          onChange={(e) => setInlineForm(prev => ({ ...prev, color: parseInt(e.target.value) }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        >
+                          <option value={1}>🔴 Rojo</option>
+                          <option value={2}>🟢 Verde</option>
+                          <option value={3}>🟡 Amarillo</option>
+                          <option value={4}>🔵 Azul</option>
+                          <option value={5}>🟣 Morado</option>
+                          <option value={6}>🩵 Cian</option>
+                          <option value={7}>⚪ Blanco</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {inlineForm.content_type === 'sensor_group' && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Tipo de sensor
+                          </label>
+                          {loadingSensorTypes ? (
+                            <div className="text-sm text-gray-500">Cargando...</div>
+                          ) : sensorTypes.length === 0 ? (
+                            <div className="text-sm text-yellow-600 bg-yellow-50 p-2 rounded">
+                              No hay sensores configurados en este parking
+                            </div>
+                          ) : (
+                            <select
+                              value={inlineForm.sensor_type || ''}
+                              onChange={(e) => setInlineForm(prev => ({ ...prev, sensor_type: e.target.value }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                            >
+                              <option value="">Seleccionar...</option>
+                              {sensorTypes.map((type) => (
+                                <option key={type} value={type}>{type}</option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                        {!isType3 && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Texto previo (opcional)
+                            </label>
+                            <input
+                              type="text"
+                              value={inlineForm.texto_fijo_previo}
+                              onChange={(e) => setInlineForm(prev => ({ ...prev, texto_fijo_previo: e.target.value }))}
+                              placeholder="Ej: ELÉCTRICO"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                            />
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* Botones de acción */}
+                    <div className="flex justify-end gap-2 pt-2 border-t">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExpandedWindow(null)
+                          resetInlineForm()
+                        }}
+                        className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                      >
+                        <X className="h-4 w-4 inline mr-1" />
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSaveAssignment(windowItem.window_id)}
+                        disabled={!inlineForm.parking_id || (inlineForm.content_type === 'sensor_group' && !inlineForm.sensor_type)}
+                        className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Check className="h-4 w-4 inline mr-1" />
+                        Guardar
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
             )
           })}
         </div>
-      )}
-
-      {showAssignmentModal && selectedWindowId !== null && (
-        <WindowAssignmentModal
-          isOpen={showAssignmentModal}
-          onClose={() => {
-            setShowAssignmentModal(false)
-            setSelectedWindowId(null)
-          }}
-          panelId={panelId} // Puede ser null si se está creando
-          windowId={selectedWindowId}
-          onSuccess={handleAssignmentSuccess}
-          isCreating={!panelId && !isEditing} // Indica si se está creando el panel
-          parkingId={parkingId} // Parking del panel (para Tipo 3)
-          panelTypeId={panelTypeId} // Tipo de panel
-        />
       )}
 
       {!panelId && !isEditing && pendingAssignments.length > 0 && (
@@ -405,4 +680,3 @@ const PanelWindowManager = ({
 }
 
 export default PanelWindowManager
-
