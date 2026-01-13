@@ -199,6 +199,41 @@ class PanelType3And4UpdateService:
                     f"Parking - Capacidad: {parking.max_capacity}, Ocupación: {parking.current_occupancy}, "
                     f"Libres: {free_spaces}, Mensaje: '{message}'"
                 )
+            elif assignment.display_type == 'status' or assignment.sensor_type == '__STATUS__':
+                # Ventana con estado del parking (LIBRE/DENSO/COMPLETO)
+                free_spaces = parking.max_capacity - parking.current_occupancy
+                
+                # Obtener umbrales del parking
+                threshold_dense = getattr(parking, 'threshold_dense', 10)
+                threshold_full = getattr(parking, 'threshold_full', 4)
+                
+                # Determinar estado
+                if free_spaces <= threshold_full:
+                    status = 'COMPLETO'
+                    color = 1  # Rojo
+                elif free_spaces <= threshold_dense:
+                    status = 'DENSO'
+                    color = 3  # Amarillo
+                else:
+                    status = 'LIBRE'
+                    color = 2  # Verde
+                
+                # Determinar idioma (texto_fijo_previo guarda 'castellano' o 'valenciano')
+                language = assignment.texto_fijo_previo or 'valenciano'
+                
+                # Traducir según idioma
+                if language.lower() == 'castellano':
+                    status_texts = {'LIBRE': 'LIBRE', 'DENSO': 'DENSO', 'COMPLETO': 'COMPLETO'}
+                else:
+                    status_texts = {'LIBRE': 'LLIURE', 'DENSO': 'DENS', 'COMPLETO': 'COMPLET'}
+                
+                message = status_texts.get(status, status)
+                
+                logger.info(
+                    f"Panel {panel.id} ({panel.name}), ventana {window_id}: "
+                    f"Estado - Libres: {free_spaces}, Umbral denso: {threshold_dense}, Umbral completo: {threshold_full}, "
+                    f"Estado: {status}, Idioma: {language}, Mensaje: '{message}', Color: {color}"
+                )
             elif assignment.display_type == 'sensor_group' and assignment.sensor_type:
                 # Ventana con datos de sensores agrupados (ej: PMR)
                 logger.debug(
