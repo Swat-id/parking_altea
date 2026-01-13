@@ -120,7 +120,7 @@ class PanelContentRotationService:
             Dict con contenido
         """
         if assignment.sensor_type is None:
-            # Ocupación general del parking
+            # Ocupación general del parking (plazas libres numéricas)
             parking = self.db_session.query(Parking).filter(
                 Parking.id == assignment.parking_id
             ).first()
@@ -140,8 +140,67 @@ class PanelContentRotationService:
                 },
                 'message': f"Parking {parking.name}: {parking.max_capacity - parking.current_occupancy}/{parking.max_capacity} libres"
             }
+        elif assignment.sensor_type == '__STATUS__':
+            # NUEVO: Mostrar texto de estado (LIBRE/DENSO/COMPLETO o LLIURE/DENS/COMPLET)
+            parking = self.db_session.query(Parking).filter(
+                Parking.id == assignment.parking_id
+            ).first()
+            
+            if not parking:
+                return None
+            
+            # texto_fijo_previo contiene el idioma: 'valenciano' o 'castellano'
+            language = assignment.texto_fijo_previo or 'valenciano'
+            status = parking.status.upper() if parking.status else 'LIBRE'
+            
+            # Mapear estado al texto según idioma
+            status_texts = {
+                'valenciano': {
+                    'LIBRE': 'LLIURE',
+                    'DENSO': 'DENS',
+                    'COMPLETO': 'COMPLET',
+                    'DESCUADRE_NEGATIVO': 'COMPLET',
+                    'DESCUADRE_POSITIVO': 'LLIURE'
+                },
+                'castellano': {
+                    'LIBRE': 'LIBRE',
+                    'DENSO': 'DENSO',
+                    'COMPLETO': 'COMPLETO',
+                    'DESCUADRE_NEGATIVO': 'COMPLETO',
+                    'DESCUADRE_POSITIVO': 'LIBRE'
+                }
+            }
+            
+            # Obtener el color según el estado
+            status_colors = {
+                'LIBRE': 2,       # Verde
+                'DENSO': 3,       # Amarillo
+                'COMPLETO': 1,    # Rojo
+                'DESCUADRE_NEGATIVO': 1,  # Rojo
+                'DESCUADRE_POSITIVO': 2   # Verde
+            }
+            
+            lang_texts = status_texts.get(language, status_texts['valenciano'])
+            display_text = lang_texts.get(status, lang_texts.get('LIBRE', 'LLIURE'))
+            color = status_colors.get(status, 2)
+            
+            return {
+                'type': 'status',
+                'parking_id': parking.id,
+                'parking_name': parking.name,
+                'language': language,
+                'color': color,
+                'content': {
+                    'current_occupancy': parking.current_occupancy,
+                    'max_capacity': parking.max_capacity,
+                    'free_spaces': parking.max_capacity - parking.current_occupancy,
+                    'status': parking.status,
+                    'display_text': display_text
+                },
+                'message': display_text
+            }
         else:
-            # Sensores agrupados
+            # Sensores agrupados (incluyendo PMR)
             sensor_summary = self.db_session.query(ParkingSensorSummary).filter(
                 and_(
                     ParkingSensorSummary.parking_id == assignment.parking_id,
@@ -408,6 +467,15 @@ class PanelContentRotationService:
                 # Mostrar estado con texto y color configurados
                 message = f"{parking_name}: {status_text}"
                 return message, color
+        
+        elif content.get('type') == 'status':
+            # NUEVO: Mostrar solo el texto del estado (sin nombre del parking)
+            content_data = content.get('content', {})
+            display_text = content_data.get('display_text', 'LLIURE')
+            color = content.get('color', 2)  # Color determinado por el estado
+            
+            # Solo devolver el texto del estado, sin el nombre del parking
+            return display_text, color
         
         elif content.get('type') == 'sensor_group':
             sensor_data = content.get('content', {})

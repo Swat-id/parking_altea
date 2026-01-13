@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
-import { X, Save, AlertCircle } from 'lucide-react'
+import { X, Save, AlertCircle, Info } from 'lucide-react'
 import windowService from '../services/windowService'
-import panelService from '../services/panelService'
 import parkingService from '../services/parkingService'
 import toast from 'react-hot-toast'
 
@@ -19,7 +18,13 @@ const WindowAssignmentModal = ({
   const [selectedParkingId, setSelectedParkingId] = useState(null)
   const [sensorTypes, setSensorTypes] = useState([])
   const [selectedSensorType, setSelectedSensorType] = useState(null)
-  const [displayType, setDisplayType] = useState('parking') // 'parking' o 'sensor_group'
+  
+  // Nuevo: Tipo de contenido a mostrar
+  const [contentType, setContentType] = useState('numeric') // 'numeric', 'status', 'pmr', 'sensor_group'
+  
+  // Nuevo: Idioma para el texto de estado
+  const [statusLanguage, setStatusLanguage] = useState('valenciano') // 'valenciano', 'castellano'
+  
   const [textoFijoPrevio, setTextoFijoPrevio] = useState('')
   const [color, setColor] = useState(2) // Color por defecto: Verde (2)
   const [loading, setLoading] = useState(false)
@@ -28,37 +33,45 @@ const WindowAssignmentModal = ({
   
   // Determinar si es Tipo 3
   const isType3 = panelTypeId === 3 || (windowId !== undefined && windowId < 2 && parkingId !== null)
+  const isType4 = panelTypeId === 4
+
+  // Textos de estado según idioma
+  const statusTexts = {
+    valenciano: { libre: 'LLIURE', denso: 'DENS', completo: 'COMPLET' },
+    castellano: { libre: 'LIBRE', denso: 'DENSO', completo: 'COMPLETO' }
+  }
 
   useEffect(() => {
     if (isOpen) {
-      // Siempre cargar parkings para poder mostrar nombres
       loadParkings()
       
       // Si es Tipo 3 y tiene parkingId, usar ese parking directamente
       if (isType3 && parkingId) {
         setSelectedParkingId(parkingId)
-        // Para Tipo 3, permitir seleccionar cualquier tipo de asignación
-        // No pre-configurar displayType, dejar que el usuario elija
-        // Solo cargar tipos de sensores si el usuario selecciona sensor_group
       }
     } else {
       // Reset al cerrar
-      setSelectedParkingId(null)
-      setDisplayType('parking')
-      setSelectedSensorType(null)
-      setTextoFijoPrevio('')
-      setColor(2)
+      resetForm()
     }
   }, [isOpen, parkingId, windowId, isType3])
 
   useEffect(() => {
-    if (selectedParkingId && displayType === 'sensor_group') {
+    if (selectedParkingId && contentType === 'sensor_group') {
       loadSensorTypes(selectedParkingId)
-    } else {
+    } else if (contentType !== 'sensor_group') {
       setSensorTypes([])
       setSelectedSensorType(null)
     }
-  }, [selectedParkingId, displayType])
+  }, [selectedParkingId, contentType])
+
+  const resetForm = () => {
+    setSelectedParkingId(null)
+    setContentType('numeric')
+    setStatusLanguage('valenciano')
+    setSelectedSensorType(null)
+    setTextoFijoPrevio('')
+    setColor(2)
+  }
 
   const loadParkings = async () => {
     try {
@@ -94,66 +107,84 @@ const WindowAssignmentModal = ({
       return
     }
 
-    if (displayType === 'sensor_group' && !selectedSensorType) {
+    if (contentType === 'sensor_group' && !selectedSensorType) {
       toast.error('Debes seleccionar un tipo de sensor')
       return
     }
 
+    // Construir la asignación
+    const parking = parkings.find(p => p.id === selectedParkingId)
+    
+    // Determinar el tipo de sensor y texto según el tipo de contenido
+    let sensorType = null
+    let textoFijo = null
+    let assignmentColor = null
+
+    switch (contentType) {
+      case 'numeric':
+        // Plazas libres numéricas - sin sensor_type especial
+        sensorType = null
+        textoFijo = null
+        assignmentColor = null
+        break
+      case 'status':
+        // Mostrar texto de estado (LIBRE/DENSO/COMPLETO)
+        sensorType = '__STATUS__'
+        textoFijo = statusLanguage // Guardar el idioma seleccionado
+        assignmentColor = null // El color se determina dinámicamente según el estado
+        break
+      case 'pmr':
+        // Plazas PMR
+        sensorType = 'PMR'
+        textoFijo = isType3 ? null : 'PMR'
+        assignmentColor = color
+        break
+      case 'sensor_group':
+        sensorType = selectedSensorType
+        textoFijo = isType3 ? null : (textoFijoPrevio || null)
+        assignmentColor = color
+        break
+    }
+
     // Si se está creando el panel (sin panelId), devolver la asignación al callback
     if (isCreating || !panelId) {
-      const parking = parkings.find(p => p.id === selectedParkingId)
-      // Para Tipo 3, NO incluir texto_fijo_previo (solo valores numéricos)
-      const textoFijo = isType3 ? null : (displayType === 'sensor_group' && textoFijoPrevio ? textoFijoPrevio : null)
       const newAssignment = {
         window_id: windowId,
         parking_id: selectedParkingId,
         parking_name: parking?.name || `Parking ${selectedParkingId}`,
-        sensor_type: displayType === 'sensor_group' ? selectedSensorType : null,
+        sensor_type: sensorType,
+        content_type: contentType,
+        status_language: contentType === 'status' ? statusLanguage : null,
         texto_fijo_previo: textoFijo,
-        color: displayType === 'sensor_group' ? color : null
+        color: assignmentColor
       }
       
       toast.success('Asignación agregada')
       onSuccess?.(newAssignment)
       onClose()
-      // Reset form
-      setSelectedParkingId(null)
-      setSelectedSensorType(null)
-      setDisplayType('parking')
-      setTextoFijoPrevio('')
-      setColor(2) // Reset a verde
+      resetForm()
       return
     }
 
-        // Si el panel ya existe, guardar en la base de datos
+    // Si el panel ya existe, guardar en la base de datos
     try {
       setLoading(true)
-      // Para Tipo 3, NO enviar texto_fijo_previo (solo valores numéricos)
-      const textoFijo = isType3 ? null : (displayType === 'sensor_group' && textoFijoPrevio ? textoFijoPrevio : null)
       const result = await windowService.assignParkingToWindow(
         panelId,
         windowId,
         selectedParkingId,
-        displayType === 'sensor_group' ? selectedSensorType : null,
+        sensorType,
         textoFijo,
-        displayType === 'sensor_group' ? color : null
+        assignmentColor
       )
 
       if (result.success) {
         toast.success('Asignación creada exitosamente')
-        // NO cerrar el modal aquí, solo llamar onSuccess para que recargue las asignaciones
         onSuccess?.()
-        // Reset form pero mantener parkingId si es Tipo 3
         if (!isType3 || !parkingId) {
           setSelectedParkingId(null)
         }
-        setSelectedSensorType(null)
-        if (!isType3) {
-          setDisplayType('parking')
-        }
-        setTextoFijoPrevio('')
-        setColor(2) // Reset a verde
-        // Cerrar el modal después de un pequeño delay para que el usuario vea el mensaje
+        resetForm()
         setTimeout(() => {
           onClose()
         }, 500)
@@ -174,7 +205,6 @@ const WindowAssignmentModal = ({
     <div 
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
       onClick={(e) => {
-        // Prevenir que el clic en el overlay cierre el modal padre
         e.stopPropagation()
         if (e.target === e.currentTarget) {
           onClose()
@@ -188,7 +218,7 @@ const WindowAssignmentModal = ({
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b">
           <h2 className="text-xl font-bold text-gray-900">
-            Asignar Parking/Sensor a Ventana {windowId}
+            Configurar Ventana {windowId}
           </h2>
           <button
             onClick={onClose}
@@ -200,81 +230,209 @@ const WindowAssignmentModal = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Tipo de asignación - Permitir seleccionar cualquier tipo para Tipo 3 */}
+          
+          {/* Selección de parking */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tipo de asignación
+              Parking <span className="text-red-500">*</span>
             </label>
-            <div className="space-y-2">
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  value="parking"
-                  checked={displayType === 'parking'}
-                  onChange={(e) => setDisplayType(e.target.value)}
-                  className="mr-2"
-                />
-                <span>Ocupación general del parking (Plazas libres totales)</span>
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  value="sensor_group"
-                  checked={displayType === 'sensor_group'}
-                  onChange={(e) => setDisplayType(e.target.value)}
-                  className="mr-2"
-                />
-                <span>Grupo de sensores (PMR, Eléctrico, Caravanas, etc.)</span>
-              </label>
-            </div>
-            {isType3 && (
-              <p className="mt-1 text-xs text-gray-500">
-                Para paneles Tipo 3, solo se mostrarán valores numéricos (sin texto previo)
-              </p>
+            {isType3 && parkingId ? (
+              <>
+                <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                  {parkings.find(p => p.id === parkingId)?.name || `Parking ${parkingId}`}
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Para paneles Tipo 3, el parking está vinculado al panel
+                </p>
+              </>
+            ) : (
+              <>
+                {loadingParkings ? (
+                  <div className="text-sm text-gray-500">Cargando parkings...</div>
+                ) : (
+                  <select
+                    value={selectedParkingId || ''}
+                    onChange={(e) => setSelectedParkingId(parseInt(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Seleccionar parking...</option>
+                    {parkings.map((parking) => (
+                      <option key={parking.id} value={parking.id}>
+                        {parking.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </>
             )}
           </div>
 
-          {/* Selección de parking - Para Tipo 3, mostrar solo el parking del panel */}
-          {isType3 && parkingId ? (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Parking
+          {/* Tipo de contenido a mostrar */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              ¿Qué mostrar en esta ventana?
+            </label>
+            <div className="space-y-3">
+              <label className="flex items-start p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                <input
+                  type="radio"
+                  value="numeric"
+                  checked={contentType === 'numeric'}
+                  onChange={(e) => setContentType(e.target.value)}
+                  className="mt-1 mr-3"
+                />
+                <div>
+                  <span className="font-medium text-gray-900">Plazas libres (número)</span>
+                  <p className="text-sm text-gray-500">Muestra el número de plazas libres del parking (ej: "45")</p>
+                </div>
               </label>
-              <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-                {parkings.find(p => p.id === parkingId)?.name || `Parking ${parkingId}`}
-              </div>
-              <p className="mt-1 text-xs text-gray-500">
-                Para paneles Tipo 3, el parking está vinculado al panel
-              </p>
+              
+              <label className="flex items-start p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                <input
+                  type="radio"
+                  value="status"
+                  checked={contentType === 'status'}
+                  onChange={(e) => setContentType(e.target.value)}
+                  className="mt-1 mr-3"
+                />
+                <div>
+                  <span className="font-medium text-gray-900">Estado (texto)</span>
+                  <p className="text-sm text-gray-500">Muestra el estado del parking (LIBRE, DENSO, COMPLETO)</p>
+                </div>
+              </label>
+              
+              <label className="flex items-start p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                <input
+                  type="radio"
+                  value="pmr"
+                  checked={contentType === 'pmr'}
+                  onChange={(e) => setContentType(e.target.value)}
+                  className="mt-1 mr-3"
+                />
+                <div>
+                  <span className="font-medium text-gray-900">Plazas PMR (minusválidos)</span>
+                  <p className="text-sm text-gray-500">Muestra las plazas libres de movilidad reducida</p>
+                </div>
+              </label>
+              
+              <label className="flex items-start p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                <input
+                  type="radio"
+                  value="sensor_group"
+                  checked={contentType === 'sensor_group'}
+                  onChange={(e) => setContentType(e.target.value)}
+                  className="mt-1 mr-3"
+                />
+                <div>
+                  <span className="font-medium text-gray-900">Grupo de sensores específico</span>
+                  <p className="text-sm text-gray-500">Eléctrico, Caravanas, u otro tipo de sensor configurado</p>
+                </div>
+              </label>
             </div>
-          ) : (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Parking <span className="text-red-500">*</span>
+          </div>
+
+          {/* Selector de idioma (solo si contentType === 'status') */}
+          {contentType === 'status' && (
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Idioma del texto de estado
               </label>
-              {loadingParkings ? (
-                <div className="text-sm text-gray-500">Cargando parkings...</div>
-              ) : (
-                <select
-                  value={selectedParkingId || ''}
-                  onChange={(e) => setSelectedParkingId(parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  <option value="">Seleccionar parking...</option>
-                  {parkings.map((parking) => (
-                    <option key={parking.id} value={parking.id}>
-                      {parking.name} {parking.location ? `(${parking.location})` : ''}
-                    </option>
-                  ))}
-                </select>
-              )}
+              <div className="grid grid-cols-2 gap-4">
+                <label className={`flex flex-col items-center p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                  statusLanguage === 'valenciano' ? 'border-blue-500 bg-blue-100' : 'border-gray-200 hover:bg-gray-50'
+                }`}>
+                  <input
+                    type="radio"
+                    value="valenciano"
+                    checked={statusLanguage === 'valenciano'}
+                    onChange={(e) => setStatusLanguage(e.target.value)}
+                    className="sr-only"
+                  />
+                  <span className="font-medium text-gray-900 mb-2">Valenciano</span>
+                  <div className="text-xs text-gray-600 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-green-500"></span>
+                      <span>LLIURE</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-yellow-500"></span>
+                      <span>DENS</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-red-500"></span>
+                      <span>COMPLET</span>
+                    </div>
+                  </div>
+                </label>
+                
+                <label className={`flex flex-col items-center p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                  statusLanguage === 'castellano' ? 'border-blue-500 bg-blue-100' : 'border-gray-200 hover:bg-gray-50'
+                }`}>
+                  <input
+                    type="radio"
+                    value="castellano"
+                    checked={statusLanguage === 'castellano'}
+                    onChange={(e) => setStatusLanguage(e.target.value)}
+                    className="sr-only"
+                  />
+                  <span className="font-medium text-gray-900 mb-2">Castellano</span>
+                  <div className="text-xs text-gray-600 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-green-500"></span>
+                      <span>LIBRE</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-yellow-500"></span>
+                      <span>DENSO</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-red-500"></span>
+                      <span>COMPLETO</span>
+                    </div>
+                  </div>
+                </label>
+              </div>
+              <div className="mt-3 flex items-start text-xs text-blue-700">
+                <Info className="h-4 w-4 mr-1 flex-shrink-0 mt-0.5" />
+                <span>El color se ajustará automáticamente según el estado del parking</span>
+              </div>
             </div>
           )}
 
-          {/* Selección de tipo de sensor (solo si displayType === 'sensor_group') */}
-          {displayType === 'sensor_group' && (
-            <>
+          {/* Opciones para PMR */}
+          {contentType === 'pmr' && !isType3 && (
+            <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+              <div className="flex items-start mb-3">
+                <Info className="h-5 w-5 text-purple-600 mr-2 flex-shrink-0" />
+                <p className="text-sm text-purple-800">
+                  Se mostrará el número de plazas PMR libres con el prefijo "PMR"
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Color del texto
+                </label>
+                <select
+                  value={color}
+                  onChange={(e) => setColor(parseInt(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value={1}>Rojo</option>
+                  <option value={2}>Verde</option>
+                  <option value={3}>Amarillo/Naranja</option>
+                  <option value={4}>Azul</option>
+                  <option value={5}>Morado</option>
+                  <option value={6}>Cian</option>
+                  <option value={7}>Blanco</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Selección de tipo de sensor (solo si contentType === 'sensor_group') */}
+          {contentType === 'sensor_group' && (
+            <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Tipo de Sensor <span className="text-red-500">*</span>
@@ -306,7 +464,6 @@ const WindowAssignmentModal = ({
                 )}
               </div>
 
-              {/* Color (solo si displayType === 'sensor_group') - Para Tipo 3, NO mostrar texto previo */}
               {selectedSensorType && (
                 <>
                   {/* Texto fijo previo - SOLO para Tipo 4, NO para Tipo 3 */}
@@ -319,18 +476,18 @@ const WindowAssignmentModal = ({
                         type="text"
                         value={textoFijoPrevio}
                         onChange={(e) => setTextoFijoPrevio(e.target.value)}
-                        placeholder="Ej: PMR, ELÉCTRICO, CARAVANAS..."
+                        placeholder="Ej: ELÉCTRICO, CARAVANAS..."
                         maxLength={50}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                       <p className="mt-1 text-xs text-gray-500">
-                        Texto que aparecerá antes del número de plazas libres (ej: "PMR: 5/10 libres")
+                        Texto que aparecerá antes del número de plazas libres
                       </p>
                     </div>
                   )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Color
+                      Color del texto
                     </label>
                     <select
                       value={color}
@@ -345,14 +502,25 @@ const WindowAssignmentModal = ({
                       <option value={6}>Cian</option>
                       <option value={7}>Blanco</option>
                     </select>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Color del texto para este tipo de sensor
-                    </p>
                   </div>
                 </>
               )}
-            </>
+            </div>
           )}
+
+          {/* Resumen de la configuración */}
+          <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">Resumen</h4>
+            <div className="text-sm text-gray-600">
+              <p><strong>Parking:</strong> {selectedParkingId ? (parkings.find(p => p.id === selectedParkingId)?.name || `ID ${selectedParkingId}`) : 'No seleccionado'}</p>
+              <p><strong>Contenido:</strong> {
+                contentType === 'numeric' ? 'Número de plazas libres' :
+                contentType === 'status' ? `Estado en ${statusLanguage === 'valenciano' ? 'Valenciano' : 'Castellano'}` :
+                contentType === 'pmr' ? 'Plazas PMR' :
+                contentType === 'sensor_group' ? `Grupo: ${selectedSensorType || 'No seleccionado'}` : ''
+              }</p>
+            </div>
+          </div>
 
           {/* Botones */}
           <div className="flex justify-end space-x-3 pt-4 border-t">
@@ -365,7 +533,7 @@ const WindowAssignmentModal = ({
             </button>
             <button
               type="submit"
-              disabled={loading || (displayType === 'sensor_group' && sensorTypes.length === 0)}
+              disabled={loading || !selectedParkingId || (contentType === 'sensor_group' && (!selectedSensorType || sensorTypes.length === 0))}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
             >
               {loading ? (
@@ -388,4 +556,3 @@ const WindowAssignmentModal = ({
 }
 
 export default WindowAssignmentModal
-

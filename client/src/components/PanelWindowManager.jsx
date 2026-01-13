@@ -237,11 +237,42 @@ const PanelWindowManager = ({
   }
 
   const getAssignmentLabel = (assignment) => {
+    const parkingName = assignment.parking_name || `Parking ${assignment.parking_id}`
+    
+    // Verificar el tipo de contenido
+    if (assignment.content_type) {
+      switch (assignment.content_type) {
+        case 'numeric':
+          return `📊 Plazas libres - ${parkingName}`
+        case 'status':
+          const lang = assignment.status_language === 'castellano' ? 'Castellano' : 'Valenciano'
+          return `📝 Estado (${lang}) - ${parkingName}`
+        case 'pmr':
+          return `♿ Plazas PMR - ${parkingName}`
+        case 'sensor_group':
+          const prefix = assignment.texto_fijo_previo || assignment.sensor_type
+          return `🔌 ${prefix} - ${parkingName}`
+        default:
+          break
+      }
+    }
+    
+    // Compatibilidad con asignaciones antiguas
+    if (assignment.sensor_type === '__STATUS__') {
+      const lang = assignment.texto_fijo_previo === 'castellano' ? 'Castellano' : 'Valenciano'
+      return `📝 Estado (${lang}) - ${parkingName}`
+    }
+    
+    if (assignment.sensor_type === 'PMR') {
+      return `♿ Plazas PMR - ${parkingName}`
+    }
+    
     if (assignment.sensor_type) {
       const prefix = assignment.texto_fijo_previo || assignment.sensor_type
-      return `${prefix} (${assignment.parking_name || `Parking ${assignment.parking_id}`})`
+      return `🔌 ${prefix} - ${parkingName}`
     }
-    return `Parking: ${assignment.parking_name || `Parking ${assignment.parking_id}`}`
+    
+    return `📊 Plazas libres - ${parkingName}`
   }
 
   if (!isType3Or4) {
