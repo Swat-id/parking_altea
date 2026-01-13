@@ -314,12 +314,12 @@ class PanelType3And4Worker:
                             is_type3 = panel.panel_type and panel.panel_type.windows_count == 2
                             is_type4 = panel.panel_type and panel.panel_type.windows_count == 16
                             
-                            # Usar la versión asíncrona si está disponible
+                            # Usar la versión asíncrona
                             if is_type3:
                                 result = await update_service.update_type3_panel_async(panel.id)
                             elif is_type4:
-                                # Para Tipo 4, aún no tenemos versión asíncrona, usar la síncrona
-                                result = update_service.update_type4_panel(panel.id)
+                                # Usar versión asíncrona para Tipo 4
+                                result = await update_service.update_type4_panel_async(panel.id)
                             else:
                                 result = {'success': False, 'error': 'Tipo de panel no soportado'}
                             

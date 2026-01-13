@@ -552,7 +552,24 @@ class PanelType3And4UpdateService:
     
     def update_type4_panel(self, panel_id: int) -> Dict[str, Any]:
         """
-        Actualiza un panel Tipo 4 específico (contenido rotado)
+        Actualiza un panel Tipo 4 específico (contenido rotado) - Wrapper síncrono
+        
+        Args:
+            panel_id: ID del panel
+            
+        Returns:
+            Dict con resultado de la actualización
+        """
+        try:
+            # Ejecutar versión asíncrona en un nuevo event loop
+            return asyncio.run(self.update_type4_panel_async(panel_id))
+        except Exception as e:
+            logger.error(f"Error ejecutando update_type4_panel {panel_id}: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    async def update_type4_panel_async(self, panel_id: int) -> Dict[str, Any]:
+        """
+        Actualiza un panel Tipo 4 específico (contenido rotado) - Versión asíncrona
         
         Args:
             panel_id: ID del panel
@@ -586,10 +603,10 @@ class PanelType3And4UpdateService:
             # Inicializar servicios
             rotation_service = PanelContentRotationService(self.db_session)
             protocol_service = PanelProtocolService(
-                max_concurrent_tasks=20,  # Aumentar para procesar más paneles en paralelo
+                max_concurrent_tasks=20,
                 max_connections_per_panel=5,
                 connection_timeout=5.0,
-                read_timeout=15.0  # Aumentar timeout de lectura para procesamiento paralelo
+                read_timeout=15.0
             )
             
             windows_updated = 0
@@ -620,33 +637,26 @@ class PanelType3And4UpdateService:
                     if not message:
                         continue
                     
-                    # Enviar mensaje al panel usando protocolo v4 (síncrono)
+                    # Enviar mensaje al panel usando protocolo v4 (asíncrono)
                     try:
-                        # Ejecutar la corrutina de forma síncrona
-                        task_id = asyncio.run(
-                            protocol_service.send_text_v4(
-                                panel_ip=panel.ip,
-                                panel_port=panel.port or 5200,
-                                window_id=window_id,
-                                text=message,
-                                color=color,  # Color dinámico según configuración
-                                font_size=2,  # Tamaño medio
-                                effect=0,  # Sin efecto
-                                alignment=0,  # Izquierda arriba
-                                wait_for_response=True  # Esperar respuesta
-                            )
+                        task_id = await protocol_service.send_text_v4(
+                            panel_ip=panel.ip,
+                            panel_port=panel.port or 5200,
+                            window_id=window_id,
+                            text=message,
+                            color=color,
+                            font_size=2,
+                            effect=0,
+                            alignment=0,
+                            wait_for_response=True
                         )
                         
                         # Obtener el resultado de la tarea
-                        result = asyncio.run(
-                            protocol_service.get_task_result(task_id, timeout=10.0)
-                        )
+                        result = await protocol_service.get_task_result(task_id, timeout=10.0)
                         
                         if result and result.get('success'):
                             windows_updated += 1
                             # Actualizar último mensaje en la tabla Panel
-                            # Para ventana 0, actualizar last_message general
-                            # Para otras ventanas, actualizar last_message general con el mensaje más reciente
                             if window_id == 0:
                                 panel.last_message = message
                                 panel.last_message_window_0 = message
@@ -654,14 +664,10 @@ class PanelType3And4UpdateService:
                             elif window_id == 1:
                                 panel.last_message_window_1 = message
                                 panel.last_update_window_1 = datetime.utcnow()
-                                # Si no hay mensaje en ventana 0, usar el de ventana 1
                                 if not panel.last_message:
                                     panel.last_message = message
                             
-                            # Actualizar last_update general con la fecha actual
                             panel.last_update = datetime.utcnow()
-                            
-                            # Guardar cambios en la base de datos
                             self.db_session.commit()
                             
                             logger.info(
@@ -681,7 +687,6 @@ class PanelType3And4UpdateService:
                         })
                 except Exception as e:
                     logger.error(f"Error actualizando ventana {window_id} del panel {panel_id}: {e}")
-                    # Hacer rollback para limpiar la transacción en caso de error
                     try:
                         self.db_session.rollback()
                     except Exception as rollback_error:
@@ -699,8 +704,7 @@ class PanelType3And4UpdateService:
             }
             
         except Exception as e:
-            logger.error(f"Error en update_type4_panel {panel_id}: {e}")
-            # Hacer rollback para limpiar la transacción en caso de error
+            logger.error(f"Error en update_type4_panel_async {panel_id}: {e}")
             try:
                 self.db_session.rollback()
             except Exception as rollback_error:
