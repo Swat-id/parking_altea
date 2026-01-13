@@ -248,26 +248,25 @@ const Panels = () => {
   )
 
   const createPanelMutation = useMutation(
-    async (panelData) => {
-      const res = await fetch('/api/panels', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(panelData)
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.error || 'Error al crear el panel')
-      }
-      return data
-    },
+    (panelData) => panelService.createPanel(panelData),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('panels')
+        queryClient.invalidateQueries('userPanels')
+        setShowCreateModal(false)
+        setPendingWindowAssignments([])
+        setCreateForm({
+          name: '',
+          ip: '',
+          parking_id: '',
+          panel_type_id: '',
+          port: 5200,
+          windows_count: 1
+        })
+        toast.success('Panel creado correctamente')
       },
       onError: (error) => {
-        toast.error(error?.message || error?.response?.data?.message || 'Error creando panel')
+        toast.error(error?.response?.data?.error || error?.message || 'Error creando panel')
       }
     }
   )
