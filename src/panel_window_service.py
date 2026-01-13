@@ -95,7 +95,10 @@ class PanelWindowService:
                 return {'success': False, 'error': f'Parking {parking_id} no encontrado'}
             
             # Si se especifica sensor_type, verificar que existe en el parking
-            if sensor_type:
+            # Excepto para tipos especiales que no requieren validación de sensores
+            SPECIAL_SENSOR_TYPES = ['__STATUS__', 'PMR']  # Tipos especiales que no requieren verificación
+            
+            if sensor_type and sensor_type not in SPECIAL_SENSOR_TYPES:
                 sensor_summary = self.db_session.query(ParkingSensorSummary).filter(
                     and_(
                         ParkingSensorSummary.parking_id == parking_id,
@@ -126,7 +129,12 @@ class PanelWindowService:
                 }
             
             # Determinar display_type
-            display_type = 'sensor_group' if sensor_type else 'parking'
+            if sensor_type == '__STATUS__':
+                display_type = 'status'  # Mostrar estado del parking (LIBRE/DENSO/COMPLETO)
+            elif sensor_type:
+                display_type = 'sensor_group'  # Grupo de sensores (PMR, Electrico, etc.)
+            else:
+                display_type = 'parking'  # Plazas libres del parking (numérico)
             
             # Crear nueva asignación
             assignment = ParkingPanelWindow(
