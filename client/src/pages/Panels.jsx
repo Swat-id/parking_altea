@@ -1430,9 +1430,22 @@ const Panels = () => {
 
       {/* Modal de creación de panel */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
+        <div 
+          className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
+          onClick={(e) => {
+            // Solo cerrar si se hace clic directamente en el overlay (no en modales hijos)
+            if (e.target === e.currentTarget) {
+              setShowCreateModal(false)
+            }
+          }}
+        >
+          <div 
+            className={`relative top-10 mx-auto p-5 border shadow-lg rounded-md bg-white mb-10 ${
+              isPanelType3Or4(createForm.panel_type_id) ? 'w-11/12 max-w-3xl' : 'w-96'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mt-3 max-h-[80vh] overflow-y-auto">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Crear Nuevo Panel</h3>
               <form onSubmit={handleCreatePanel}>
                 <div className="mb-4">
@@ -1619,9 +1632,21 @@ const Panels = () => {
 
       {/* Modal de edición de panel */}
       {showEditModal && editingPanel && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
+        <div 
+          className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowEditModal(false)
+            }
+          }}
+        >
+          <div 
+            className={`relative top-10 mx-auto p-5 border shadow-lg rounded-md bg-white mb-10 ${
+              isPanelType3Or4(editForm.panel_type_id) ? 'w-11/12 max-w-3xl' : 'w-96'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mt-3 max-h-[80vh] overflow-y-auto">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Editar Panel</h3>
               <form onSubmit={handleUpdatePanel}>
                 <div className="mb-4">

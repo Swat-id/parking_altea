@@ -101,6 +101,7 @@ const WindowAssignmentModal = ({
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    e.stopPropagation() // Evitar propagación al form padre
 
     if (!selectedParkingId) {
       toast.error('Debes seleccionar un parking')
@@ -160,9 +161,10 @@ const WindowAssignmentModal = ({
       }
       
       toast.success('Asignación agregada')
+      // Primero actualizar las asignaciones pendientes, luego cerrar
       onSuccess?.(newAssignment)
-      onClose()
       resetForm()
+      // El cierre del modal lo maneja handleAssignmentSuccess en PanelWindowManager
       return
     }
 
