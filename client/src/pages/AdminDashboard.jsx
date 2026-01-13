@@ -5,6 +5,7 @@ import parkingService from '../services/parkingService'
 import sensorService from '../services/sensorService'
 import { useAuth } from '../context/AuthContext'
 import { Link } from 'react-router-dom'
+import api from '../services/api'
 
 const AdminDashboard = () => {
   const { user } = useAuth()
@@ -23,7 +24,7 @@ const AdminDashboard = () => {
   // Obtener estadísticas de sensores
   const { data: sensorStats } = useQuery(
     'admin-sensor-stats',
-    () => fetch('/api/sensors/stats').then(res => res.json()),
+    () => api.get('/api/sensors/stats').then(res => res.data),
     {
       refetchInterval: 60000,
       retry: 2

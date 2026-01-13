@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { authService } from '../services/authService'
+import api from '../services/api'
 
 const ParkingAssignmentModal = ({ 
   isOpen, 
@@ -20,11 +21,10 @@ const ParkingAssignmentModal = ({
   const loadParkings = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/parkings')
-      const data = await response.json()
-      setAllParkings(data || [])
+      const response = await api.get('/api/parkings')
+      setAllParkings(response.data?.parkings || response.data || [])
     } catch (err) {
-      setError('Error al cargar parkings: ' + err.message)
+      setError('Error al cargar parkings: ' + (err.response?.data?.error || err.message))
     } finally {
       setLoading(false)
     }
