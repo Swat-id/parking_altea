@@ -131,6 +131,16 @@ export const authService = {
     }
   },
 
+  async resetUserPassword(userId, newPassword) {
+    try {
+      const response = await api.put(`/api/admin/users/${userId}/password`, { new_password: newPassword })
+      return response.data
+    } catch (error) {
+      console.error('Reset user password error:', error)
+      throw error
+    }
+  },
+
   async assignUserResources(userId, resources) {
     try {
       const response = await api.post(`/api/admin/users/${userId}/assign`, resources)

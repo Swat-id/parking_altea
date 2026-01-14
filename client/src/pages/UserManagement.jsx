@@ -12,7 +12,10 @@ const UserManagement = () => {
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showParkingModal, setShowParkingModal] = useState(false)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [passwordLoading, setPasswordLoading] = useState(false)
   const [filterRole, setFilterRole] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
@@ -96,6 +99,28 @@ const UserManagement = () => {
       loadUsers()
     } catch (err) {
       setError('Error al cambiar estado: ' + (err.response?.data?.message || err.message))
+    }
+  }
+
+  // Cambiar contraseña de usuario
+  const handleResetPassword = async (e) => {
+    e.preventDefault()
+    if (!newPassword || newPassword.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres')
+      return
+    }
+    try {
+      setPasswordLoading(true)
+      await authService.resetUserPassword(selectedUser.id, newPassword)
+      setShowPasswordModal(false)
+      setSelectedUser(null)
+      setNewPassword('')
+      setError(null)
+      alert('Contraseña actualizada correctamente')
+    } catch (err) {
+      setError('Error al cambiar contraseña: ' + (err.response?.data?.error || err.message))
+    } finally {
+      setPasswordLoading(false)
     }
   }
 
@@ -272,6 +297,16 @@ const UserManagement = () => {
                             className="text-green-600 hover:text-green-900"
                           >
                             Asignar Parkings
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedUser(user)
+                              setNewPassword('')
+                              setShowPasswordModal(true)
+                            }}
+                            className="text-purple-600 hover:text-purple-900"
+                          >
+                            Contraseña
                           </button>
                           <button
                             onClick={() => {
@@ -484,6 +519,58 @@ const UserManagement = () => {
                     Eliminar
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de cambio de contraseña */}
+        {showPasswordModal && selectedUser && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+              <div className="mt-3">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">
+                  Cambiar Contraseña
+                </h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Usuario: <strong>{selectedUser.email}</strong>
+                </p>
+                <form onSubmit={handleResetPassword}>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Nueva Contraseña
+                    </label>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      placeholder="Mínimo 6 caracteres"
+                      required
+                      minLength={6}
+                    />
+                  </div>
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPasswordModal(false)
+                        setNewPassword('')
+                      }}
+                      className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                      disabled={passwordLoading}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
+                      disabled={passwordLoading}
+                    >
+                      {passwordLoading ? 'Guardando...' : 'Guardar'}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           </div>

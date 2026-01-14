@@ -4110,6 +4110,47 @@ def toggle_user_status(user_id):
         logger.error(f"Error cambiando estado de usuario: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@api_bp.route('/admin/users/<int:user_id>/password', methods=['PUT'])
+@require_superadmin
+def reset_user_password(user_id):
+    """Cambiar contraseña de un usuario (solo superadmin)"""
+    try:
+        req = request.get_json(force=True)
+        new_password = req.get('new_password')
+        
+        if not new_password:
+            return jsonify({'error': 'La nueva contraseña es requerida'}), 400
+        
+        if len(new_password) < 6:
+            return jsonify({'error': 'La contraseña debe tener al menos 6 caracteres'}), 400
+        
+        session = Session()
+        
+        user = session.query(User).filter(User.id == user_id).first()
+        if not user:
+            session.close()
+            return jsonify({'error': 'Usuario no encontrado'}), 404
+        
+        # Generar hash de la nueva contraseña usando bcrypt
+        import bcrypt
+        salt = bcrypt.gensalt()
+        password_hash = bcrypt.hashpw(new_password.encode('utf-8'), salt)
+        user.password_hash = password_hash.decode('utf-8')
+        
+        session.commit()
+        session.close()
+        
+        logger.info(f"Contraseña del usuario {user_id} ({user.email}) cambiada por superadmin")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Contraseña de {user.email} actualizada correctamente'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error cambiando contraseña de usuario: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 @api_bp.route('/parkings/<int:parking_id>', methods=['DELETE'])
 @require_superadmin
 def delete_parking(parking_id):
