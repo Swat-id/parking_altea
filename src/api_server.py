@@ -23,7 +23,7 @@ from models import (
 from panel_schedule_service import PanelScheduleService
 from panel_window_service import PanelWindowService
 from auth import (
-    create_user, authenticate_user, delete_user, change_password, 
+    create_user, authenticate_user, delete_user, change_password, hash_password,
     get_user_permissions, assign_user_to_resources, require_auth, require_superadmin,
     require_parking_access, require_panel_access, filter_by_user_permissions
 )
@@ -4131,11 +4131,8 @@ def reset_user_password(user_id):
             session.close()
             return jsonify({'error': 'Usuario no encontrado'}), 404
         
-        # Generar hash de la nueva contraseña usando bcrypt
-        import bcrypt
-        salt = bcrypt.gensalt()
-        password_hash = bcrypt.hashpw(new_password.encode('utf-8'), salt)
-        user.password_hash = password_hash.decode('utf-8')
+        # Generar hash de la nueva contraseña usando la función existente
+        user.password_hash = hash_password(new_password)
         
         session.commit()
         session.close()
