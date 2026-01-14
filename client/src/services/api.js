@@ -1,12 +1,30 @@
 import axios from 'axios'
 
 // Determinar la URL base según el entorno
-const isProduction = window.location.hostname === '157.180.91.63' || 
-                     window.location.hostname === 'localhost' ||
-                     window.location.port === '5789'
-const API_BASE_URL = isProduction 
-  ? 'http://157.180.91.63:6001'  // Usar URL directa temporalmente
-  : (import.meta.env.VITE_API_URL || 'http://157.180.91.63:6001')
+// En producción con Nginx, usamos rutas relativas ya que el proxy maneja /api/
+const getApiBaseUrl = () => {
+  const hostname = window.location.hostname
+  
+  // Dominios de producción con Nginx proxy - usar rutas relativas
+  if (hostname === 'parking.swat-id.com') {
+    return ''  // Nginx hace proxy de /api/ a localhost:6001
+  }
+  
+  // Acceso directo por IP (desarrollo/pruebas)
+  if (hostname === '157.180.91.63') {
+    return `${window.location.protocol}//157.180.91.63:6001`
+  }
+  
+  // Desarrollo local
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return import.meta.env.VITE_API_URL || 'http://localhost:6001'
+  }
+  
+  // Fallback - intentar ruta relativa
+  return ''
+}
+
+const API_BASE_URL = getApiBaseUrl()
 
 const api = axios.create({
   baseURL: API_BASE_URL,
