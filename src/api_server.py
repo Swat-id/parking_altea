@@ -4131,17 +4131,20 @@ def reset_user_password(user_id):
             session.close()
             return jsonify({'error': 'Usuario no encontrado'}), 404
         
+        # Guardar email antes de cerrar sesión
+        user_email = user.email
+        
         # Generar hash de la nueva contraseña usando la función existente
         user.password_hash = hash_password(new_password)
         
         session.commit()
         session.close()
         
-        logger.info(f"Contraseña del usuario {user_id} ({user.email}) cambiada por superadmin")
+        logger.info(f"Contraseña del usuario {user_id} ({user_email}) cambiada por superadmin")
         
         return jsonify({
             'success': True,
-            'message': f'Contraseña de {user.email} actualizada correctamente'
+            'message': f'Contraseña de {user_email} actualizada correctamente'
         })
         
     except Exception as e:
