@@ -460,16 +460,23 @@ def handle_camera():
             
             return jsonify({'status': 'duplicate_ignored', 'message': 'Duplicate message ignored'}), 200
         
-        # NUEVA LÓGICA: Buscar la cámara por device + línea usando la nueva relación muchos a muchos
+        # NUEVA LÓGICA v4.4.0: Buscar la cámara por device + línea + tipo 'counting'
+        # Solo procesar cámaras de conteo (las de detección por plaza van al puerto 6401)
         # Esto permite que una misma cámara esté asignada a múltiples parkings
         accesses = session.query(Access).filter(
             func.lower(Access.name) == func.lower(device),
-            Access.line == line
+            Access.line == line,
+            Access.camera_type == 'counting'  # Solo cámaras de conteo
         ).all()
         
         if not accesses:
             # Si no se encuentra por device+línea, intentar buscar por IP+línea como fallback
-            accesses = session.query(Access).filter_by(ip=ip, line=line).all()
+            # También filtrar por tipo 'counting'
+            accesses = session.query(Access).filter(
+                Access.ip == ip,
+                Access.line == line,
+                Access.camera_type == 'counting'  # Solo cámaras de conteo
+            ).all()
             if accesses:
                 logger.info(f"Found {len(accesses)} access(es) by IP and line (fallback): {ip}, line: {line}")
             else:

@@ -15,6 +15,10 @@ ALTER TABLE accesses ADD COLUMN IF NOT EXISTS camera_type VARCHAR(20) DEFAULT 'c
 -- Número de plazas que monitoriza esta cámara (solo para spot_detection)
 ALTER TABLE accesses ADD COLUMN IF NOT EXISTS monitored_spots_count INTEGER DEFAULT 0;
 
+-- COMPATIBILIDAD: Asegurar que TODAS las cámaras existentes tienen camera_type='counting'
+-- Esto es necesario porque las cámaras creadas antes de v4.4.0 no tenían este campo
+UPDATE accesses SET camera_type = 'counting' WHERE camera_type IS NULL;
+
 -- Índice para filtrar por tipo de cámara
 CREATE INDEX IF NOT EXISTS idx_accesses_camera_type ON accesses(camera_type);
 

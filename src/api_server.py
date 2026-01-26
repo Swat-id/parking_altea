@@ -239,7 +239,12 @@ def get_user_parkings():
                 'estado': p.status,
                 'threshold_dense': p.threshold_dense,
                 'threshold_full': p.threshold_full,
-                'message_type': p.message_type
+                'message_type': p.message_type,
+                # NUEVO v4.4.0: Campos de monitorización por plaza
+                'spot_monitoring_enabled': getattr(p, 'spot_monitoring_enabled', False),
+                'total_monitored_spots': getattr(p, 'total_monitored_spots', 0),
+                'total_spot_occupied': getattr(p, 'total_spot_occupied', 0),
+                'last_spot_sync': p.last_spot_sync.isoformat() if getattr(p, 'last_spot_sync', None) else None
             }
             for p in parks
         ]
@@ -343,7 +348,10 @@ def get_user_cameras():
                     'parking_id': parking.id,
                     'parking_name': parking.name,
                     'status': getattr(c, 'status', 'OFFLINE'),
-                    'last_message_received': c.last_message_received.isoformat() if c.last_message_received else None
+                    'last_message_received': c.last_message_received.isoformat() if c.last_message_received else None,
+                    # NUEVO v4.4.0: Tipo de cámara
+                    'camera_type': getattr(c, 'camera_type', 'counting'),
+                    'monitored_spots_count': getattr(c, 'monitored_spots_count', 0)
                 })
         
         session.close()
@@ -503,7 +511,12 @@ def list_parkings():
                 'estado': p.status,
                 'threshold_dense': p.threshold_dense,
                 'threshold_full': p.threshold_full,
-                'message_type': p.message_type
+                'message_type': p.message_type,
+                # NUEVO v4.4.0: Campos de monitorización por plaza
+                'spot_monitoring_enabled': getattr(p, 'spot_monitoring_enabled', False),
+                'total_monitored_spots': getattr(p, 'total_monitored_spots', 0),
+                'total_spot_occupied': getattr(p, 'total_spot_occupied', 0),
+                'last_spot_sync': p.last_spot_sync.isoformat() if getattr(p, 'last_spot_sync', None) else None
             }
             for p in parks
         ]

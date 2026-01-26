@@ -7,6 +7,20 @@
 - **Modificaciones**: Campos nuevos en `accesses` y `parkings`
 - **Límites**: Ocupación mínima 0, máxima 110% de capacidad
 
+## Compatibilidad Hacia Atrás
+
+✅ **Cámaras de conteo existentes**: Siguen funcionando exactamente igual
+- La migración actualiza `camera_type='counting'` a todas las cámaras existentes
+- El servidor del puerto 6400 solo procesa cámaras de tipo 'counting'
+- No se requiere ningún cambio en la configuración de cámaras existentes
+
+✅ **Parkings existentes**: Siguen funcionando sin cambios
+- Los nuevos campos tienen valores por defecto seguros:
+  - `spot_monitoring_enabled = FALSE`
+  - `total_monitored_spots = 0`
+  - `total_spot_occupied = 0`
+- Los endpoints de API devuelven los nuevos campos (compatibles con frontend actual)
+
 ---
 
 ## FASE 1: Actualizar Código
