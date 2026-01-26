@@ -51,9 +51,12 @@ const Parkings = () => {
     total_plazas: 0,
     threshold_dense: 0,
     threshold_full: 0,
-    message_type: 'ESTADO'
+    message_type: 'ESTADO',
+    spot_monitoring_enabled: false,
+    total_monitored_spots: 0
   })
   const [assignedCameras, setAssignedCameras] = useState([])
+  const [calculatedMonitoredSpots, setCalculatedMonitoredSpots] = useState(0)
 
   const queryClient = useQueryClient()
 
@@ -109,9 +112,12 @@ const Parkings = () => {
           total_plazas: 0,
           threshold_dense: 0,
           threshold_full: 0,
-          message_type: 'ESTADO'
+          message_type: 'ESTADO',
+          spot_monitoring_enabled: false,
+          total_monitored_spots: 0
         })
         setAssignedCameras([])
+        setCalculatedMonitoredSpots(0)
       },
       onError: (error) => {
         toast.error(error?.response?.data?.message || 'Error al crear el parking')
@@ -326,18 +332,30 @@ const Parkings = () => {
       return
     }
 
-    // Incluir cámaras asignadas en los datos del parking
+    // Incluir cámaras asignadas y configuración de monitorización
     const parkingData = {
       ...createForm,
-      cameras: assignedCameras
+      cameras: assignedCameras,
+      // Usar el total calculado si está habilitada la monitorización
+      total_monitored_spots: createForm.spot_monitoring_enabled ? calculatedMonitoredSpots : 0
     }
 
     createParkingMutation.mutate(parkingData)
   }
 
-  const handleCameraAssignment = async (cameras) => {
+  const handleCameraAssignment = async (cameras, totalMonitoredSpots = 0) => {
     setAssignedCameras(cameras)
+    setCalculatedMonitoredSpots(totalMonitoredSpots)
     setShowCameraModal(false)
+    
+    // Actualizar el formulario de creación con el total de plazas monitorizadas
+    if (!editingParking) {
+      setCreateForm(prev => ({
+        ...prev,
+        total_monitored_spots: totalMonitoredSpots,
+        spot_monitoring_enabled: totalMonitoredSpots > 0
+      }))
+    }
     
     // Si estamos editando un parking existente, guardar las cámaras
     if (editingParking) {
@@ -854,6 +872,41 @@ const Parkings = () => {
                     Define qué información se enviará a los paneles de este parking
                   </p>
                 </div>
+
+                {/* Sección de Monitorización por Plaza */}
+                {calculatedMonitoredSpots > 0 && (
+                  <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                    <div className="flex items-center mb-3">
+                      <input
+                        type="checkbox"
+                        id="spot_monitoring_enabled"
+                        checked={createForm.spot_monitoring_enabled}
+                        onChange={(e) => setCreateForm({...createForm, spot_monitoring_enabled: e.target.checked})}
+                        className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="spot_monitoring_enabled" className="ml-2 block text-sm font-medium text-purple-900">
+                        Habilitar Monitorización Plaza a Plaza
+                      </label>
+                    </div>
+                    
+                    {createForm.spot_monitoring_enabled && (
+                      <div className="ml-6 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-purple-700">
+                            Total plazas monitorizadas (calculado):
+                          </span>
+                          <span className="font-bold text-purple-900">
+                            {calculatedMonitoredSpots} plazas
+                          </span>
+                        </div>
+                        <p className="text-xs text-purple-600">
+                          Este valor se calcula automáticamente según las cámaras de detección configuradas.
+                          El sistema corregirá la ocupación basándose en estas plazas monitorizadas.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
                 
                 {/* Sección de Cámaras */}
                 <div className="mb-6">
@@ -874,13 +927,29 @@ const Parkings = () => {
                   {assignedCameras.length > 0 ? (
                     <div className="space-y-2">
                       {assignedCameras.map((camera, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                        <div key={index} className={`flex items-center justify-between p-2 rounded-md ${
+                          camera.camera_type === 'spot_detection' ? 'bg-purple-50' : 'bg-gray-50'
+                        }`}>
                           <div className="flex-1">
-                            <div className="text-sm font-medium text-gray-900">
-                              {camera.name || `Cámara ${index + 1}`}
+                            <div className="flex items-center">
+                              <span className="text-sm font-medium text-gray-900">
+                                {camera.name || `Cámara ${index + 1}`}
+                              </span>
+                              <span className={`ml-2 text-xs px-1.5 py-0.5 rounded ${
+                                camera.camera_type === 'spot_detection'
+                                  ? 'bg-purple-100 text-purple-700'
+                                  : 'bg-blue-100 text-blue-700'
+                              }`}>
+                                {camera.camera_type === 'spot_detection' ? 'Detección' : 'Conteo'}
+                              </span>
                             </div>
                             <div className="text-xs text-gray-500">
                               {camera.ip} - Línea {camera.line}
+                              {camera.camera_type === 'spot_detection' && camera.monitored_spots_count > 0 && (
+                                <span className="ml-2 text-purple-600">
+                                  ({camera.monitored_spots_count} plazas)
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>

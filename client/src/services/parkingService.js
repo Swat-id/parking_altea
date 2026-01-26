@@ -218,6 +218,22 @@ const parkingService = {
   },
 
   /**
+   * Actualizar cámaras de un parking
+   * @param {number} parkingId - ID del parking
+   * @param {Array} cameras - Lista de cámaras con sus configuraciones
+   *   Cada cámara debe tener: ip, line, name, camera_type ('counting' o 'spot_detection'), monitored_spots_count
+   */
+  async updateCameras(parkingId, cameras) {
+    try {
+      const response = await api.put(`/api/parkings/${parkingId}/cameras`, { cameras })
+      return response.data
+    } catch (error) {
+      console.error('Error actualizando cámaras del parking:', error)
+      throw error
+    }
+  },
+
+  /**
    * Utilidades para el frontend
    */
   utils: {

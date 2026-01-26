@@ -1,13 +1,33 @@
-import React, { useState } from 'react'
-import { X, Camera, Plus, Trash2 } from 'lucide-react'
+import React, { useState, useEffect, useMemo } from 'react'
+import { X, Camera, Plus, Trash2, Eye, BarChart3 } from 'lucide-react'
 
 const CameraAssignmentModal = ({ isOpen, onClose, onSave, existingCameras = [] }) => {
   const [cameras, setCameras] = useState(existingCameras.length > 0 ? existingCameras : [
-    { ip: '', line: 0, name: '' }
+    { ip: '', line: 0, name: '', camera_type: 'counting', monitored_spots_count: 0 }
   ])
 
+  // Actualizar cámaras cuando cambien las existentes
+  useEffect(() => {
+    if (existingCameras.length > 0) {
+      // Asegurar que todas las cámaras tienen los nuevos campos
+      const camerasWithDefaults = existingCameras.map(cam => ({
+        ...cam,
+        camera_type: cam.camera_type || 'counting',
+        monitored_spots_count: cam.monitored_spots_count || 0
+      }))
+      setCameras(camerasWithDefaults)
+    }
+  }, [existingCameras])
+
+  // Calcular total de plazas monitorizadas
+  const totalMonitoredSpots = useMemo(() => {
+    return cameras
+      .filter(cam => cam.camera_type === 'spot_detection')
+      .reduce((sum, cam) => sum + (parseInt(cam.monitored_spots_count) || 0), 0)
+  }, [cameras])
+
   const addCamera = () => {
-    setCameras([...cameras, { ip: '', line: 0, name: '' }])
+    setCameras([...cameras, { ip: '', line: 0, name: '', camera_type: 'counting', monitored_spots_count: 0 }])
   }
 
   const removeCamera = (index) => {
@@ -40,12 +60,31 @@ const CameraAssignmentModal = ({ isOpen, onClose, onSave, existingCameras = [] }
       return
     }
 
-    onSave(validCameras)
+    // Validar que las cámaras de detección tengan plazas definidas
+    const spotDetectionCameras = validCameras.filter(c => c.camera_type === 'spot_detection')
+    const invalidSpotCameras = spotDetectionCameras.filter(c => !c.monitored_spots_count || c.monitored_spots_count <= 0)
+    
+    if (invalidSpotCameras.length > 0) {
+      alert('Las cámaras de detección por plaza deben tener un número de plazas monitorizadas mayor que 0')
+      return
+    }
+
+    // Calcular el total de plazas monitorizadas para devolver al padre
+    const totalSpots = spotDetectionCameras.reduce((sum, cam) => sum + (parseInt(cam.monitored_spots_count) || 0), 0)
+
+    onSave(validCameras, totalSpots)
     onClose()
   }
 
   const handleClose = () => {
-    setCameras(existingCameras.length > 0 ? existingCameras : [{ ip: '', line: 0, name: '' }])
+    const defaultCameras = existingCameras.length > 0 
+      ? existingCameras.map(cam => ({
+          ...cam,
+          camera_type: cam.camera_type || 'counting',
+          monitored_spots_count: cam.monitored_spots_count || 0
+        }))
+      : [{ ip: '', line: 0, name: '', camera_type: 'counting', monitored_spots_count: 0 }]
+    setCameras(defaultCameras)
     onClose()
   }
 
@@ -72,10 +111,38 @@ const CameraAssignmentModal = ({ isOpen, onClose, onSave, existingCameras = [] }
             Configure las cámaras que monitorearán este parking. Una misma cámara puede asignarse a varios parkings.
           </p>
 
+          {/* Resumen de plazas monitorizadas */}
+          {totalMonitoredSpots > 0 && (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 flex items-center">
+              <Eye className="h-5 w-5 text-purple-600 mr-2" />
+              <span className="text-sm text-purple-800">
+                <strong>{totalMonitoredSpots}</strong> plazas monitorizadas por detección individual
+              </span>
+            </div>
+          )}
+
           {cameras.map((camera, index) => (
-            <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+            <div key={index} className={`border rounded-lg p-4 ${
+              camera.camera_type === 'spot_detection' 
+                ? 'border-purple-300 bg-purple-50' 
+                : 'border-gray-200 bg-gray-50'
+            }`}>
               <div className="flex justify-between items-center mb-3">
-                <h3 className="font-medium text-gray-900">Cámara {index + 1}</h3>
+                <div className="flex items-center">
+                  {camera.camera_type === 'spot_detection' ? (
+                    <Eye className="h-4 w-4 text-purple-600 mr-2" />
+                  ) : (
+                    <BarChart3 className="h-4 w-4 text-blue-600 mr-2" />
+                  )}
+                  <h3 className="font-medium text-gray-900">Cámara {index + 1}</h3>
+                  <span className={`ml-2 text-xs px-2 py-1 rounded-full ${
+                    camera.camera_type === 'spot_detection'
+                      ? 'bg-purple-100 text-purple-700'
+                      : 'bg-blue-100 text-blue-700'
+                  }`}>
+                    {camera.camera_type === 'spot_detection' ? 'Detección por Plaza' : 'Conteo'}
+                  </span>
+                </div>
                 {cameras.length > 1 && (
                   <button
                     onClick={() => removeCamera(index)}
@@ -86,7 +153,7 @@ const CameraAssignmentModal = ({ isOpen, onClose, onSave, existingCameras = [] }
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     IP de la Cámara *
@@ -125,7 +192,45 @@ const CameraAssignmentModal = ({ isOpen, onClose, onSave, existingCameras = [] }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tipo de Cámara
+                  </label>
+                  <select
+                    value={camera.camera_type || 'counting'}
+                    onChange={(e) => updateCamera(index, 'camera_type', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="counting">Conteo (Entradas/Salidas)</option>
+                    <option value="spot_detection">Detección por Plaza</option>
+                  </select>
+                </div>
               </div>
+
+              {/* Campo adicional para cámaras de detección por plaza */}
+              {camera.camera_type === 'spot_detection' && (
+                <div className="mt-4 pt-4 border-t border-purple-200">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-purple-700 mb-1">
+                        Plazas Monitorizadas por esta Cámara
+                      </label>
+                      <input
+                        type="number"
+                        value={camera.monitored_spots_count || 0}
+                        onChange={(e) => updateCamera(index, 'monitored_spots_count', parseInt(e.target.value) || 0)}
+                        min="0"
+                        placeholder="Ej: 40"
+                        className="w-full px-3 py-2 border border-purple-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
+                      />
+                      <p className="mt-1 text-xs text-purple-600">
+                        Número de plazas individuales que monitoriza esta cámara
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
 
