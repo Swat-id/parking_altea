@@ -16,12 +16,18 @@ import {
   ChevronDown,
   ChevronUp,
   Zap,
-  Database
+  Database,
+  Info,
+  ArrowRight,
+  Target,
+  Activity,
+  FileText
 } from 'lucide-react'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 
 const WEEKDAY_NAMES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+const WEEKDAY_NAMES_SHORT = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
 export default function AutoCorrectionManagement() {
   const { user } = useAuth()
@@ -33,6 +39,8 @@ export default function AutoCorrectionManagement() {
   const [bulkAction, setBulkAction] = useState({ enabled: true, hour: 6, minute: 0 })
   const [showBulkModal, setShowBulkModal] = useState(false)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [showStatsModal, setShowStatsModal] = useState(false)
+  const [statsParking, setStatsParking] = useState(null)
   const [bootstrapDays, setBootstrapDays] = useState(365)
   const [showBootstrapModal, setShowBootstrapModal] = useState(false)
   
@@ -67,6 +75,22 @@ export default function AutoCorrectionManagement() {
     },
     enabled: showHistoryModal
   })
+  
+  // Query para estadísticas detalladas de un parking
+  const { data: statsData, isLoading: statsLoading } = useQuery({
+    queryKey: ['parking-correction-stats', statsParking],
+    queryFn: async () => {
+      const response = await api.get(`/api/parkings/${statsParking}/correction-config?days=30`)
+      return response.data
+    },
+    enabled: showStatsModal && statsParking !== null
+  })
+  
+  // Función para abrir modal de estadísticas
+  const openStatsModal = (parkingId) => {
+    setStatsParking(parkingId)
+    setShowStatsModal(true)
+  }
   
   // Mutación para actualizar configuración individual
   const updateConfigMutation = useMutation({
@@ -397,6 +421,14 @@ export default function AutoCorrectionManagement() {
                     
                     {/* Acciones */}
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openStatsModal(config.parking_id)}
+                        className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition"
+                        title="Ver estadísticas detalladas"
+                      >
+                        <BarChart3 className="h-5 w-5" />
+                      </button>
+                      
                       <button
                         onClick={() => applyCorrectionMutation.mutate(config.parking_id)}
                         disabled={applyCorrectionMutation.isPending || !config.auto_correction_enabled}
@@ -732,6 +764,350 @@ export default function AutoCorrectionManagement() {
                   'Ejecutar Bootstrap'
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal de Estadísticas Detalladas */}
+      {showStatsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-auto py-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b flex items-center justify-between bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+              <div>
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <Activity className="h-6 w-6" />
+                  Estadísticas Detalladas
+                </h3>
+                {statsData && (
+                  <p className="text-indigo-200">{statsData.parking_name} - Últimos {statsData.period_days} días</p>
+                )}
+              </div>
+              <button
+                onClick={() => { setShowStatsModal(false); setStatsParking(null); }}
+                className="text-white/80 hover:text-white"
+              >
+                <XCircle className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="overflow-auto max-h-[calc(90vh-80px)] p-6">
+              {statsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <RefreshCw className="h-8 w-8 text-indigo-500 animate-spin" />
+                </div>
+              ) : statsData ? (
+                <div className="space-y-6">
+                  {/* Estado actual y configuración */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
+                        <Target className="h-4 w-4" />
+                        Estado Actual
+                      </h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Ocupación:</span>
+                          <span className="font-medium">{statsData.current_state?.current_occupancy}/{statsData.current_state?.max_capacity}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Porcentaje:</span>
+                          <span className="font-medium">{statsData.current_state?.occupancy_percentage}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Estado:</span>
+                          <span className={`px-2 py-0.5 rounded text-xs ${
+                            statsData.current_state?.status === 'LIBRE' ? 'bg-green-100 text-green-700' :
+                            statsData.current_state?.status === 'DENSO' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-red-100 text-red-700'
+                          }`}>
+                            {statsData.current_state?.status}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
+                        <Settings className="h-4 w-4" />
+                        Configuración
+                      </h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Corrección:</span>
+                          <span className={`font-medium ${statsData.config?.auto_correction_enabled ? 'text-green-600' : 'text-red-600'}`}>
+                            {statsData.config?.auto_correction_enabled ? 'Activa' : 'Inactiva'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Hora:</span>
+                          <span className="font-medium">
+                            {String(statsData.config?.correction_hour).padStart(2, '0')}:
+                            {String(statsData.config?.correction_minute).padStart(2, '0')}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Confianza:</span>
+                          <span className={`px-2 py-0.5 rounded text-xs ${getConfidenceColor(statsData.config?.confidence_level)}`}>
+                            {Math.round((statsData.config?.confidence_level || 0) * 100)}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4" />
+                        Drift (Desviación)
+                      </h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Por hora:</span>
+                          <span className={`font-medium ${statsData.config?.avg_hourly_drift > 0 ? 'text-red-600' : statsData.config?.avg_hourly_drift < 0 ? 'text-blue-600' : 'text-gray-600'}`}>
+                            {statsData.config?.avg_hourly_drift > 0 ? '+' : ''}{statsData.config?.avg_hourly_drift}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Por día:</span>
+                          <span className={`font-medium ${statsData.config?.avg_daily_drift > 0 ? 'text-red-600' : statsData.config?.avg_daily_drift < 0 ? 'text-blue-600' : 'text-gray-600'}`}>
+                            {statsData.config?.avg_daily_drift > 0 ? '+' : ''}{statsData.config?.avg_daily_drift}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Muestras:</span>
+                          <span className="font-medium">{statsData.config?.sample_count}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Drift por día de semana */}
+                  <div className="bg-white border rounded-lg p-4">
+                    <h4 className="font-medium text-gray-700 mb-4 flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Análisis por Día de Semana
+                    </h4>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-gray-500 border-b">
+                            <th className="pb-2">Día</th>
+                            <th className="pb-2 text-center">Muestras</th>
+                            <th className="pb-2 text-center">Drift/hora</th>
+                            <th className="pb-2 text-center">Drift/día</th>
+                            <th className="pb-2 text-center">Corrección Manual Avg</th>
+                            <th className="pb-2 text-center">Ocupación Antes</th>
+                            <th className="pb-2 text-center">Ocupación Después</th>
+                            <th className="pb-2 text-center">Auto-correcciones</th>
+                            <th className="pb-2 text-center">Confianza</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {statsData.by_weekday && Object.entries(statsData.by_weekday).map(([day, data]) => (
+                            <tr key={day} className="hover:bg-gray-50">
+                              <td className="py-2 font-medium">{data.name}</td>
+                              <td className="py-2 text-center">{data.sample_count}</td>
+                              <td className={`py-2 text-center ${
+                                data.avg_drift_per_hour > 0.3 ? 'text-red-600' :
+                                data.avg_drift_per_hour < -0.3 ? 'text-blue-600' :
+                                'text-gray-600'
+                              }`}>
+                                {data.avg_drift_per_hour > 0 ? '+' : ''}{data.avg_drift_per_hour}
+                              </td>
+                              <td className={`py-2 text-center font-medium ${
+                                data.avg_drift_per_day > 5 ? 'text-red-600' :
+                                data.avg_drift_per_day < -5 ? 'text-blue-600' :
+                                'text-gray-600'
+                              }`}>
+                                {data.avg_drift_per_day > 0 ? '+' : ''}{data.avg_drift_per_day}
+                              </td>
+                              <td className={`py-2 text-center ${
+                                data.avg_manual_correction > 0 ? 'text-red-600' :
+                                data.avg_manual_correction < 0 ? 'text-blue-600' :
+                                'text-gray-600'
+                              }`}>
+                                {data.avg_manual_correction > 0 ? '+' : ''}{data.avg_manual_correction}
+                              </td>
+                              <td className="py-2 text-center">{data.avg_occupancy_before}</td>
+                              <td className="py-2 text-center">{data.avg_occupancy_after}</td>
+                              <td className="py-2 text-center">{data.auto_corrections_count}</td>
+                              <td className="py-2 text-center">
+                                <span className={`px-2 py-0.5 rounded text-xs ${getConfidenceColor(data.confidence)}`}>
+                                  {Math.round(data.confidence * 100)}%
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  
+                  {/* Comparación Manual vs Automático */}
+                  {statsData.comparison?.has_data && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h4 className="font-medium text-blue-800 mb-3 flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          Ajustes Manuales ({statsData.manual_stats?.total_count || 0})
+                        </h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-blue-600">Total correcciones:</span>
+                            <span className="font-medium text-blue-800">
+                              {statsData.comparison?.totals?.manual_corrections_sum > 0 ? '+' : ''}
+                              {statsData.comparison?.totals?.manual_corrections_sum}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-blue-600">Promedio:</span>
+                            <span className="font-medium text-blue-800">
+                              {statsData.comparison?.averages?.avg_manual_correction > 0 ? '+' : ''}
+                              {statsData.comparison?.averages?.avg_manual_correction}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-blue-600">Positivas/Negativas:</span>
+                            <span className="font-medium text-blue-800">
+                              {statsData.comparison?.direction?.manual_positive} / {statsData.comparison?.direction?.manual_negative}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-blue-600">Tendencia:</span>
+                            <span className={`font-medium px-2 py-0.5 rounded text-xs ${
+                              statsData.comparison?.direction?.manual_tendency === 'positivo' ? 'bg-red-100 text-red-700' :
+                              statsData.comparison?.direction?.manual_tendency === 'negativo' ? 'bg-blue-100 text-blue-700' :
+                              'bg-gray-100 text-gray-700'
+                            }`}>
+                              {statsData.comparison?.direction?.manual_tendency === 'positivo' ? 'Sistema subestima' :
+                               statsData.comparison?.direction?.manual_tendency === 'negativo' ? 'Sistema sobreestima' :
+                               'Neutral'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                        <h4 className="font-medium text-purple-800 mb-3 flex items-center gap-2">
+                          <Zap className="h-4 w-4" />
+                          Correcciones Automáticas ({statsData.auto_stats?.total_count || 0})
+                        </h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-purple-600">Total correcciones:</span>
+                            <span className="font-medium text-purple-800">
+                              {statsData.comparison?.totals?.auto_corrections_sum > 0 ? '+' : ''}
+                              {statsData.comparison?.totals?.auto_corrections_sum}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-purple-600">Promedio:</span>
+                            <span className="font-medium text-purple-800">
+                              {statsData.comparison?.averages?.avg_auto_correction > 0 ? '+' : ''}
+                              {statsData.comparison?.averages?.avg_auto_correction}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-purple-600">Limitadas:</span>
+                            <span className="font-medium text-purple-800">{statsData.auto_stats?.limited_count || 0}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-purple-600">Coherencia:</span>
+                            <span className={`font-medium px-2 py-0.5 rounded text-xs ${
+                              statsData.comparison?.direction?.coherence === 'buena' ? 'bg-green-100 text-green-700' :
+                              statsData.comparison?.direction?.coherence === 'aceptable' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-red-100 text-red-700'
+                            }`}>
+                              {statsData.comparison?.direction?.coherence}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Rendimiento de correcciones automáticas */}
+                  {statsData.auto_correction_performance && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <h4 className="font-medium text-green-800 mb-3 flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        Rendimiento del Algoritmo
+                      </h4>
+                      <div className="grid grid-cols-4 gap-4 text-sm">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-700">
+                            {statsData.auto_correction_performance.total_applied}
+                          </div>
+                          <div className="text-green-600">Aplicadas</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-700">
+                            {statsData.auto_correction_performance.validated}
+                          </div>
+                          <div className="text-green-600">Validadas</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-700">
+                            {statsData.auto_correction_performance.avg_prediction_error !== null 
+                              ? `±${statsData.auto_correction_performance.avg_prediction_error}`
+                              : 'N/A'}
+                          </div>
+                          <div className="text-green-600">Error Promedio</div>
+                        </div>
+                        <div className="text-center">
+                          <div className={`text-2xl font-bold ${
+                            statsData.auto_correction_performance.accuracy_percentage >= 80 ? 'text-green-700' :
+                            statsData.auto_correction_performance.accuracy_percentage >= 60 ? 'text-yellow-700' :
+                            'text-red-700'
+                          }`}>
+                            {statsData.auto_correction_performance.accuracy_percentage !== null 
+                              ? `${statsData.auto_correction_performance.accuracy_percentage}%`
+                              : 'N/A'}
+                          </div>
+                          <div className="text-green-600">Precisión</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Recomendaciones */}
+                  {statsData.comparison?.recommendations && statsData.comparison.recommendations.length > 0 && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                      <h4 className="font-medium text-amber-800 mb-3 flex items-center gap-2">
+                        <Info className="h-4 w-4" />
+                        Recomendaciones
+                      </h4>
+                      <ul className="space-y-2">
+                        {statsData.comparison.recommendations.map((rec, idx) => (
+                          <li key={idx} className="text-sm text-amber-700 flex items-start gap-2">
+                            <ArrowRight className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                            {rec}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {/* Patrones detectados */}
+                  {statsData.patterns_detected && statsData.patterns_detected.length > 0 && (
+                    <div className="bg-gray-50 border rounded-lg p-4">
+                      <h4 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
+                        <BarChart3 className="h-4 w-4" />
+                        Patrones Detectados
+                      </h4>
+                      <ul className="space-y-1">
+                        {statsData.patterns_detected.map((pattern, idx) => (
+                          <li key={idx} className="text-sm text-gray-600">• {pattern}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  No se pudieron cargar las estadísticas
+                </div>
+              )}
             </div>
           </div>
         </div>
