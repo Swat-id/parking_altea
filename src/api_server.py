@@ -6715,6 +6715,312 @@ def update_panel_type3_or_type4(panel_id):
         logger.error(f"Error actualizando panel Tipo 4: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+# =================== ENDPOINTS DE ANALÍTICAS DE DESCUADRES v4.4.0 ===================
+
+@api_bp.route('/parkings/<int:pid>/discrepancy-stats', methods=['GET'])
+@require_auth
+@require_parking_access('pid')
+def get_parking_discrepancy_stats(pid):
+    """
+    Obtener estadísticas de descuadres y ajustes manuales de un parking.
+    
+    Parámetros opcionales:
+    - days: Número de días hacia atrás (default: 30)
+    - include_details: Incluir lista detallada de ajustes (default: false)
+    
+    Retorna:
+    - Resumen de ajustes manuales
+    - Estadísticas de descuadres corregidos
+    - Tendencias por día/hora
+    """
+    try:
+        days = request.args.get('days', 30, type=int)
+        include_details = request.args.get('include_details', 'false').lower() == 'true'
+        
+        session = Session()
+        
+        # Verificar parking
+        parking = session.query(Parking).get(pid)
+        if not parking:
+            session.close()
+            return jsonify({'error': 'Parking not found'}), 404
+        
+        # Calcular fecha límite
+        from datetime import datetime, timedelta
+        date_limit = datetime.now() - timedelta(days=days)
+        
+        # Obtener todos los ajustes manuales del período
+        manual_adjustments = session.query(OccupancyHistory).filter(
+            OccupancyHistory.parking_id == pid,
+            OccupancyHistory.source == 'manual',
+            OccupancyHistory.timestamp >= date_limit
+        ).order_by(OccupancyHistory.timestamp.desc()).all()
+        
+        # Calcular estadísticas
+        total_manual_adjustments = len(manual_adjustments)
+        total_positive_corrections = 0  # Corrigieron hacia arriba (faltaban coches)
+        total_negative_corrections = 0  # Corrigieron hacia abajo (sobraban coches)
+        sum_positive = 0
+        sum_negative = 0
+        adjustments_by_day = {}
+        adjustments_by_hour = {h: 0 for h in range(24)}
+        
+        details = []
+        
+        for adj in manual_adjustments:
+            change = adj.change_amount or 0
+            
+            if change > 0:
+                total_positive_corrections += 1
+                sum_positive += change
+            elif change < 0:
+                total_negative_corrections += 1
+                sum_negative += abs(change)
+            
+            # Agrupar por día
+            if adj.timestamp:
+                day_key = adj.timestamp.strftime('%Y-%m-%d')
+                if day_key not in adjustments_by_day:
+                    adjustments_by_day[day_key] = {'count': 0, 'positive': 0, 'negative': 0, 'net': 0}
+                adjustments_by_day[day_key]['count'] += 1
+                adjustments_by_day[day_key]['positive'] += change if change > 0 else 0
+                adjustments_by_day[day_key]['negative'] += abs(change) if change < 0 else 0
+                adjustments_by_day[day_key]['net'] += change
+                
+                # Agrupar por hora
+                hour = adj.timestamp.hour
+                adjustments_by_hour[hour] += 1
+            
+            if include_details:
+                details.append({
+                    'id': adj.id,
+                    'timestamp': adj.timestamp.isoformat() if adj.timestamp else None,
+                    'previous_occupancy': adj.previous_occupancy,
+                    'new_occupancy': adj.occupancy,
+                    'change_amount': adj.change_amount,
+                    'type': 'increase' if (adj.change_amount or 0) > 0 else 'decrease' if (adj.change_amount or 0) < 0 else 'no_change'
+                })
+        
+        # Calcular métricas de fiabilidad
+        total_camera_updates = session.query(OccupancyHistory).filter(
+            OccupancyHistory.parking_id == pid,
+            OccupancyHistory.source == 'camera',
+            OccupancyHistory.timestamp >= date_limit
+        ).count()
+        
+        # Ratio de intervención manual
+        intervention_ratio = (total_manual_adjustments / max(total_camera_updates, 1)) * 100
+        
+        # Obtener estado actual del parking
+        current_state = {
+            'current_occupancy': parking.current_occupancy,
+            'max_capacity': parking.max_capacity,
+            'free_spaces': parking.max_capacity - parking.current_occupancy,
+            'status': parking.status,
+            'is_negative': parking.current_occupancy < 0,
+            'is_over_capacity': parking.current_occupancy > parking.max_capacity
+        }
+        
+        parking_name = parking.name
+        session.close()
+        
+        response = {
+            'parking_id': pid,
+            'parking_name': parking_name,
+            'period_days': days,
+            'current_state': current_state,
+            'summary': {
+                'total_manual_adjustments': total_manual_adjustments,
+                'total_camera_updates': total_camera_updates,
+                'intervention_ratio_percent': round(intervention_ratio, 2),
+                'positive_corrections': {
+                    'count': total_positive_corrections,
+                    'total_units': sum_positive,
+                    'description': 'Ajustes que aumentaron la ocupación (faltaban coches en el conteo)'
+                },
+                'negative_corrections': {
+                    'count': total_negative_corrections,
+                    'total_units': sum_negative,
+                    'description': 'Ajustes que disminuyeron la ocupación (sobraban coches en el conteo)'
+                },
+                'net_correction': sum_positive - sum_negative
+            },
+            'trends': {
+                'by_day': adjustments_by_day,
+                'by_hour': adjustments_by_hour,
+                'peak_hour': max(adjustments_by_hour, key=adjustments_by_hour.get) if any(adjustments_by_hour.values()) else None
+            },
+            'reliability_assessment': {
+                'intervention_ratio': round(intervention_ratio, 2),
+                'rating': 'excellent' if intervention_ratio < 1 else 'good' if intervention_ratio < 5 else 'fair' if intervention_ratio < 10 else 'poor',
+                'recommendation': get_reliability_recommendation(intervention_ratio, sum_positive, sum_negative)
+            }
+        }
+        
+        if include_details:
+            response['details'] = details
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo estadísticas de descuadres del parking {pid}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+def get_reliability_recommendation(ratio, positive_sum, negative_sum):
+    """Generar recomendación basada en las métricas de fiabilidad"""
+    recommendations = []
+    
+    if ratio >= 10:
+        recommendations.append("Alto ratio de intervención manual. Revisar calibración de cámaras.")
+    
+    if positive_sum > negative_sum * 2:
+        recommendations.append("Predominan correcciones positivas: posibles pérdidas de detección de entradas o falsas salidas.")
+    elif negative_sum > positive_sum * 2:
+        recommendations.append("Predominan correcciones negativas: posibles falsas entradas o pérdidas de detección de salidas.")
+    
+    if ratio < 1:
+        recommendations.append("Sistema funcionando correctamente con mínima intervención.")
+    
+    return recommendations if recommendations else ["Sistema operando dentro de parámetros normales."]
+
+@api_bp.route('/discrepancy-stats/global', methods=['GET'])
+@require_superadmin
+def get_global_discrepancy_stats():
+    """
+    Obtener estadísticas globales de descuadres de todos los parkings.
+    Solo accesible para superadmin.
+    """
+    try:
+        days = request.args.get('days', 30, type=int)
+        
+        session = Session()
+        
+        from datetime import datetime, timedelta
+        date_limit = datetime.now() - timedelta(days=days)
+        
+        # Obtener todos los parkings
+        parkings = session.query(Parking).all()
+        
+        global_stats = []
+        total_adjustments = 0
+        total_camera_updates = 0
+        
+        for parking in parkings:
+            # Ajustes manuales
+            manual_count = session.query(OccupancyHistory).filter(
+                OccupancyHistory.parking_id == parking.id,
+                OccupancyHistory.source == 'manual',
+                OccupancyHistory.timestamp >= date_limit
+            ).count()
+            
+            # Actualizaciones de cámara
+            camera_count = session.query(OccupancyHistory).filter(
+                OccupancyHistory.parking_id == parking.id,
+                OccupancyHistory.source == 'camera',
+                OccupancyHistory.timestamp >= date_limit
+            ).count()
+            
+            # Calcular ratio
+            ratio = (manual_count / max(camera_count, 1)) * 100
+            
+            # Estado actual
+            is_discrepant = parking.current_occupancy < 0 or parking.current_occupancy > parking.max_capacity
+            
+            global_stats.append({
+                'parking_id': parking.id,
+                'parking_name': parking.name,
+                'manual_adjustments': manual_count,
+                'camera_updates': camera_count,
+                'intervention_ratio': round(ratio, 2),
+                'current_occupancy': parking.current_occupancy,
+                'max_capacity': parking.max_capacity,
+                'is_discrepant': is_discrepant,
+                'status': parking.status
+            })
+            
+            total_adjustments += manual_count
+            total_camera_updates += camera_count
+        
+        # Ordenar por ratio de intervención (más problemáticos primero)
+        global_stats.sort(key=lambda x: x['intervention_ratio'], reverse=True)
+        
+        session.close()
+        
+        return jsonify({
+            'period_days': days,
+            'global_summary': {
+                'total_parkings': len(parkings),
+                'total_manual_adjustments': total_adjustments,
+                'total_camera_updates': total_camera_updates,
+                'global_intervention_ratio': round((total_adjustments / max(total_camera_updates, 1)) * 100, 2),
+                'parkings_with_discrepancy': sum(1 for s in global_stats if s['is_discrepant'])
+            },
+            'parkings': global_stats
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo estadísticas globales de descuadres: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/parkings/<int:pid>/manual-adjustments', methods=['GET'])
+@require_auth
+@require_parking_access('pid')
+def get_parking_manual_adjustments(pid):
+    """
+    Obtener historial detallado de ajustes manuales de un parking.
+    Con paginación y filtros.
+    """
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        days = request.args.get('days', 30, type=int)
+        
+        session = Session()
+        
+        parking = session.query(Parking).get(pid)
+        if not parking:
+            session.close()
+            return jsonify({'error': 'Parking not found'}), 404
+        
+        from datetime import datetime, timedelta
+        date_limit = datetime.now() - timedelta(days=days)
+        
+        # Query con paginación
+        query = session.query(OccupancyHistory).filter(
+            OccupancyHistory.parking_id == pid,
+            OccupancyHistory.source == 'manual',
+            OccupancyHistory.timestamp >= date_limit
+        ).order_by(OccupancyHistory.timestamp.desc())
+        
+        total = query.count()
+        adjustments = query.offset((page - 1) * per_page).limit(per_page).all()
+        
+        parking_name = parking.name
+        session.close()
+        
+        return jsonify({
+            'parking_id': pid,
+            'parking_name': parking_name,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': total,
+                'total_pages': (total + per_page - 1) // per_page
+            },
+            'adjustments': [{
+                'id': adj.id,
+                'timestamp': adj.timestamp.isoformat() if adj.timestamp else None,
+                'previous_occupancy': adj.previous_occupancy,
+                'new_occupancy': adj.occupancy,
+                'change_amount': adj.change_amount,
+                'type': 'increase' if (adj.change_amount or 0) > 0 else 'decrease' if (adj.change_amount or 0) < 0 else 'no_change'
+            } for adj in adjustments]
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo ajustes manuales del parking {pid}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 app.register_blueprint(api_bp)
 
 if __name__ == '__main__':

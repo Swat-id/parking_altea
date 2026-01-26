@@ -648,11 +648,14 @@ def handle_camera():
                     occupancy_discrepancy = f"NEGATIVE_FREE:{abs(free_spaces)}"
                     logger.warning(f"NEGATIVE FREE SPACES - Parking: {parking.name}, Free spaces: {free_spaces}, This indicates counting errors or overflow")
                 
-                # Registrar histórico con información de descuadre
+                # Registrar histórico con información completa (v4.4.0)
+                change_amount = parking.current_occupancy - previous_occupancy
                 hist = OccupancyHistory(
                     parking_id=parking.id,
                     occupancy=parking.current_occupancy,
-                    source='camera'
+                    source='camera',
+                    previous_occupancy=previous_occupancy,
+                    change_amount=change_amount
                 )
                 session.add(hist)
                 
