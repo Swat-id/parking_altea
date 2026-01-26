@@ -17,7 +17,8 @@ import {
   LogOut,
   Bell,
   Clock,
-  Cpu
+  Cpu,
+  Zap
 } from 'lucide-react'
 
 const Layout = ({ children }) => {
@@ -49,6 +50,7 @@ const Layout = ({ children }) => {
   const adminNavigation = [
     { name: 'Dashboard Admin', href: '/admin', current: location.pathname === '/admin', icon: ShieldCheck },
     { name: 'Gestión Usuarios', href: '/admin/users', current: location.pathname === '/admin/users', icon: Users },
+    { name: 'Corrección Automática', href: '/admin/auto-correction', current: location.pathname === '/admin/auto-correction', icon: Zap },
   ]
 
   // Combinar navegación según rol

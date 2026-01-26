@@ -257,3 +257,4 @@ ls -la logs/panel_type3_and_4_worker.log
 cd /opt/parking_altea && git pull origin v4.3.0 && sudo systemctl restart parking-panel-type3-and-4-worker && tail -f logs/panel_type3_and_4_worker.log
 ```
 
+

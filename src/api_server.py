@@ -7021,6 +7021,410 @@ def get_parking_manual_adjustments(pid):
         logger.error(f"Error obteniendo ajustes manuales del parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+
+# =================== ENDPOINTS DE CORRECCIÓN AUTOMÁTICA v4.5.0 ===================
+
+@api_bp.route('/parkings/<int:pid>/correction-config', methods=['GET'])
+@require_parking_access('pid')
+def get_parking_correction_config(pid):
+    """
+    Obtener configuración de corrección automática de un parking.
+    """
+    try:
+        from auto_correction_service import get_correction_stats
+        
+        days = request.args.get('days', 30, type=int)
+        
+        session = Session()
+        try:
+            stats = get_correction_stats(session, pid, days)
+            return jsonify(stats)
+        finally:
+            session.close()
+            
+    except Exception as e:
+        logger.error(f"Error obteniendo config de corrección del parking {pid}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@api_bp.route('/parkings/<int:pid>/correction-config', methods=['PUT'])
+@require_superadmin
+def update_parking_correction_config(pid):
+    """
+    Actualizar configuración de corrección automática de un parking.
+    Solo superadmin puede modificar.
+    """
+    try:
+        data = request.get_json()
+        
+        session = Session()
+        try:
+            from models import ParkingCorrectionConfig
+            
+            parking = session.query(Parking).get(pid)
+            if not parking:
+                return jsonify({'error': 'Parking not found'}), 404
+            
+            config = session.query(ParkingCorrectionConfig).filter_by(parking_id=pid).first()
+            
+            if not config:
+                config = ParkingCorrectionConfig(parking_id=pid)
+                session.add(config)
+            
+            # Actualizar campos permitidos
+            if 'auto_correction_enabled' in data:
+                config.auto_correction_enabled = data['auto_correction_enabled']
+            
+            if 'correction_hour' in data:
+                hour = int(data['correction_hour'])
+                if 0 <= hour <= 23:
+                    config.correction_hour = hour
+            
+            if 'correction_minute' in data:
+                minute = int(data['correction_minute'])
+                if 0 <= minute <= 59:
+                    config.correction_minute = minute
+            
+            session.commit()
+            
+            return jsonify({
+                'success': True,
+                'parking_id': pid,
+                'parking_name': parking.name,
+                'config': {
+                    'auto_correction_enabled': config.auto_correction_enabled,
+                    'correction_hour': config.correction_hour,
+                    'correction_minute': config.correction_minute,
+                    'confidence_level': config.confidence_level,
+                    'sample_count': config.sample_count,
+                    'suggested_correction': config.suggested_correction
+                }
+            })
+            
+        finally:
+            session.close()
+            
+    except Exception as e:
+        logger.error(f"Error actualizando config de corrección del parking {pid}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@api_bp.route('/parkings/<int:pid>/correction-suggestion', methods=['GET'])
+@require_parking_access('pid')
+def get_parking_correction_suggestion(pid):
+    """
+    Obtener sugerencia de corrección actual para un parking.
+    """
+    try:
+        from auto_correction_service import calculate_suggested_correction
+        from datetime import datetime
+        
+        session = Session()
+        try:
+            result = calculate_suggested_correction(
+                session,
+                pid,
+                target_weekday=datetime.now().weekday()
+            )
+            return jsonify(result)
+        finally:
+            session.close()
+            
+    except Exception as e:
+        logger.error(f"Error calculando sugerencia para parking {pid}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@api_bp.route('/parkings/<int:pid>/apply-correction', methods=['POST'])
+@require_superadmin
+def apply_parking_correction(pid):
+    """
+    Aplicar corrección automática manualmente a un parking.
+    Solo superadmin.
+    """
+    try:
+        from auto_correction_service import apply_auto_correction
+        
+        session = Session()
+        try:
+            result = apply_auto_correction(session, pid)
+            
+            if result is None:
+                return jsonify({'error': 'No se pudo aplicar la corrección'}), 400
+            
+            if result.get('applied'):
+                return jsonify({
+                    'success': True,
+                    **result
+                })
+            elif result.get('skipped'):
+                return jsonify({
+                    'success': False,
+                    'skipped': True,
+                    'reason': result.get('reason')
+                })
+            else:
+                return jsonify({'error': 'Resultado inesperado'}), 500
+                
+        finally:
+            session.close()
+            
+    except Exception as e:
+        logger.error(f"Error aplicando corrección al parking {pid}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@api_bp.route('/correction-configs', methods=['GET'])
+@require_superadmin
+def get_all_correction_configs():
+    """
+    Obtener configuración de corrección de todos los parkings.
+    Solo superadmin.
+    """
+    try:
+        from models import ParkingCorrectionConfig
+        
+        session = Session()
+        try:
+            configs = session.query(ParkingCorrectionConfig).all()
+            parkings = {p.id: p for p in session.query(Parking).all()}
+            
+            result = []
+            for config in configs:
+                parking = parkings.get(config.parking_id)
+                if parking:
+                    result.append({
+                        'parking_id': config.parking_id,
+                        'parking_name': parking.name,
+                        'auto_correction_enabled': config.auto_correction_enabled,
+                        'correction_hour': config.correction_hour,
+                        'correction_minute': config.correction_minute,
+                        'avg_hourly_drift': config.avg_hourly_drift or 0,
+                        'avg_daily_drift': config.avg_daily_drift or 0,
+                        'confidence_level': config.confidence_level or 0,
+                        'sample_count': config.sample_count or 0,
+                        'suggested_correction': config.suggested_correction or 0,
+                        'last_calculation_at': config.last_calculation_at.isoformat() if config.last_calculation_at else None,
+                        'last_auto_correction_at': config.last_auto_correction_at.isoformat() if config.last_auto_correction_at else None,
+                        'last_auto_correction_amount': config.last_auto_correction_amount or 0,
+                        'current_occupancy': parking.current_occupancy,
+                        'max_capacity': parking.max_capacity,
+                        'status': parking.status
+                    })
+            
+            # Añadir parkings sin configuración
+            configured_ids = {c.parking_id for c in configs}
+            for pid, parking in parkings.items():
+                if pid not in configured_ids:
+                    result.append({
+                        'parking_id': pid,
+                        'parking_name': parking.name,
+                        'auto_correction_enabled': True,  # Por defecto habilitado
+                        'correction_hour': 6,
+                        'correction_minute': 0,
+                        'avg_hourly_drift': 0,
+                        'avg_daily_drift': 0,
+                        'confidence_level': 0,
+                        'sample_count': 0,
+                        'suggested_correction': 0,
+                        'last_calculation_at': None,
+                        'last_auto_correction_at': None,
+                        'last_auto_correction_amount': 0,
+                        'current_occupancy': parking.current_occupancy,
+                        'max_capacity': parking.max_capacity,
+                        'status': parking.status,
+                        'no_config': True  # Indica que no tiene configuración aún
+                    })
+            
+            # Ordenar por nombre
+            result.sort(key=lambda x: x['parking_name'])
+            
+            return jsonify({
+                'total': len(result),
+                'configs': result
+            })
+            
+        finally:
+            session.close()
+            
+    except Exception as e:
+        logger.error(f"Error obteniendo configuraciones de corrección: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@api_bp.route('/correction-configs/bulk-update', methods=['PUT'])
+@require_superadmin
+def bulk_update_correction_configs():
+    """
+    Actualizar configuración de múltiples parkings a la vez.
+    Solo superadmin.
+    
+    Body:
+    {
+        "parking_ids": [1, 2, 3],
+        "auto_correction_enabled": true/false,
+        "correction_hour": 6,
+        "correction_minute": 0
+    }
+    """
+    try:
+        data = request.get_json()
+        parking_ids = data.get('parking_ids', [])
+        
+        if not parking_ids:
+            return jsonify({'error': 'No parking_ids provided'}), 400
+        
+        from models import ParkingCorrectionConfig
+        
+        session = Session()
+        try:
+            updated = 0
+            created = 0
+            
+            for pid in parking_ids:
+                parking = session.query(Parking).get(pid)
+                if not parking:
+                    continue
+                
+                config = session.query(ParkingCorrectionConfig).filter_by(parking_id=pid).first()
+                
+                if not config:
+                    config = ParkingCorrectionConfig(parking_id=pid)
+                    session.add(config)
+                    created += 1
+                else:
+                    updated += 1
+                
+                if 'auto_correction_enabled' in data:
+                    config.auto_correction_enabled = data['auto_correction_enabled']
+                
+                if 'correction_hour' in data:
+                    hour = int(data['correction_hour'])
+                    if 0 <= hour <= 23:
+                        config.correction_hour = hour
+                
+                if 'correction_minute' in data:
+                    minute = int(data['correction_minute'])
+                    if 0 <= minute <= 59:
+                        config.correction_minute = minute
+            
+            session.commit()
+            
+            return jsonify({
+                'success': True,
+                'updated': updated,
+                'created': created,
+                'total_processed': updated + created
+            })
+            
+        finally:
+            session.close()
+            
+    except Exception as e:
+        logger.error(f"Error en actualización masiva de configuraciones: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@api_bp.route('/auto-corrections/history', methods=['GET'])
+@require_superadmin
+def get_auto_correction_history():
+    """
+    Obtener historial de correcciones automáticas.
+    Solo superadmin.
+    """
+    try:
+        from models import AutoCorrectionHistory
+        from datetime import datetime, timedelta
+        
+        parking_id = request.args.get('parking_id', type=int)
+        days = request.args.get('days', 30, type=int)
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        
+        session = Session()
+        try:
+            date_limit = datetime.now() - timedelta(days=days)
+            
+            query = session.query(AutoCorrectionHistory).filter(
+                AutoCorrectionHistory.applied_at >= date_limit
+            )
+            
+            if parking_id:
+                query = query.filter(AutoCorrectionHistory.parking_id == parking_id)
+            
+            query = query.order_by(AutoCorrectionHistory.applied_at.desc())
+            
+            total = query.count()
+            history = query.offset((page - 1) * per_page).limit(per_page).all()
+            
+            # Obtener nombres de parkings
+            parking_ids = set(h.parking_id for h in history)
+            parkings = {p.id: p.name for p in session.query(Parking).filter(Parking.id.in_(parking_ids)).all()}
+            
+            return jsonify({
+                'pagination': {
+                    'page': page,
+                    'per_page': per_page,
+                    'total': total,
+                    'total_pages': (total + per_page - 1) // per_page
+                },
+                'history': [{
+                    'id': h.id,
+                    'parking_id': h.parking_id,
+                    'parking_name': parkings.get(h.parking_id, 'Unknown'),
+                    'applied_at': h.applied_at.isoformat() if h.applied_at else None,
+                    'occupancy_before': h.occupancy_before,
+                    'occupancy_after': h.occupancy_after,
+                    'correction_amount': h.correction_amount,
+                    'drift_used': h.drift_used,
+                    'hours_elapsed': h.hours_elapsed,
+                    'confidence_at_time': h.confidence_at_time,
+                    'day_of_week': h.day_of_week,
+                    'adjustment_type': h.adjustment_type,
+                    'was_limited': h.was_limited,
+                    'original_suggestion': h.original_suggestion,
+                    'validated': h.validated,
+                    'actual_correction_needed': h.actual_correction_needed,
+                    'prediction_error': h.prediction_error
+                } for h in history]
+            })
+            
+        finally:
+            session.close()
+            
+    except Exception as e:
+        logger.error(f"Error obteniendo historial de correcciones automáticas: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@api_bp.route('/run-bootstrap', methods=['POST'])
+@require_superadmin
+def run_correction_bootstrap():
+    """
+    Ejecutar bootstrap del sistema de corrección para un parking.
+    Solo superadmin.
+    """
+    try:
+        data = request.get_json() or {}
+        parking_id = data.get('parking_id')
+        days = data.get('days', 365)
+        
+        from auto_correction_bootstrap import run_bootstrap
+        
+        # Ejecutar bootstrap
+        run_bootstrap(days=days, parking_id=parking_id)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Bootstrap ejecutado para {"parking " + str(parking_id) if parking_id else "todos los parkings"}',
+            'days_analyzed': days
+        })
+        
+    except Exception as e:
+        logger.error(f"Error ejecutando bootstrap: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 app.register_blueprint(api_bp)
 
 if __name__ == '__main__':

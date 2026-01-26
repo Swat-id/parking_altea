@@ -1,0 +1,27 @@
+[Unit]
+Description=Parking Auto Correction Worker Service v4.5.0
+After=network.target postgresql.service parking-api.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/parking_altea/src
+Environment=PATH=/opt/parking_altea/venv/bin
+Environment=PYTHONPATH=/opt/parking_altea/src
+Environment=DATABASE_URL=postgresql://parking_user:parking_pass@localhost:5432/parking_db
+
+ExecStart=/opt/parking_altea/venv/bin/python /opt/parking_altea/src/auto_correction_worker.py --interval 60
+
+Restart=always
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+
+# Límites de recursos
+MemoryMax=256M
+CPUQuota=20%
+
+[Install]
+WantedBy=multi-user.target

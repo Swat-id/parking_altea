@@ -970,3 +970,130 @@ class SpotDetectionLog(Base):
     
     def __repr__(self):
         return f"<SpotDetectionLog(id={self.id}, device={self.device_name}, status={self.status})>"
+
+
+# =================== MODELOS DE CORRECCIÓN AUTOMÁTICA v4.5.0 ===================
+
+class ParkingCorrectionConfig(Base):
+    """Configuración de corrección automática por parking"""
+    __tablename__ = 'parking_correction_config'
+    
+    id = Column(Integer, primary_key=True)
+    parking_id = Column(Integer, ForeignKey('parkings.id', ondelete='CASCADE'), unique=True)
+    
+    # Configuración de corrección automática
+    auto_correction_enabled = Column(Boolean, default=True)
+    correction_hour = Column(Integer, default=6)
+    correction_minute = Column(Integer, default=0)
+    
+    # Parámetros calculados globales
+    avg_hourly_drift = Column(Float, default=0)
+    avg_daily_drift = Column(Float, default=0)
+    confidence_level = Column(Float, default=0)
+    sample_count = Column(Integer, default=0)
+    
+    # Parámetros por día de semana (JSON)
+    drift_by_weekday = Column(JSON, default=lambda: {"0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0})
+    samples_by_weekday = Column(JSON, default=lambda: {"0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0})
+    avg_occupancy_by_weekday = Column(JSON, default=lambda: {"0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0})
+    
+    # Corrección sugerida actual
+    suggested_correction = Column(Integer, default=0)
+    last_calculation_at = Column(DateTime(timezone=True))
+    
+    # Última corrección aplicada
+    last_auto_correction_at = Column(DateTime(timezone=True))
+    last_auto_correction_amount = Column(Integer, default=0)
+    
+    # Auditoría
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relación
+    parking = relationship('Parking', backref='correction_config')
+    
+    def __repr__(self):
+        return f"<ParkingCorrectionConfig(parking_id={self.parking_id}, enabled={self.auto_correction_enabled})>"
+
+
+class CorrectionCalculation(Base):
+    """Histórico de cálculos de corrección para aprendizaje"""
+    __tablename__ = 'correction_calculations'
+    
+    id = Column(Integer, primary_key=True)
+    parking_id = Column(Integer, ForeignKey('parkings.id', ondelete='CASCADE'))
+    
+    # Timestamp del ajuste
+    adjustment_timestamp = Column(DateTime(timezone=True), nullable=False)
+    
+    # Datos temporales
+    hours_since_last_correction = Column(Float)
+    time_of_day = Column(Integer)  # 0-23
+    day_of_week = Column(Integer)  # 0-6, 0=Lunes
+    
+    # Datos de ocupación (no solo descuadre)
+    occupancy_before_adjustment = Column(Integer)
+    occupancy_after_adjustment = Column(Integer)
+    correction_applied = Column(Integer)
+    
+    # Métricas calculadas
+    drift_per_hour = Column(Float)
+    drift_total = Column(Float)
+    
+    # Contexto
+    parking_capacity = Column(Integer)
+    occupancy_percentage_before = Column(Float)
+    occupancy_percentage_after = Column(Float)
+    
+    # Tipo de ajuste
+    trigger_type = Column(String(30), nullable=False)
+    
+    # Auditoría
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relación
+    parking = relationship('Parking')
+    
+    def __repr__(self):
+        return f"<CorrectionCalculation(parking_id={self.parking_id}, correction={self.correction_applied})>"
+
+
+class AutoCorrectionHistory(Base):
+    """Historial de correcciones automáticas aplicadas"""
+    __tablename__ = 'auto_correction_history'
+    
+    id = Column(Integer, primary_key=True)
+    parking_id = Column(Integer, ForeignKey('parkings.id', ondelete='CASCADE'))
+    
+    # Timestamp
+    applied_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Datos de la corrección
+    occupancy_before = Column(Integer, nullable=False)
+    occupancy_after = Column(Integer, nullable=False)
+    correction_amount = Column(Integer, nullable=False)
+    
+    # Parámetros usados
+    drift_used = Column(Float)
+    hours_elapsed = Column(Float)
+    confidence_at_time = Column(Float)
+    day_of_week = Column(Integer)
+    
+    # Resultado
+    adjustment_type = Column(String(30), nullable=False)
+    was_limited = Column(Boolean, default=False)
+    original_suggestion = Column(Integer)
+    
+    # Validación posterior
+    validated = Column(Boolean, default=False)
+    validation_timestamp = Column(DateTime(timezone=True))
+    actual_correction_needed = Column(Integer)
+    prediction_error = Column(Integer)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relación
+    parking = relationship('Parking')
+    
+    def __repr__(self):
+        return f"<AutoCorrectionHistory(parking_id={self.parking_id}, amount={self.correction_amount})>"

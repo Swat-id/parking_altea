@@ -13,6 +13,7 @@ import UserManagement from './pages/UserManagement'
 import AdminDashboard from './pages/AdminDashboard'
 import Alarms from './pages/Alarms'
 import AlarmHistory from './pages/AlarmHistory'
+import AutoCorrectionManagement from './pages/AutoCorrectionManagement'
 import LoginPage from './pages/Login'
 import ProtectedRoute from './components/ProtectedRoute'
 
@@ -83,6 +84,11 @@ function App() {
       <Route path="/admin/users" element={
         <Layout>
           <ProtectedRoute requiredRole="superadmin"><UserManagement /></ProtectedRoute>
+        </Layout>
+      } />
+      <Route path="/admin/auto-correction" element={
+        <Layout>
+          <ProtectedRoute requiredRole="superadmin"><AutoCorrectionManagement /></ProtectedRoute>
         </Layout>
       } />
       <Route path="/alarms" element={
