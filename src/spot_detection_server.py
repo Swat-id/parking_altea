@@ -18,7 +18,7 @@ Fecha: 2026-01-26
 """
 
 from flask import Flask, request, jsonify
-from sqlalchemy import create_engine, func
+from sqlalchemy import create_engine, func, text
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 import config
@@ -489,7 +489,7 @@ def health_check():
     session = Session()
     try:
         # Verificar conexión a BD
-        session.execute("SELECT 1")
+        session.execute(text("SELECT 1"))
         db_status = 'ok'
     except:
         db_status = 'error'
