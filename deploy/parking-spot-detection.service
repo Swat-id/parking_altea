@@ -1,0 +1,31 @@
+[Unit]
+Description=Parking Spot Detection Server v4.4.0 - Individual Spot Monitoring
+Documentation=https://github.com/Swat-id/parking_altea/tree/v4.4.0
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/parking_altea/src
+Environment=PATH=/opt/parking_altea/venv/bin
+Environment=PYTHONPATH=/opt/parking_altea/src
+Environment=DATABASE_URL=postgresql://parking_user:parking_pass@localhost:5432/parking_db
+Environment=SPOT_DETECTION_PORT=6401
+Environment=OCCUPANCY_MAX_LIMIT_PERCENT=110
+Environment=OCCUPANCY_MIN_LIMIT=0
+
+ExecStart=/opt/parking_altea/venv/bin/python /opt/parking_altea/src/spot_detection_server.py
+
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Límites de recursos
+MemoryMax=256M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target

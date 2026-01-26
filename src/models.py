@@ -52,15 +52,19 @@ class Parking(Base):
     status = Column(String, default='LIBRE', nullable=False)
     fixed_message_flag = Column(Boolean, default=False, nullable=False)
     message_type = Column(String(20), default='ESTADO', nullable=False)  # 'ESTADO', 'PLAZAS_LIBRES'
+    
+    # NUEVO v4.4.0: Campos para monitorización plaza a plaza
+    spot_monitoring_enabled = Column(Boolean, default=False)  # Habilitar monitorización por plaza
+    total_monitored_spots = Column(Integer, default=0)  # Total plazas monitorizadas (suma de todas las cámaras)
+    total_spot_occupied = Column(Integer, default=0)  # Plazas ocupadas según detección por plaza
+    last_spot_sync = Column(DateTime(timezone=True))  # Última sincronización de datos de detección
+    
     # Relación muchos a muchos con cámaras a través de tabla intermedia
     camera_parkings = relationship('CameraParking', back_populates='parking')
     panels = relationship('Panel', back_populates='parking')
     
     # Relación con usuarios a través de tabla intermedia
     user_parkings = relationship('UserParking', back_populates='parking')
-    
-    # NUEVA: Relación muchos a muchos con cámaras
-    camera_parkings = relationship('CameraParking', back_populates='parking')
     
     # NUEVO v4.1.0: Relaciones con sensores individuales
     individual_sensors = relationship('IndividualSensor', back_populates='parking')
@@ -69,6 +73,9 @@ class Parking(Base):
     # NUEVO v4.3.0: Relaciones con ventanas de paneles
     panel_windows = relationship('ParkingPanelWindow', back_populates='parking')
     window_configurations = relationship('PanelWindowConfiguration', back_populates='parking')
+    
+    # NUEVO v4.4.0: Relación con plazas monitorizadas
+    monitored_spots = relationship('MonitoredSpot', back_populates='parking', cascade='all, delete-orphan')
 
 class Access(Base):
     __tablename__ = 'accesses'
@@ -84,6 +91,10 @@ class Access(Base):
     last_ping_check = Column(DateTime(timezone=True))  # Última verificación por ping
     ping_status = Column(String, default='UNKNOWN')  # ONLINE, OFFLINE, UNKNOWN
     
+    # NUEVO v4.4.0: Tipo de cámara y plazas monitorizadas
+    camera_type = Column(String(20), default='counting', nullable=False)  # 'counting' o 'spot_detection'
+    monitored_spots_count = Column(Integer, default=0)  # Número de plazas que monitoriza (solo spot_detection)
+    
     # QUITADO: parking = relationship('Parking', back_populates='accesses')
     
     # NUEVA: Relación muchos a muchos con parkings
@@ -91,6 +102,9 @@ class Access(Base):
     
     # Relación con usuarios a través de tabla intermedia
     user_accesses = relationship('UserAccess', back_populates='access')
+    
+    # NUEVO v4.4.0: Relación con plazas monitorizadas
+    monitored_spots = relationship('MonitoredSpot', back_populates='camera')
 
 # NUEVA: Tabla intermedia para relación muchos a muchos entre cámaras y parkings
 class CameraParking(Base):
@@ -841,3 +855,118 @@ class UserPanelConfig(Base):
     
     def __repr__(self):
         return f"<UserPanelConfig(id={self.id}, user_id={self.user_id}, panel_update_interval_seconds={self.panel_update_interval_seconds})>"
+
+
+# ============================================================================
+# NUEVO v4.4.0: MODELOS PARA DETECCIÓN DE PLAZAS INDIVIDUALES
+# ============================================================================
+
+class MonitoredSpot(Base):
+    """Plaza individual monitorizada por cámara de detección"""
+    __tablename__ = 'monitored_spots'
+    
+    id = Column(Integer, primary_key=True)
+    parking_id = Column(Integer, ForeignKey('parkings.id', ondelete='CASCADE'), nullable=False)
+    camera_id = Column(Integer, ForeignKey('accesses.id', ondelete='CASCADE'), nullable=False)
+    area_name = Column(String(10), nullable=False)  # "A", "B", "C", etc.
+    spot_number = Column(Integer, nullable=False)  # Número de plaza dentro del área
+    current_status = Column(Integer, default=0)  # 0=libre, 1=ocupado
+    last_status_change = Column(DateTime(timezone=True))  # Último cambio de estado
+    last_update = Column(DateTime(timezone=True))  # Última actualización recibida
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relaciones
+    parking = relationship('Parking', back_populates='monitored_spots')
+    camera = relationship('Access', back_populates='monitored_spots')
+    status_history = relationship('SpotStatusHistory', back_populates='spot', cascade='all, delete-orphan')
+    
+    # Constraints
+    __table_args__ = (
+        UniqueConstraint('camera_id', 'area_name', 'spot_number', name='unique_camera_area_spot'),
+    )
+    
+    def __repr__(self):
+        return f"<MonitoredSpot(id={self.id}, parking_id={self.parking_id}, camera_id={self.camera_id}, area={self.area_name}, spot={self.spot_number}, status={self.current_status})>"
+    
+    @property
+    def is_occupied(self):
+        """Retorna True si la plaza está ocupada"""
+        return self.current_status == 1
+    
+    @property
+    def spot_identifier(self):
+        """Identificador completo de la plaza (ej: A-15)"""
+        return f"{self.area_name}-{self.spot_number}"
+
+
+class SpotStatusHistory(Base):
+    """Histórico de cambios de estado de plazas individuales"""
+    __tablename__ = 'spot_status_history'
+    
+    id = Column(Integer, primary_key=True)
+    spot_id = Column(Integer, ForeignKey('monitored_spots.id', ondelete='CASCADE'), nullable=False)
+    parking_id = Column(Integer, ForeignKey('parkings.id', ondelete='CASCADE'), nullable=False)
+    camera_id = Column(Integer, ForeignKey('accesses.id', ondelete='SET NULL'), nullable=True)
+    previous_status = Column(Integer)  # Estado anterior (0 o 1)
+    new_status = Column(Integer, nullable=False)  # Nuevo estado (0 o 1)
+    report_type = Column(String(20))  # 'trigger' o 'interval'
+    device_name = Column(String(100))  # Nombre del device que reportó
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relaciones
+    spot = relationship('MonitoredSpot', back_populates='status_history')
+    parking = relationship('Parking')
+    camera = relationship('Access')
+    
+    def __repr__(self):
+        return f"<SpotStatusHistory(id={self.id}, spot_id={self.spot_id}, {self.previous_status}->{self.new_status})>"
+
+
+class SpotOccupancyCorrection(Base):
+    """Histórico de correcciones de ocupación basadas en monitorización por plaza"""
+    __tablename__ = 'spot_occupancy_corrections'
+    
+    id = Column(Integer, primary_key=True)
+    parking_id = Column(Integer, ForeignKey('parkings.id', ondelete='CASCADE'), nullable=False)
+    previous_occupancy = Column(Integer, nullable=False)  # Ocupación antes de corrección
+    new_occupancy = Column(Integer, nullable=False)  # Ocupación después de corrección
+    correction_amount = Column(Integer, nullable=False)  # Cantidad corregida (+/-)
+    correction_reason = Column(String(100))  # 'spot_sync', 'limit_max', 'limit_min', 'manual'
+    spot_occupied_count = Column(Integer)  # Plazas ocupadas según monitorización
+    total_monitored_spots = Column(Integer)  # Total plazas monitorizadas
+    max_capacity = Column(Integer)  # Capacidad máxima del parking
+    raw_calculated_occupancy = Column(Integer)  # Ocupación calculada antes de aplicar límites
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relaciones
+    parking = relationship('Parking')
+    
+    def __repr__(self):
+        return f"<SpotOccupancyCorrection(id={self.id}, parking_id={self.parking_id}, {self.previous_occupancy}->{self.new_occupancy}, reason={self.correction_reason})>"
+
+
+class SpotDetectionLog(Base):
+    """Logs de mensajes recibidos de cámaras de detección por plaza"""
+    __tablename__ = 'spot_detection_logs'
+    
+    id = Column(Integer, primary_key=True)
+    camera_id = Column(Integer, ForeignKey('accesses.id', ondelete='SET NULL'), nullable=True)
+    parking_id = Column(Integer, ForeignKey('parkings.id', ondelete='SET NULL'), nullable=True)
+    device_name = Column(String(100))  # Nombre del device del mensaje
+    camera_ip = Column(String(50))  # IP de origen
+    report_type = Column(String(20))  # 'trigger' o 'interval'
+    total_occupied = Column(Integer)  # Total ocupado reportado
+    total_available = Column(Integer)  # Total disponible reportado
+    spots_processed = Column(Integer)  # Número de plazas procesadas
+    status = Column(String(20), nullable=False)  # 'processed', 'error', 'camera_not_found', 'parking_disabled'
+    error_message = Column(Text)  # Mensaje de error si aplica
+    processing_time_ms = Column(Float)  # Tiempo de procesamiento en ms
+    raw_message = Column(JSON)  # Mensaje JSON completo (sin snapshot)
+    received_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relaciones
+    camera = relationship('Access')
+    parking = relationship('Parking')
+    
+    def __repr__(self):
+        return f"<SpotDetectionLog(id={self.id}, device={self.device_name}, status={self.status})>"
