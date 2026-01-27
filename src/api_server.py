@@ -969,25 +969,38 @@ def set_occupancy(pid):
         previous_occupancy = p.current_occupancy
         change_amount = occupancy - previous_occupancy
         
-        # Validaciones adicionales
-        if occupancy > p.max_capacity * 5:
-            session.close()
-            return jsonify({'error': f'Occupancy cannot exceed {p.max_capacity * 5} (5x capacity). For higher values, contact administrator.'}), 400
+        # LÍMITES DE SEGURIDAD v4.5.0
+        MAX_OCCUPANCY_PERCENT = 1.10  # Máximo 110% de la capacidad
+        MIN_OCCUPANCY = 0
         
-        # Advertencia si excede la capacidad máxima pero es permitido
-        if occupancy > p.max_capacity:
-            logger.warning(f"Manual adjustment exceeds capacity - Parking: {p.name}, Capacity: {p.max_capacity}, Requested: {occupancy}, Excess: {occupancy - p.max_capacity}")
+        max_allowed = int(p.max_capacity * MAX_OCCUPANCY_PERCENT)
+        requested_occupancy = occupancy  # Guardar valor solicitado
+        was_limited = False
+        adjustment_type = 'manual'
+        
+        # Aplicar límites
+        if occupancy < MIN_OCCUPANCY:
+            occupancy = MIN_OCCUPANCY
+            was_limited = True
+            adjustment_type = 'manual_limited_floor'
+            logger.warning(f"Manual adjustment limited (floor) - Parking: {p.name}, Requested: {requested_occupancy}, Limited to: {MIN_OCCUPANCY}")
+        elif occupancy > max_allowed:
+            occupancy = max_allowed
+            was_limited = True
+            adjustment_type = 'manual_limited_ceiling'
+            logger.warning(f"Manual adjustment limited (ceiling) - Parking: {p.name}, Capacity: {p.max_capacity}, Requested: {requested_occupancy}, Limited to: {max_allowed}")
+        
+        # Recalcular change_amount con valor limitado
+        change_amount = occupancy - previous_occupancy
         
         # Actualizar ocupación
         p.current_occupancy = occupancy
         
-        # Recalcular estado con nueva lógica: descuadre negativo = COMPLETO
+        # Recalcular estado
         free = p.max_capacity - p.current_occupancy
         
         if free < 0:
-            # Descuadre negativo - mostrar como COMPLETO
             p.status = 'COMPLETO'
-            logger.warning(f"Manual adjustment: Descuadre negativo - Parking: {p.name}, Free spaces: {free}, Status set to COMPLETO")
         elif free <= p.threshold_full:
             p.status = 'COMPLETO'
         elif free <= p.threshold_dense:
@@ -996,12 +1009,14 @@ def set_occupancy(pid):
             p.status = 'LIBRE'
         
         # Guardar en historial con marca de ajuste manual
+        # Nota: change_amount usa el valor solicitado original para análisis de drift
         history = OccupancyHistory(
             parking_id=pid,
             occupancy=occupancy,
             source='manual',
             previous_occupancy=previous_occupancy,
-            change_amount=change_amount
+            change_amount=requested_occupancy - previous_occupancy,  # Cambio solicitado original
+            adjustment_type=adjustment_type
         )
         session.add(history)
         
@@ -1035,9 +1050,9 @@ def set_occupancy(pid):
         except Exception as e:
             logger.error(f"Error checking schedules after manual occupancy update: {e}")
         
-        logger.info(f"Manual occupancy update - Parking: {parking_name}, Previous: {previous_occupancy}, New: {final_occupancy}, Change: {change_amount}, Status: {final_status}")
+        logger.info(f"Manual occupancy update - Parking: {parking_name}, Previous: {previous_occupancy}, Requested: {requested_occupancy}, Final: {final_occupancy}, Status: {final_status}, Limited: {was_limited}")
         
-        return jsonify({
+        response = {
             'status': 'ok',
             'parking': parking_name,
             'occupancy': final_occupancy,
@@ -1045,8 +1060,16 @@ def set_occupancy(pid):
             'parking_status': final_status,
             'previous_occupancy': previous_occupancy,
             'change_amount': change_amount,
-            'adjustment_type': 'manual'
-        })
+            'adjustment_type': adjustment_type
+        }
+        
+        # Informar si se aplicó límite
+        if was_limited:
+            response['warning'] = f'El valor solicitado ({requested_occupancy}) excedía los límites permitidos (0-{max_allowed}). Se ha ajustado a {final_occupancy}.'
+            response['requested_occupancy'] = requested_occupancy
+            response['was_limited'] = True
+        
+        return jsonify(response)
         
     except Exception as e:
         logger.error(f"Error updating occupancy for parking {pid}: {e}")

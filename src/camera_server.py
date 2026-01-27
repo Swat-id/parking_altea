@@ -610,28 +610,47 @@ def handle_camera():
                 previous_occupancy = parking.current_occupancy
                 
                 # =================== APLICACIÓN DE DELTA AL AFORO ===================
+                # LÍMITES DE SEGURIDAD v4.5.0
+                MAX_OCCUPANCY_PERCENT = 1.10  # Máximo 110% de la capacidad
+                MIN_OCCUPANCY = 0             # Mínimo 0
+                
                 if USE_NEW_DELTA_LOGIC:
                     # NUEVA LÓGICA: Aplicar delta final unificado
-                    parking.current_occupancy += delta_final
+                    raw_new_occupancy = previous_occupancy + delta_final
                     if is_reset:
-                        logger.info(f"Occupancy updated (NEW LOGIC - RESET) for parking {parking.name} - Previous: {previous_occupancy}, Delta applied: {delta_final} (absolute difference), New: {parking.current_occupancy}")
+                        logger.info(f"Occupancy calc (NEW LOGIC - RESET) for parking {parking.name} - Previous: {previous_occupancy}, Delta: {delta_final}, Raw new: {raw_new_occupancy}")
                     else:
-                        logger.info(f"Occupancy updated (NEW LOGIC) for parking {parking.name} - Previous: {previous_occupancy}, Delta applied: {delta_final}, New: {parking.current_occupancy}")
+                        logger.info(f"Occupancy calc (NEW LOGIC) for parking {parking.name} - Previous: {previous_occupancy}, Delta: {delta_final}, Raw new: {raw_new_occupancy}")
                 else:
                     # LÓGICA ORIGINAL: Aplicar deltas separados solo si NO es reinicio
                     if not is_reset:
-                        # Aplicar el delta de esta cámara al parking
-                        parking.current_occupancy += (delta_in - delta_out)
-                        logger.info(f"Occupancy updated (LEGACY) for parking {parking.name} - Previous: {previous_occupancy}, Delta applied: +{delta_in} -{delta_out} = {delta_in - delta_out}, New: {parking.current_occupancy}")
+                        raw_new_occupancy = previous_occupancy + (delta_in - delta_out)
+                        logger.info(f"Occupancy calc (LEGACY) for parking {parking.name} - Previous: {previous_occupancy}, Delta: +{delta_in} -{delta_out}, Raw new: {raw_new_occupancy}")
                     else:
                         # En caso de reinicio, mantener la ocupación actual
+                        raw_new_occupancy = previous_occupancy
                         logger.info(f"Reset detected (LEGACY) for parking {parking.name} - Keeping current occupancy: {parking.current_occupancy}")
                 
-                # PERMITIR OCUPACIÓN POR ENCIMA DEL MÁXIMO Y VALORES NEGATIVOS
-                # No limitar la ocupación al máximo de capacidad
-                # Esto permite reflejar la realidad cuando hay exceso de vehículos
+                # APLICAR LÍMITES DE SEGURIDAD v4.5.0
+                # Registramos el valor crudo para análisis pero aplicamos límites a la visualización
+                max_allowed = int(parking.max_capacity * MAX_OCCUPANCY_PERCENT)
+                was_limited = False
+                limit_type = None
                 
-                logger.info(f"Parking occupancy updated - {parking.name}: Previous: {previous_occupancy}, New: {parking.current_occupancy}, Max Capacity: {parking.max_capacity}")
+                if raw_new_occupancy < MIN_OCCUPANCY:
+                    parking.current_occupancy = MIN_OCCUPANCY
+                    was_limited = True
+                    limit_type = 'floor'
+                    logger.warning(f"LIMIT APPLIED (floor) - Parking: {parking.name}, Raw: {raw_new_occupancy}, Limited to: {MIN_OCCUPANCY}")
+                elif raw_new_occupancy > max_allowed:
+                    parking.current_occupancy = max_allowed
+                    was_limited = True
+                    limit_type = 'ceiling'
+                    logger.warning(f"LIMIT APPLIED (ceiling) - Parking: {parking.name}, Raw: {raw_new_occupancy}, Max allowed: {max_allowed}, Limited to: {max_allowed}")
+                else:
+                    parking.current_occupancy = raw_new_occupancy
+                
+                logger.info(f"Parking occupancy updated - {parking.name}: Previous: {previous_occupancy}, Raw: {raw_new_occupancy}, Final: {parking.current_occupancy}, Max Capacity: {parking.max_capacity}, Limited: {was_limited}")
                 if is_reset:
                     logger.info(f"Reset impact on occupancy for {parking.name}: +{delta_in} in, -{delta_out} out, Net change: {delta_in - delta_out}")
                 
@@ -648,16 +667,29 @@ def handle_camera():
                     occupancy_discrepancy = f"NEGATIVE_FREE:{abs(free_spaces)}"
                     logger.warning(f"NEGATIVE FREE SPACES - Parking: {parking.name}, Free spaces: {free_spaces}, This indicates counting errors or overflow")
                 
-                # Registrar histórico con información completa (v4.4.0)
-                change_amount = parking.current_occupancy - previous_occupancy
+                # Registrar histórico con información completa (v4.5.0)
+                # Guardamos el cambio real (raw) para análisis de drift
+                actual_change = parking.current_occupancy - previous_occupancy
+                raw_change = raw_new_occupancy - previous_occupancy
+                
+                # Determinar adjustment_type
+                if was_limited:
+                    adjustment_type = f'camera_limited_{limit_type}'
+                else:
+                    adjustment_type = 'camera'
+                
                 hist = OccupancyHistory(
                     parking_id=parking.id,
                     occupancy=parking.current_occupancy,
                     source='camera',
                     previous_occupancy=previous_occupancy,
-                    change_amount=change_amount
+                    change_amount=raw_change,  # Guardar cambio crudo para análisis
+                    adjustment_type=adjustment_type
                 )
                 session.add(hist)
+                
+                if was_limited:
+                    logger.info(f"History recorded with raw_change={raw_change}, actual_change={actual_change}, type={adjustment_type}")
                 
                 # Calcular estado (permitir estados especiales para descuadres)
                 occ = parking.current_occupancy
