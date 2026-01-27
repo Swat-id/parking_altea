@@ -408,13 +408,14 @@ def calculate_suggested_correction_v2(
     }
 
 
-def apply_auto_correction_v2(session: Session, parking_id: int) -> Optional[Dict]:
+def apply_auto_correction_v2(session: Session, parking_id: int, force: bool = False) -> Optional[Dict]:
     """
     Aplicar corrección automática usando el algoritmo v2.
     
     Args:
         session: Sesión de BD
         parking_id: ID del parking
+        force: Si True, aplica corrección aunque no sea la hora programada
     
     Returns:
         Dict con resultado de la corrección o None si no se aplicó
@@ -422,9 +423,11 @@ def apply_auto_correction_v2(session: Session, parking_id: int) -> Optional[Dict
     # Obtener configuración
     config = session.query(ParkingCorrectionConfig).filter_by(parking_id=parking_id).first()
     
-    if not config or not config.auto_correction_enabled:
-        logger.info(f"Parking {parking_id}: Corrección automática deshabilitada")
-        return None
+    # Si no es forzado, verificar si está habilitada
+    if not force:
+        if not config or not config.auto_correction_enabled:
+            logger.info(f"Parking {parking_id}: Corrección automática deshabilitada")
+            return {'skipped': True, 'reason': 'disabled', 'parking_id': parking_id}
     
     # Calcular corrección sugerida
     calc = calculate_suggested_correction_v2(

@@ -235,6 +235,36 @@ export default function AutoCorrectionManagement() {
             </div>
             <div className="flex gap-3">
               <button
+                onClick={() => {
+                  if (window.confirm('¿Activar corrección automática para TODOS los parkings?')) {
+                    bulkUpdateMutation.mutate({
+                      parking_ids: configs.map(c => c.parking_id),
+                      auto_correction_enabled: true
+                    })
+                  }
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 rounded-lg transition"
+                title="Activar para todos"
+              >
+                <PlayCircle className="h-5 w-5" />
+                Activar Todos
+              </button>
+              <button
+                onClick={() => {
+                  if (window.confirm('¿Desactivar corrección automática para TODOS los parkings?')) {
+                    bulkUpdateMutation.mutate({
+                      parking_ids: configs.map(c => c.parking_id),
+                      auto_correction_enabled: false
+                    })
+                  }
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg transition"
+                title="Desactivar para todos"
+              >
+                <PauseCircle className="h-5 w-5" />
+                Desactivar Todos
+              </button>
+              <button
                 onClick={() => setShowBootstrapModal(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition"
               >
