@@ -10,7 +10,7 @@ Fecha: 2026-01-26
 
 import os
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
@@ -21,6 +21,23 @@ from models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def make_naive(dt: datetime) -> datetime:
+    """
+    Convertir datetime a naive (sin timezone) para comparaciones consistentes.
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        # Convertir a UTC y luego quitar timezone
+        return dt.replace(tzinfo=None)
+    return dt
+
+
+def now_naive() -> datetime:
+    """Obtener datetime actual sin timezone"""
+    return datetime.now()
 
 # Constantes de configuración
 WEEKDAY_GROUPS = {
@@ -168,12 +185,13 @@ def calculate_suggested_correction(
     
     if not last_correction:
         # Si no hay correcciones previas, usar timestamp muy antiguo
-        last_correction_time = datetime.now() - timedelta(days=1)
+        last_correction_time = now_naive() - timedelta(days=1)
     else:
-        last_correction_time = last_correction.timestamp
+        # Convertir a naive para comparación consistente
+        last_correction_time = make_naive(last_correction.timestamp)
     
     # Calcular horas transcurridas
-    hours_elapsed = (datetime.now() - last_correction_time).total_seconds() / 3600
+    hours_elapsed = (now_naive() - last_correction_time).total_seconds() / 3600
     
     # Obtener drift por día de semana
     drift_by_weekday = config.drift_by_weekday or {}
@@ -488,7 +506,7 @@ def update_correction_metrics_after_manual(session: Session, parking_id: int, ad
     
     # Actualizar promedios en configuración
     # Recalcular con todos los datos recientes (últimos 90 días)
-    date_limit = datetime.now() - timedelta(days=90)
+    date_limit = now_naive() - timedelta(days=90)
     recent_calcs = session.query(CorrectionCalculation).filter(
         CorrectionCalculation.parking_id == parking_id,
         CorrectionCalculation.adjustment_timestamp >= date_limit
@@ -574,7 +592,7 @@ def get_correction_stats(session: Session, parking_id: int, days: int = 30) -> D
     
     config = session.query(ParkingCorrectionConfig).filter_by(parking_id=parking_id).first()
     
-    date_limit = datetime.now() - timedelta(days=days)
+    date_limit = now_naive() - timedelta(days=days)
     
     # Obtener cálculos (ajustes manuales procesados)
     calculations = session.query(CorrectionCalculation).filter(
