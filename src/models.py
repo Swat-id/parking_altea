@@ -231,9 +231,10 @@ class OccupancyHistory(Base):
     parking_id = Column(Integer, ForeignKey('parkings.id'), nullable=False)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     occupancy = Column(Integer, nullable=False)
-    source = Column(String, nullable=False)  # 'camera', 'manual', 'scheduled_adjust'
+    source = Column(String, nullable=False)  # 'camera', 'manual', 'scheduled_adjust', 'auto_scheduled'
     previous_occupancy = Column(Integer)  # Para tracking de cambios
     change_amount = Column(Integer)  # Diferencia con ocupación anterior
+    adjustment_type = Column(String)  # 'manual', 'camera', 'camera_limited_floor', 'camera_limited_ceiling', 'auto_scheduled', 'limit_floor', 'limit_ceiling'
 
 class ScheduledMessage(Base):
     __tablename__ = 'scheduled_messages'
