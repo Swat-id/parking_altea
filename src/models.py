@@ -1003,6 +1003,7 @@ class ParkingCorrectionConfig(Base):
     avg_error_per_transaction = Column(Float, default=0)  # Error promedio por transacción
     avg_transactions_per_day = Column(Float, default=0)  # Transacciones promedio por día
     expected_occupancy_by_weekday = Column(JSON, default=lambda: {"0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0})  # Ocupación esperada después de corrección
+    avg_transactions_by_weekday = Column(JSON, default=lambda: {"0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0})  # Transacciones promedio por día de semana
     
     # Corrección sugerida actual
     suggested_correction = Column(Integer, default=0)

@@ -275,9 +275,33 @@ def calculate_suggested_correction_v2(
     expected_occ, expected_std, expected_samples = calculate_expected_occupancy(historical)
     error_per_trans = calculate_error_per_transaction(historical)
     
+    # Calcular transacciones promedio históricas para este día
+    # Primero intentar obtener del config (más preciso)
+    avg_transactions_for_day = 0
+    avg_trans_by_weekday = getattr(config, 'avg_transactions_by_weekday', None) or {}
+    if str(target_weekday) in avg_trans_by_weekday:
+        avg_transactions_for_day = avg_trans_by_weekday.get(str(target_weekday), 0)
+    
+    # Si no hay en config, calcular de históricos
+    if avg_transactions_for_day == 0 and historical:
+        trans_values = [c.transactions_count for c in historical if c.transactions_count and c.transactions_count > 0]
+        if trans_values:
+            avg_transactions_for_day = mean(trans_values)
+    
+    # Factor de ajuste por transacciones
+    # Si hoy hay menos transacciones que el promedio histórico, la corrección debe ser menor
+    transaction_factor = 1.0
+    if avg_transactions_for_day > 0 and transactions_count > 0:
+        transaction_factor = transactions_count / avg_transactions_for_day
+        # Limitar el factor entre 0.3 y 2.0 para evitar extremos
+        transaction_factor = max(0.3, min(2.0, transaction_factor))
+    
+    logger.info(f"Parking {parking_id}: Trans actuales={transactions_count}, "
+                f"Trans promedio={avg_transactions_for_day:.0f}, Factor={transaction_factor:.2f}")
+    
     # Determinar estrategia de corrección
     if ratio_samples >= MIN_SAMPLES_FOR_RATIO:
-        # ESTRATEGIA 1: Usar ratio de corrección
+        # ESTRATEGIA 1: Usar ratio de corrección ajustado por transacciones
         # Si ratio = 0.5, significa que históricamente se corrige al 50% de lo reportado
         
         if current_occupancy > 0:
@@ -291,33 +315,52 @@ def calculate_suggested_correction_v2(
                 weight_expected = 0.4
                 estimated_real = int(estimated_real * weight_ratio + expected_occ * weight_expected)
             
-            suggested_correction = estimated_real - current_occupancy
-            method = 'ratio_based'
+            base_correction = estimated_real - current_occupancy
+            
+            # AJUSTE CLAVE: Ponderar corrección por factor de transacciones
+            # Si hay menos transacciones que lo habitual, reducir la corrección proporcionalmente
+            suggested_correction = int(base_correction * transaction_factor)
+            method = 'ratio_transaction_weighted'
         else:
-            # Si ocupación actual es 0, usar ocupación esperada
-            suggested_correction = int(expected_occ) if expected_samples >= MIN_SAMPLES_FOR_RATIO else 0
-            method = 'expected_occupancy'
+            # Si ocupación actual es 0, usar ocupación esperada ajustada
+            base_correction = int(expected_occ) if expected_samples >= MIN_SAMPLES_FOR_RATIO else 0
+            suggested_correction = int(base_correction * transaction_factor)
+            method = 'expected_transaction_weighted'
         
     elif expected_samples >= MIN_SAMPLES_FOR_RATIO:
-        # ESTRATEGIA 2: Usar ocupación esperada directamente
-        suggested_correction = int(expected_occ - current_occupancy)
-        method = 'expected_occupancy'
+        # ESTRATEGIA 2: Usar ocupación esperada ajustada por transacciones
+        base_correction = int(expected_occ - current_occupancy)
+        suggested_correction = int(base_correction * transaction_factor)
+        method = 'expected_transaction_weighted'
         
     else:
-        # ESTRATEGIA 3: Usar drift por hora (fallback al método anterior)
-        drift_by_weekday = config.drift_by_weekday or {}
-        drift = drift_by_weekday.get(str(target_weekday), config.avg_hourly_drift or 0)
-        suggested_correction = int(drift * hours_since_last)
-        method = 'drift_fallback'
+        # ESTRATEGIA 3: Usar error por transacción (más preciso que drift)
+        if error_per_trans > 0 and transactions_count > 0:
+            # Calcular corrección directamente del error por transacción
+            # Determinar signo basado en drift histórico
+            drift_by_weekday = config.drift_by_weekday or {}
+            drift = drift_by_weekday.get(str(target_weekday), config.avg_hourly_drift or 0)
+            sign = 1 if drift >= 0 else -1
+            
+            suggested_correction = int(sign * error_per_trans * transactions_count)
+            method = 'error_per_transaction'
+        else:
+            # Fallback final: drift por hora
+            drift_by_weekday = config.drift_by_weekday or {}
+            drift = drift_by_weekday.get(str(target_weekday), config.avg_hourly_drift or 0)
+            suggested_correction = int(drift * hours_since_last)
+            method = 'drift_fallback'
     
-    # Ajustar por transacciones si tenemos datos
+    # Validación adicional: si tenemos error por transacción, verificar coherencia
     if error_per_trans > 0 and transactions_count > 0:
-        expected_error = error_per_trans * transactions_count
-        # Si la corrección sugerida es menor que el error esperado, ajustar
-        if abs(suggested_correction) < expected_error * 0.5:
-            # Aumentar corrección basada en transacciones
-            sign = 1 if suggested_correction >= 0 else -1
-            suggested_correction = int(sign * max(abs(suggested_correction), expected_error * 0.7))
+        expected_error_range = error_per_trans * transactions_count
+        # Si la corrección sugerida está muy lejos del error esperado, ajustar
+        if abs(suggested_correction) > expected_error_range * 2:
+            # La corrección parece excesiva para las transacciones actuales
+            sign = 1 if suggested_correction > 0 else -1
+            suggested_correction = int(sign * expected_error_range * 1.2)
+            method += '_capped'
+            logger.warning(f"Parking {parking_id}: Corrección limitada a rango esperado por transacciones")
     
     # Calcular confianza
     confidence_factors = []
@@ -349,12 +392,19 @@ def calculate_suggested_correction_v2(
             'expected_occupancy': round(expected_occ, 1),
             'expected_std': round(expected_std, 1),
             'expected_samples': expected_samples,
-            'error_per_transaction': round(error_per_trans, 4)
+            'error_per_transaction': round(error_per_trans, 4),
+            'avg_transactions_historical': round(avg_transactions_for_day, 0),
+            'transaction_factor': round(transaction_factor, 3)
         },
         'confidence': {
             'overall': round(overall_confidence, 2),
             'has_enough_data': ratio_samples >= MIN_SAMPLES_FOR_RATIO or expected_samples >= MIN_SAMPLES_FOR_RATIO
-        }
+        },
+        'explanation': (
+            f"Transacciones hoy: {transactions_count}, "
+            f"Promedio histórico: {avg_transactions_for_day:.0f}, "
+            f"Factor ajuste: {transaction_factor:.2f}x"
+        )
     }
 
 

@@ -67,6 +67,13 @@ BEGIN
             DEFAULT '{"0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0}'::jsonb;
         COMMENT ON COLUMN parking_correction_config.expected_occupancy_by_weekday IS 'Ocupación esperada después de corrección por día';
     END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'parking_correction_config' AND column_name = 'avg_transactions_by_weekday') THEN
+        ALTER TABLE parking_correction_config ADD COLUMN avg_transactions_by_weekday JSONB 
+            DEFAULT '{"0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0}'::jsonb;
+        COMMENT ON COLUMN parking_correction_config.avg_transactions_by_weekday IS 'Transacciones promedio por día de semana (para factor proporcional)';
+    END IF;
 END $$;
 
 -- 4. Crear índices para optimizar consultas

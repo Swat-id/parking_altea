@@ -282,6 +282,8 @@ def process_parking_history(session, parking_id: int, days: int) -> Dict:
     config.expected_occupancy_by_weekday = {k: v['avg_expected_occupancy'] for k, v in metrics_by_weekday.items()}
     config.avg_error_per_transaction = global_metrics['avg_error_per_transaction']
     config.avg_transactions_per_day = global_metrics['avg_transactions_per_day']
+    # Transacciones promedio por día de semana (para calcular factor proporcional)
+    config.avg_transactions_by_weekday = {k: v['avg_transactions'] for k, v in metrics_by_weekday.items()}
     
     config.last_calculation_at = datetime.now()
     
