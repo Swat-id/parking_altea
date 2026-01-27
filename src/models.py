@@ -998,6 +998,12 @@ class ParkingCorrectionConfig(Base):
     samples_by_weekday = Column(JSON, default=lambda: {"0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0})
     avg_occupancy_by_weekday = Column(JSON, default=lambda: {"0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0})
     
+    # Nuevos parámetros v4.5.1 - Algoritmo basado en ratio y transacciones
+    avg_correction_ratio_by_weekday = Column(JSON, default=lambda: {"0": 1.0, "1": 1.0, "2": 1.0, "3": 1.0, "4": 1.0, "5": 1.0, "6": 1.0})  # ratio = after/before
+    avg_error_per_transaction = Column(Float, default=0)  # Error promedio por transacción
+    avg_transactions_per_day = Column(Float, default=0)  # Transacciones promedio por día
+    expected_occupancy_by_weekday = Column(JSON, default=lambda: {"0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0})  # Ocupación esperada después de corrección
+    
     # Corrección sugerida actual
     suggested_correction = Column(Integer, default=0)
     last_calculation_at = Column(DateTime(timezone=True))
@@ -1045,6 +1051,12 @@ class CorrectionCalculation(Base):
     parking_capacity = Column(Integer)
     occupancy_percentage_before = Column(Float)
     occupancy_percentage_after = Column(Float)
+    
+    # Nuevos campos v4.5.1 para algoritmo mejorado
+    transactions_count = Column(Integer, default=0)  # Entradas + salidas desde último ajuste
+    error_per_transaction = Column(Float)  # Tasa de error por transacción
+    correction_ratio = Column(Float)  # occupancy_after / occupancy_before (si before > 0)
+    expected_occupancy = Column(Integer)  # Ocupación esperada basada en histórico
     
     # Tipo de ajuste
     trigger_type = Column(String(30), nullable=False)

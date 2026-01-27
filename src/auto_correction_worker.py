@@ -30,7 +30,17 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from models import Parking, ParkingCorrectionConfig
-from auto_correction_service import apply_auto_correction, calculate_suggested_correction
+
+# Usar nueva versión del servicio v4.5.1
+try:
+    from auto_correction_service_v2 import apply_auto_correction_v2 as apply_auto_correction
+    from auto_correction_service_v2 import calculate_suggested_correction_v2 as calculate_suggested_correction
+    logger = logging.getLogger('auto_correction_worker')
+    logger.info("Usando algoritmo de corrección v4.5.1 (basado en ratio y transacciones)")
+except ImportError:
+    from auto_correction_service import apply_auto_correction, calculate_suggested_correction
+    logger = logging.getLogger('auto_correction_worker')
+    logger.info("Usando algoritmo de corrección v4.5.0 (basado en drift)")
 
 # Configurar logging
 logging.basicConfig(
