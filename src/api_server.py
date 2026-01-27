@@ -7490,7 +7490,8 @@ def get_auto_correction_configs():
                     'expected_occupancy_by_weekday': getattr(config, 'expected_occupancy_by_weekday', {}),
                     'drift_by_weekday': getattr(config, 'drift_by_weekday', {}),
                     'samples_by_weekday': getattr(config, 'samples_by_weekday', {}),
-                    'last_correction_at': config.last_correction_at.isoformat() if config.last_correction_at else None,
+                    'last_auto_correction_at': config.last_auto_correction_at.isoformat() if config.last_auto_correction_at else None,
+                    'last_auto_correction_amount': config.last_auto_correction_amount,
                     'last_calculation_at': config.last_calculation_at.isoformat() if config.last_calculation_at else None
                 })
             
