@@ -7448,6 +7448,189 @@ def run_correction_bootstrap():
         return jsonify({'error': str(e)}), 500
 
 
+@api_bp.route('/auto-correction/configs', methods=['GET'])
+@require_superadmin
+def get_auto_correction_configs():
+    """
+    Obtener configuraciones de corrección automática de todos los parkings.
+    Solo superadmin.
+    """
+    try:
+        from models import ParkingCorrectionConfig
+        
+        session = Session()
+        try:
+            configs = session.query(ParkingCorrectionConfig).all()
+            parkings = {p.id: p for p in session.query(Parking).all()}
+            
+            result = []
+            for config in configs:
+                parking = parkings.get(config.parking_id)
+                if not parking:
+                    continue
+                    
+                result.append({
+                    'parking_id': config.parking_id,
+                    'parking_name': parking.name,
+                    'current_occupancy': parking.current_occupancy,
+                    'max_capacity': parking.max_capacity,
+                    'is_enabled': config.is_enabled,
+                    'correction_time': config.correction_time,
+                    'sample_count': config.sample_count,
+                    'confidence_level': config.confidence_level,
+                    'avg_hourly_drift': config.avg_hourly_drift,
+                    'avg_error_per_transaction': getattr(config, 'avg_error_per_transaction', 0),
+                    'avg_transactions_per_day': getattr(config, 'avg_transactions_per_day', 0),
+                    'avg_correction_ratio_by_weekday': getattr(config, 'avg_correction_ratio_by_weekday', {}),
+                    'avg_transactions_by_weekday': getattr(config, 'avg_transactions_by_weekday', {}),
+                    'expected_occupancy_by_weekday': getattr(config, 'expected_occupancy_by_weekday', {}),
+                    'last_correction_at': config.last_correction_at.isoformat() if config.last_correction_at else None,
+                    'last_calculation_at': config.last_calculation_at.isoformat() if config.last_calculation_at else None
+                })
+            
+            # Ordenar por sample_count descendente
+            result.sort(key=lambda x: x['sample_count'] or 0, reverse=True)
+            
+            return jsonify({'configs': result})
+            
+        finally:
+            session.close()
+            
+    except Exception as e:
+        logger.error(f"Error obteniendo configuraciones de corrección: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@api_bp.route('/auto-correction/<int:parking_id>/suggest', methods=['GET'])
+@require_superadmin
+def get_correction_suggestion(parking_id):
+    """
+    Obtener sugerencia de corrección para un parking específico.
+    Usa el algoritmo v4.5.1 si está disponible.
+    Solo superadmin.
+    """
+    session = Session()
+    try:
+        # Intentar usar el algoritmo v4.5.1
+        try:
+            from auto_correction_service_v2 import calculate_suggested_correction_v2
+            result = calculate_suggested_correction_v2(session, parking_id)
+        except ImportError:
+            from auto_correction_service import calculate_suggested_correction
+            result = calculate_suggested_correction(session, parking_id)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error calculando sugerencia de corrección para parking {parking_id}: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+
+
+@api_bp.route('/auto-correction/<int:parking_id>/apply', methods=['POST'])
+@require_superadmin
+def apply_correction(parking_id):
+    """
+    Aplicar corrección automática a un parking.
+    Solo superadmin.
+    """
+    session = Session()
+    try:
+        data = request.get_json() or {}
+        force = data.get('force', False)
+        
+        # Intentar usar el algoritmo v4.5.1
+        try:
+            from auto_correction_service_v2 import apply_auto_correction_v2
+            result = apply_auto_correction_v2(session, parking_id, force=force)
+        except ImportError:
+            from auto_correction_service import apply_auto_correction
+            result = apply_auto_correction(session, parking_id, force=force)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error aplicando corrección para parking {parking_id}: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+
+
+@api_bp.route('/auto-correction/stats', methods=['GET'])
+@require_superadmin
+def get_correction_stats():
+    """
+    Obtener estadísticas generales del sistema de corrección.
+    Solo superadmin.
+    """
+    try:
+        from models import ParkingCorrectionConfig, AutoCorrectionHistory, CorrectionCalculation
+        from datetime import datetime, timedelta
+        from sqlalchemy import func
+        
+        session = Session()
+        try:
+            # Estadísticas de configuraciones
+            configs = session.query(ParkingCorrectionConfig).all()
+            total_parkings = len(configs)
+            enabled_parkings = sum(1 for c in configs if c.is_enabled)
+            with_data = sum(1 for c in configs if c.sample_count and c.sample_count >= 5)
+            
+            # Correcciones últimas 24h
+            yesterday = datetime.now() - timedelta(hours=24)
+            corrections_24h = session.query(AutoCorrectionHistory).filter(
+                AutoCorrectionHistory.applied_at >= yesterday
+            ).count()
+            
+            # Promedio de corrección (últimos 7 días)
+            week_ago = datetime.now() - timedelta(days=7)
+            avg_correction = session.query(
+                func.avg(func.abs(AutoCorrectionHistory.correction_amount))
+            ).filter(
+                AutoCorrectionHistory.applied_at >= week_ago
+            ).scalar() or 0
+            
+            # Métricas por parking (top 5 más activos)
+            top_parkings = session.query(
+                AutoCorrectionHistory.parking_id,
+                func.count(AutoCorrectionHistory.id).label('count'),
+                func.avg(func.abs(AutoCorrectionHistory.correction_amount)).label('avg_correction')
+            ).filter(
+                AutoCorrectionHistory.applied_at >= week_ago
+            ).group_by(
+                AutoCorrectionHistory.parking_id
+            ).order_by(
+                func.count(AutoCorrectionHistory.id).desc()
+            ).limit(5).all()
+            
+            parking_names = {p.id: p.name for p in session.query(Parking).all()}
+            
+            return jsonify({
+                'summary': {
+                    'total_parkings': total_parkings,
+                    'enabled_parkings': enabled_parkings,
+                    'parkings_with_data': with_data,
+                    'corrections_last_24h': corrections_24h,
+                    'avg_correction_7d': round(avg_correction, 2)
+                },
+                'top_parkings': [{
+                    'parking_id': p[0],
+                    'parking_name': parking_names.get(p[0], 'Unknown'),
+                    'corrections_count': p[1],
+                    'avg_correction': round(p[2], 2) if p[2] else 0
+                } for p in top_parkings],
+                'algorithm_version': '4.5.1'
+            })
+            
+        finally:
+            session.close()
+            
+    except Exception as e:
+        logger.error(f"Error obteniendo estadísticas de corrección: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
 app.register_blueprint(api_bp)
 
 if __name__ == '__main__':
