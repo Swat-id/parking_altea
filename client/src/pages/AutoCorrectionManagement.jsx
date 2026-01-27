@@ -369,20 +369,27 @@ export default function AutoCorrectionManagement() {
                       className="h-4 w-4 text-indigo-600 rounded"
                     />
                     
-                    {/* Estado habilitado/deshabilitado */}
+                    {/* Estado habilitado/deshabilitado - Botón con estado claro */}
                     <button
                       onClick={() => toggleEnabled(config.parking_id, config.auto_correction_enabled)}
-                      className={`p-2 rounded-full transition ${
+                      disabled={updateConfigMutation.isPending}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg transition font-medium text-sm min-w-[120px] justify-center ${
                         config.auto_correction_enabled
-                          ? 'bg-green-100 text-green-600 hover:bg-green-200'
-                          : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
-                      }`}
-                      title={config.auto_correction_enabled ? 'Desactivar' : 'Activar'}
+                          ? 'bg-green-500 text-white hover:bg-green-600 shadow-sm'
+                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                      } ${updateConfigMutation.isPending ? 'opacity-50 cursor-wait' : ''}`}
+                      title={config.auto_correction_enabled ? 'Clic para desactivar' : 'Clic para activar'}
                     >
                       {config.auto_correction_enabled ? (
-                        <PlayCircle className="h-5 w-5" />
+                        <>
+                          <PlayCircle className="h-4 w-4" />
+                          ACTIVO
+                        </>
                       ) : (
-                        <PauseCircle className="h-5 w-5" />
+                        <>
+                          <PauseCircle className="h-4 w-4" />
+                          INACTIVO
+                        </>
                       )}
                     </button>
                     
@@ -397,9 +404,14 @@ export default function AutoCorrectionManagement() {
                         )}
                       </div>
                       <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
-                        <span className="flex items-center gap-1">
+                        <span className={`flex items-center gap-1 px-2 py-0.5 rounded ${
+                          config.auto_correction_enabled 
+                            ? 'bg-green-50 text-green-700' 
+                            : 'bg-gray-100 text-gray-500'
+                        }`}>
                           <Clock className="h-4 w-4" />
-                          {String(config.correction_hour).padStart(2, '0')}:{String(config.correction_minute).padStart(2, '0')}
+                          {config.auto_correction_enabled ? 'Corrección a las ' : 'Programada: '}
+                          {String(config.correction_hour ?? 6).padStart(2, '0')}:{String(config.correction_minute ?? 0).padStart(2, '0')}
                         </span>
                         <span className="flex items-center gap-1">
                           Ocupación: {config.current_occupancy}/{config.max_capacity}
@@ -411,6 +423,12 @@ export default function AutoCorrectionManagement() {
                         }`}>
                           {config.status}
                         </span>
+                        {config.last_auto_correction_at && (
+                          <span className="text-xs text-gray-400">
+                            Última: {new Date(config.last_auto_correction_at).toLocaleDateString()} 
+                            ({config.last_auto_correction_amount > 0 ? '+' : ''}{config.last_auto_correction_amount})
+                          </span>
+                        )}
                       </div>
                     </div>
                     
