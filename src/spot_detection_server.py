@@ -164,27 +164,105 @@ def recalculate_parking_status(parking):
 def update_parking_totals(session, parking):
     """
     Recalcular totales del parking sumando todas las cámaras de detección.
-    También recalcula el estado del parking.
+    También aplica correcciones si hay discrepancia con el conteo de accesos.
+    
+    REGLAS DE CORRECCIÓN:
+    1. La ocupación NUNCA puede ser menor que las plazas ocupadas detectadas
+    2. Las plazas libres NUNCA pueden ser menores que las detectadas como libres
     """
+    from models import OccupancyHistory
+    
     # Contar total de plazas monitorizadas del parking
     total_monitored = session.query(func.count(MonitoredSpot.id)).filter(
         MonitoredSpot.parking_id == parking.id
     ).scalar() or 0
     
-    # Contar plazas ocupadas
+    # Contar plazas ocupadas por detección
     total_occupied = session.query(func.count(MonitoredSpot.id)).filter(
         MonitoredSpot.parking_id == parking.id,
         MonitoredSpot.current_status == 1
     ).scalar() or 0
     
+    # Plazas libres según detección
+    total_free_detected = total_monitored - total_occupied
+    
     parking.total_monitored_spots = total_monitored
     parking.total_spot_occupied = total_occupied
     parking.last_spot_sync = datetime.now()
     
-    # NUEVO: Recalcular estado del parking
+    # =================== CORRECCIÓN AUTOMÁTICA ===================
+    # Las cámaras de detección son el "piso mínimo garantizado"
+    
+    previous_occupancy = parking.current_occupancy
+    correction_applied = False
+    correction_reason = None
+    
+    # REGLA 1: Ocupación no puede ser menor que plazas ocupadas detectadas
+    # Si las cámaras VEN 70 coches, current_occupancy >= 70
+    if parking.current_occupancy < total_occupied:
+        correction_reason = 'floor_occupied'
+        parking.current_occupancy = total_occupied
+        correction_applied = True
+        logger.warning(
+            f"CORRECCIÓN APLICADA (piso ocupadas) - Parking {parking.name}: "
+            f"Conteo accesos ({previous_occupancy}) < Detección ({total_occupied}). "
+            f"Ajustado a {parking.current_occupancy}"
+        )
+    
+    # REGLA 2: Plazas libres no pueden ser menores que las detectadas
+    # Si detectamos 12 libres de 75 monitorizadas, y hay 15 no monitorizadas,
+    # el total de libres debe ser >= 12
+    current_free = parking.max_capacity - parking.current_occupancy
+    if current_free < total_free_detected:
+        # Necesitamos reducir la ocupación para tener al menos las libres detectadas
+        max_occupancy_allowed = parking.max_capacity - total_free_detected
+        if parking.current_occupancy > max_occupancy_allowed:
+            correction_reason = 'ceiling_free'
+            parking.current_occupancy = max_occupancy_allowed
+            correction_applied = True
+            logger.warning(
+                f"CORRECCIÓN APLICADA (techo libres) - Parking {parking.name}: "
+                f"Libres conteo ({current_free}) < Libres detectadas ({total_free_detected}). "
+                f"Ajustado ocupación a {parking.current_occupancy}"
+            )
+    
+    # Registrar corrección en histórico si se aplicó
+    if correction_applied:
+        correction_amount = parking.current_occupancy - previous_occupancy
+        history = OccupancyHistory(
+            parking_id=parking.id,
+            occupancy=parking.current_occupancy,
+            source='spot_detection_correction',
+            previous_occupancy=previous_occupancy,
+            change_amount=correction_amount,
+            adjustment_type=f'auto_{correction_reason}'
+        )
+        session.add(history)
+        
+        # Registrar en tabla de correcciones
+        correction = SpotOccupancyCorrection(
+            parking_id=parking.id,
+            previous_occupancy=previous_occupancy,
+            new_occupancy=parking.current_occupancy,
+            correction_amount=correction_amount,
+            correction_reason=correction_reason,
+            spot_occupied_count=total_occupied,
+            total_monitored_spots=total_monitored,
+            max_capacity=parking.max_capacity
+        )
+        session.add(correction)
+    
+    # Recalcular estado del parking
     new_status = recalculate_parking_status(parking)
     
-    logger.info(f"Parking {parking.name}: {total_occupied}/{total_monitored} plazas ocupadas (monitorización), estado: {new_status}")
+    # Log detallado
+    current_free_final = parking.max_capacity - parking.current_occupancy
+    logger.info(
+        f"Parking {parking.name}: Detección {total_occupied}/{total_monitored} ocupadas, "
+        f"Conteo {parking.current_occupancy}/{parking.max_capacity} ({current_free_final} libres), "
+        f"Estado: {new_status}"
+        + (f" [CORREGIDO: {correction_reason}]" if correction_applied else "")
+    )
     
     return total_monitored, total_occupied
 
