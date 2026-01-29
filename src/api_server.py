@@ -18,7 +18,7 @@ from models import (
     PanelSchedule, PanelScheduleLog, PanelType, CameraParking, AlarmConfiguration, 
     AlarmConfigurationTarget, AlarmConfigurationThreshold, Alarm, AlarmHistory, 
     IndividualSensor, SensorStatusHistory, SensorCurrentStatus, ParkingSensorSummary,
-    ParkingPanelWindow, PanelWindowConfiguration
+    ParkingPanelWindow, PanelWindowConfiguration, MonitoredSpot, SpotStatusHistory
 )
 from panel_schedule_service import PanelScheduleService
 from panel_window_service import PanelWindowService
@@ -3238,6 +3238,214 @@ def get_parking_cameras(pid):
     except Exception as e:
         logger.error(f"Error obteniendo cámaras del parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
+
+
+# ============================================================================
+# ENDPOINTS DE PLAZAS MONITORIZADAS (v4.4.0)
+# ============================================================================
+
+@api_bp.route('/parkings/<int:pid>/monitored-spots', methods=['GET'])
+@require_auth
+@require_parking_access('pid')
+def get_parking_monitored_spots(pid):
+    """
+    Obtener detalle de plazas monitorizadas de un parking.
+    Agrupa las plazas por cámara y muestra el estado actual de cada una.
+    """
+    try:
+        session = Session()
+        
+        # Verificar que el parking existe
+        parking = session.query(Parking).get(pid)
+        if not parking:
+            session.close()
+            return jsonify({'error': 'Parking not found'}), 404
+        
+        # Obtener cámaras de detección del parking
+        detection_cameras = session.query(Access).join(CameraParking).filter(
+            CameraParking.parking_id == pid,
+            Access.camera_type == 'spot_detection'
+        ).all()
+        
+        cameras_data = []
+        total_spots = 0
+        total_occupied = 0
+        total_free = 0
+        
+        for camera in detection_cameras:
+            # Obtener plazas monitorizadas por esta cámara
+            spots = session.query(MonitoredSpot).filter(
+                MonitoredSpot.camera_id == camera.id,
+                MonitoredSpot.parking_id == pid
+            ).order_by(MonitoredSpot.area_name, MonitoredSpot.spot_number).all()
+            
+            # Agrupar por área
+            areas = {}
+            camera_occupied = 0
+            camera_free = 0
+            
+            for spot in spots:
+                area_name = spot.area_name
+                if area_name not in areas:
+                    areas[area_name] = {
+                        'name': area_name,
+                        'spots': [],
+                        'occupied': 0,
+                        'free': 0
+                    }
+                
+                spot_data = {
+                    'id': spot.id,
+                    'spot_number': spot.spot_number,
+                    'spot_identifier': spot.spot_identifier,
+                    'current_status': spot.current_status,  # 0=libre, 1=ocupado
+                    'is_occupied': spot.is_occupied,
+                    'last_status_change': spot.last_status_change.isoformat() if spot.last_status_change else None,
+                    'last_update': spot.last_update.isoformat() if spot.last_update else None
+                }
+                
+                areas[area_name]['spots'].append(spot_data)
+                
+                if spot.is_occupied:
+                    areas[area_name]['occupied'] += 1
+                    camera_occupied += 1
+                else:
+                    areas[area_name]['free'] += 1
+                    camera_free += 1
+            
+            camera_data = {
+                'camera_id': camera.id,
+                'camera_name': camera.name,
+                'camera_ip': camera.ip,
+                'status': getattr(camera, 'status', 'OFFLINE'),
+                'last_message': camera.last_message_received.isoformat() if camera.last_message_received else None,
+                'monitored_spots_count': getattr(camera, 'monitored_spots_count', 0),
+                'total_spots_detected': len(spots),
+                'occupied': camera_occupied,
+                'free': camera_free,
+                'areas': list(areas.values())
+            }
+            
+            cameras_data.append(camera_data)
+            total_spots += len(spots)
+            total_occupied += camera_occupied
+            total_free += camera_free
+        
+        session.close()
+        
+        return jsonify({
+            'parking_id': pid,
+            'parking_name': parking.name,
+            'spot_monitoring_enabled': getattr(parking, 'spot_monitoring_enabled', False),
+            'total_monitored_spots': getattr(parking, 'total_monitored_spots', 0),
+            'total_spot_occupied': getattr(parking, 'total_spot_occupied', 0),
+            'current_occupancy': parking.current_occupancy,
+            'max_capacity': parking.max_capacity,
+            'summary': {
+                'total_spots': total_spots,
+                'occupied': total_occupied,
+                'free': total_free,
+                'occupancy_percentage': round((total_occupied / total_spots * 100), 1) if total_spots > 0 else 0
+            },
+            'detection_cameras': cameras_data,
+            'last_spot_sync': parking.last_spot_sync.isoformat() if getattr(parking, 'last_spot_sync', None) else None
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo plazas monitorizadas del parking {pid}: {e}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@api_bp.route('/cameras/<int:camera_id>/monitored-spots', methods=['GET'])
+@require_auth
+def get_camera_monitored_spots(camera_id):
+    """
+    Obtener detalle de plazas monitorizadas por una cámara específica.
+    """
+    try:
+        session = Session()
+        
+        # Verificar que la cámara existe y es de tipo detección
+        camera = session.query(Access).get(camera_id)
+        if not camera:
+            session.close()
+            return jsonify({'error': 'Camera not found'}), 404
+        
+        if getattr(camera, 'camera_type', 'counting') != 'spot_detection':
+            session.close()
+            return jsonify({'error': 'Camera is not a spot detection camera'}), 400
+        
+        # Obtener el parking asociado
+        camera_parking = session.query(CameraParking).filter(
+            CameraParking.camera_id == camera_id
+        ).first()
+        
+        parking = None
+        if camera_parking:
+            parking = session.query(Parking).get(camera_parking.parking_id)
+        
+        # Obtener plazas monitorizadas
+        spots = session.query(MonitoredSpot).filter(
+            MonitoredSpot.camera_id == camera_id
+        ).order_by(MonitoredSpot.area_name, MonitoredSpot.spot_number).all()
+        
+        # Agrupar por área
+        areas = {}
+        total_occupied = 0
+        total_free = 0
+        
+        for spot in spots:
+            area_name = spot.area_name
+            if area_name not in areas:
+                areas[area_name] = {
+                    'name': area_name,
+                    'spots': [],
+                    'occupied': 0,
+                    'free': 0
+                }
+            
+            spot_data = {
+                'id': spot.id,
+                'spot_number': spot.spot_number,
+                'spot_identifier': spot.spot_identifier,
+                'current_status': spot.current_status,
+                'is_occupied': spot.is_occupied,
+                'last_status_change': spot.last_status_change.isoformat() if spot.last_status_change else None,
+                'last_update': spot.last_update.isoformat() if spot.last_update else None
+            }
+            
+            areas[area_name]['spots'].append(spot_data)
+            
+            if spot.is_occupied:
+                areas[area_name]['occupied'] += 1
+                total_occupied += 1
+            else:
+                areas[area_name]['free'] += 1
+                total_free += 1
+        
+        session.close()
+        
+        return jsonify({
+            'camera_id': camera_id,
+            'camera_name': camera.name,
+            'camera_ip': camera.ip,
+            'camera_status': getattr(camera, 'status', 'OFFLINE'),
+            'last_message': camera.last_message_received.isoformat() if camera.last_message_received else None,
+            'parking_id': parking.id if parking else None,
+            'parking_name': parking.name if parking else None,
+            'summary': {
+                'total_spots': len(spots),
+                'occupied': total_occupied,
+                'free': total_free,
+                'occupancy_percentage': round((total_occupied / len(spots) * 100), 1) if len(spots) > 0 else 0
+            },
+            'areas': list(areas.values())
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo plazas de la cámara {camera_id}: {e}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
+
 
 @api_bp.route('/access/<int:access_id>/line', methods=['PUT'])
 def update_camera_line(access_id):

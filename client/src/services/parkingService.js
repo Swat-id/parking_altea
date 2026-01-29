@@ -234,6 +234,33 @@ const parkingService = {
   },
 
   /**
+   * NUEVO v4.4.0: Obtener plazas monitorizadas de un parking
+   * Devuelve el detalle de todas las plazas monitorizadas agrupadas por cámara y área
+   */
+  async getMonitoredSpots(parkingId) {
+    try {
+      const response = await api.get(`/api/parkings/${parkingId}/monitored-spots`)
+      return response.data
+    } catch (error) {
+      console.error('Error obteniendo plazas monitorizadas del parking:', error)
+      throw error
+    }
+  },
+
+  /**
+   * NUEVO v4.4.0: Obtener plazas monitorizadas por una cámara específica
+   */
+  async getCameraMonitoredSpots(cameraId) {
+    try {
+      const response = await api.get(`/api/cameras/${cameraId}/monitored-spots`)
+      return response.data
+    } catch (error) {
+      console.error('Error obteniendo plazas de la cámara:', error)
+      throw error
+    }
+  },
+
+  /**
    * Utilidades para el frontend
    */
   utils: {

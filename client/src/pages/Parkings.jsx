@@ -7,6 +7,7 @@ import panelService from '../services/panelService'
 import CameraAssignmentModal from '../components/CameraAssignmentModal'
 import WindowAssignmentModal from '../components/WindowAssignmentModal'
 import WindowConfigModal from '../components/WindowConfigModal'
+import SpotMonitoringModal from '../components/SpotMonitoringModal'
 import { useAuth } from '../context/AuthContext'
 import { 
   Car, 
@@ -23,7 +24,9 @@ import {
   Plus,
   Camera,
   Trash2,
-  Settings
+  Settings,
+  Grid3X3,
+  Wifi
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -57,6 +60,8 @@ const Parkings = () => {
   })
   const [assignedCameras, setAssignedCameras] = useState([])
   const [calculatedMonitoredSpots, setCalculatedMonitoredSpots] = useState(0)
+  const [showSpotMonitoringModal, setShowSpotMonitoringModal] = useState(false)
+  const [selectedParkingForSpots, setSelectedParkingForSpots] = useState(null)
 
   const queryClient = useQueryClient()
 
@@ -599,6 +604,9 @@ const Parkings = () => {
                   Ocupación
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Monitorización
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Configuración
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -645,6 +653,43 @@ const Parkings = () => {
                         {parking.plazas_libres} plazas libres
                       </div>
                     </div>
+                  </td>
+                  {/* Nueva columna: Monitorización plaza a plaza */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {parking.spot_monitoring_enabled ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center space-x-2">
+                          <div className="flex items-center text-purple-600">
+                            <Wifi className="h-4 w-4 mr-1" />
+                            <span className="text-sm font-medium">Activo</span>
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          <span className="font-semibold text-red-600">{parking.total_spot_occupied || 0}</span>
+                          <span className="text-gray-400 mx-1">/</span>
+                          <span className="font-semibold text-green-600">
+                            {(parking.total_monitored_spots || 0) - (parking.total_spot_occupied || 0)}
+                          </span>
+                          <span className="text-gray-400 mx-1">/</span>
+                          <span>{parking.total_monitored_spots || 0}</span>
+                          <span className="text-gray-400 ml-1">plazas</span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setSelectedParkingForSpots(parking)
+                            setShowSpotMonitoringModal(true)
+                          }}
+                          className="flex items-center px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors"
+                        >
+                          <Grid3X3 className="h-3 w-3 mr-1" />
+                          Ver plazas
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-gray-400 italic">
+                        No habilitado
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {editingParking === parking.id ? (
@@ -1005,6 +1050,17 @@ const Parkings = () => {
           onSuccess={handleWindowConfigSuccess}
         />
       )}
+
+      {/* Modal de monitorización de plazas */}
+      <SpotMonitoringModal
+        isOpen={showSpotMonitoringModal}
+        onClose={() => {
+          setShowSpotMonitoringModal(false)
+          setSelectedParkingForSpots(null)
+        }}
+        parkingId={selectedParkingForSpots?.id}
+        parkingName={selectedParkingForSpots?.name}
+      />
     </div>
   )
 }
