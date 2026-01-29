@@ -30,6 +30,13 @@ from models import (
     MonitoredSpot, SpotStatusHistory, SpotOccupancyCorrection, SpotDetectionLog
 )
 
+# Servicio de eventos pendientes v4.4.1
+from pending_events_service import (
+    check_and_register_pending_exit,
+    validate_pending_entry_on_spot_occupied,
+    cleanup_expired_events
+)
+
 # Configurar logging
 logging.basicConfig(
     level=logging.INFO,
@@ -104,9 +111,13 @@ def get_or_create_spot(session, parking_id, camera_id, area_name, spot_number):
     return spot
 
 
-def update_spot_status(session, spot, new_status, report_type, device_name):
+def update_spot_status(session, spot, new_status, report_type, device_name, parking=None):
     """
     Actualizar estado de una plaza y registrar en histórico si cambió.
+    
+    v4.4.1: Integración con eventos pendientes:
+    - Si plaza pasa de libre a ocupada → validar entrada pendiente
+    - Si plaza pasa de ocupada a libre → registrar salida pendiente
     """
     previous_status = spot.current_status
     status_changed = previous_status != new_status
@@ -129,6 +140,31 @@ def update_spot_status(session, spot, new_status, report_type, device_name):
         )
         session.add(history)
         logger.info(f"Plaza {spot.area_name}-{spot.spot_number} cambió: {previous_status} -> {new_status}")
+        
+        # =================== v4.4.1: GESTIÓN DE EVENTOS PENDIENTES ===================
+        # Obtener parking si no se proporcionó
+        if parking is None:
+            parking = session.query(Parking).get(spot.parking_id)
+        
+        if parking and getattr(parking, 'spot_monitoring_enabled', False):
+            if previous_status == 0 and new_status == 1:
+                # Plaza pasó de LIBRE a OCUPADA
+                # → Validar entrada pendiente si existe
+                validated = validate_pending_entry_on_spot_occupied(
+                    session, parking, spot_id=spot.id
+                )
+                if validated:
+                    logger.info(f"Pending entry validated by spot occupation: {spot.area_name}-{spot.spot_number}")
+            
+            elif previous_status == 1 and new_status == 0:
+                # Plaza pasó de OCUPADA a LIBRE
+                # → Registrar salida pendiente (esperamos salida por acceso)
+                pending_exit = check_and_register_pending_exit(
+                    session, parking, spot_id=spot.id,
+                    notes=f"Plaza {spot.area_name}-{spot.spot_number} liberada"
+                )
+                if pending_exit:
+                    logger.info(f"Pending exit registered for spot: {spot.area_name}-{spot.spot_number}")
     
     return status_changed
 
@@ -345,8 +381,8 @@ def process_trigger_message(session, camera, parking, data, device_name, client_
     spot = get_or_create_spot(session, parking.id, camera.id, area_name, spot_number)
     session.flush()  # Para obtener el ID si es nueva
     
-    # Actualizar estado
-    status_changed = update_spot_status(session, spot, occupancy, 'trigger', device_name)
+    # Actualizar estado (v4.4.1: pasar parking para gestión de eventos pendientes)
+    status_changed = update_spot_status(session, spot, occupancy, 'trigger', device_name, parking=parking)
     
     # Actualizar contadores de cámara y parking
     update_camera_spot_count(session, camera)
@@ -410,8 +446,8 @@ def process_interval_message(session, camera, parking, data, device_name, client
             spot = get_or_create_spot(session, parking.id, camera.id, area_name, spot_number)
             session.flush()
             
-            # Actualizar estado
-            if update_spot_status(session, spot, occupancy, 'interval', device_name):
+            # Actualizar estado (v4.4.1: pasar parking para gestión de eventos pendientes)
+            if update_spot_status(session, spot, occupancy, 'interval', device_name, parking=parking):
                 spots_changed += 1
             
             spots_processed += 1

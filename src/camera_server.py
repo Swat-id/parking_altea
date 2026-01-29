@@ -13,6 +13,14 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../b
 import threading
 import subprocess
 
+# Servicio de eventos pendientes v4.4.1
+from pending_events_service import (
+    check_and_register_pending_entry,
+    validate_pending_exit_on_access_exit,
+    cancel_pending_entry_on_access_exit,
+    cleanup_expired_events
+)
+
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -614,7 +622,45 @@ def handle_camera():
                 MAX_OCCUPANCY_PERCENT = 1.10  # Máximo 110% de la capacidad
                 MIN_OCCUPANCY = 0             # Mínimo 0
                 
-                if USE_NEW_DELTA_LOGIC:
+                # =================== v4.4.1: GESTIÓN DE EVENTOS PENDIENTES ===================
+                # Coordinar con detección de plazas para evitar descuadres temporales
+                pending_event_handled = False
+                pending_event_type = None
+                
+                if USE_NEW_DELTA_LOGIC and not is_reset:
+                    if delta_final > 0:
+                        # ENTRADA: Verificar si debe registrarse como pendiente
+                        should_apply, pending_event = check_and_register_pending_entry(
+                            session, parking, camera_id=access.id,
+                            notes=f"Entrada por cámara {access.name} ({access.ip}), delta={delta_final}"
+                        )
+                        
+                        if not should_apply:
+                            # La entrada se registró como pendiente, no aplicar incremento
+                            logger.info(f"ENTRY DEFERRED - Parking: {parking.name}, Delta: {delta_final} registered as pending")
+                            pending_event_handled = True
+                            pending_event_type = 'entry_deferred'
+                    
+                    elif delta_final < 0:
+                        # SALIDA: Primero verificar si hay salidas pendientes que validar
+                        if validate_pending_exit_on_access_exit(session, parking, camera_id=access.id):
+                            # Se validó una salida pendiente (plaza ya liberada), no reducir ocupación
+                            logger.info(f"EXIT VALIDATED - Parking: {parking.name}, Pending exit validated")
+                            pending_event_handled = True
+                            pending_event_type = 'exit_validated'
+                        
+                        elif cancel_pending_entry_on_access_exit(session, parking, camera_id=access.id):
+                            # Se canceló una entrada pendiente (vehículo entró y salió sin ocupar plaza)
+                            logger.info(f"ENTRY CANCELLED - Parking: {parking.name}, Pending entry cancelled by exit")
+                            pending_event_handled = True
+                            pending_event_type = 'entry_cancelled'
+                
+                # Calcular nueva ocupación (solo si no se manejó como evento pendiente)
+                if pending_event_handled:
+                    # No aplicar delta, la ocupación se mantiene o ya se ajustó
+                    raw_new_occupancy = parking.current_occupancy
+                    logger.info(f"Occupancy unchanged (pending event handled: {pending_event_type}) for parking {parking.name}")
+                elif USE_NEW_DELTA_LOGIC:
                     # NUEVA LÓGICA: Aplicar delta final unificado
                     raw_new_occupancy = previous_occupancy + delta_final
                     if is_reset:

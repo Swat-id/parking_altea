@@ -59,6 +59,10 @@ class Parking(Base):
     total_spot_occupied = Column(Integer, default=0)  # Plazas ocupadas según detección por plaza
     last_spot_sync = Column(DateTime(timezone=True))  # Última sincronización de datos de detección
     
+    # NUEVO v4.4.1: Campos para eventos pendientes de validación cruzada
+    pending_entries = Column(Integer, default=0)  # Entradas por acceso pendientes de validación
+    pending_exits = Column(Integer, default=0)  # Plazas liberadas pendientes de validación
+    
     # Relación muchos a muchos con cámaras a través de tabla intermedia
     camera_parkings = relationship('CameraParking', back_populates='parking')
     panels = relationship('Panel', back_populates='parking')
@@ -76,6 +80,9 @@ class Parking(Base):
     
     # NUEVO v4.4.0: Relación con plazas monitorizadas
     monitored_spots = relationship('MonitoredSpot', back_populates='parking', cascade='all, delete-orphan')
+    
+    # NUEVO v4.4.1: Relación con eventos pendientes
+    pending_events = relationship('PendingParkingEvent', back_populates='parking', cascade='all, delete-orphan')
 
 class Access(Base):
     __tablename__ = 'accesses'
@@ -944,6 +951,43 @@ class SpotOccupancyCorrection(Base):
     
     def __repr__(self):
         return f"<SpotOccupancyCorrection(id={self.id}, parking_id={self.parking_id}, {self.previous_occupancy}->{self.new_occupancy}, reason={self.correction_reason})>"
+
+
+class PendingParkingEvent(Base):
+    """
+    Eventos de entrada/salida pendientes de validación cruzada.
+    
+    - entry: Entrada por acceso que espera validación por ocupación de plaza
+    - exit: Plaza liberada que espera validación por salida de acceso
+    """
+    __tablename__ = 'pending_parking_events'
+    
+    id = Column(Integer, primary_key=True)
+    parking_id = Column(Integer, ForeignKey('parkings.id', ondelete='CASCADE'), nullable=False)
+    event_type = Column(String(10), nullable=False)  # 'entry' o 'exit'
+    
+    # Datos del evento original
+    source = Column(String(50), nullable=False)  # 'camera_access' o 'spot_detection'
+    camera_id = Column(Integer)  # ID de la cámara que generó el evento
+    spot_id = Column(Integer)  # ID de la plaza (si aplica)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    validated_at = Column(DateTime(timezone=True))  # Cuando se validó
+    expired_at = Column(DateTime(timezone=True))  # Cuando expiró
+    
+    # Estado
+    status = Column(String(20), default='pending')  # 'pending', 'validated', 'expired', 'cancelled'
+    
+    # Datos adicionales
+    occupancy_at_creation = Column(Integer)  # Ocupación del parking al crear
+    notes = Column(Text)
+    
+    # Relaciones
+    parking = relationship('Parking', back_populates='pending_events')
+    
+    def __repr__(self):
+        return f"<PendingParkingEvent(id={self.id}, parking={self.parking_id}, type={self.event_type}, status={self.status})>"
 
 
 class SpotDetectionLog(Base):
