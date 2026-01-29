@@ -133,9 +133,38 @@ def update_spot_status(session, spot, new_status, report_type, device_name):
     return status_changed
 
 
+def recalculate_parking_status(parking):
+    """
+    Recalcular estado del parking basado en ocupación actual y umbrales.
+    
+    La lógica usa 'plazas libres' para determinar el estado:
+    - Si free <= threshold_full → COMPLETO
+    - Si free <= threshold_dense → DENSO
+    - Si free > threshold_dense → LIBRE
+    """
+    free = parking.max_capacity - parking.current_occupancy
+    previous_status = parking.status
+    
+    if free < 0:
+        parking.status = 'COMPLETO'
+    elif free <= parking.threshold_full:
+        parking.status = 'COMPLETO'
+    elif free <= parking.threshold_dense:
+        parking.status = 'DENSO'
+    else:
+        parking.status = 'LIBRE'
+    
+    if previous_status != parking.status:
+        logger.info(f"Estado del parking {parking.name} cambiado: {previous_status} -> {parking.status} "
+                   f"(ocupación: {parking.current_occupancy}/{parking.max_capacity}, libre: {free})")
+    
+    return parking.status
+
+
 def update_parking_totals(session, parking):
     """
     Recalcular totales del parking sumando todas las cámaras de detección.
+    También recalcula el estado del parking.
     """
     # Contar total de plazas monitorizadas del parking
     total_monitored = session.query(func.count(MonitoredSpot.id)).filter(
@@ -152,7 +181,10 @@ def update_parking_totals(session, parking):
     parking.total_spot_occupied = total_occupied
     parking.last_spot_sync = datetime.now()
     
-    logger.info(f"Parking {parking.name}: {total_occupied}/{total_monitored} plazas ocupadas (monitorización)")
+    # NUEVO: Recalcular estado del parking
+    new_status = recalculate_parking_status(parking)
+    
+    logger.info(f"Parking {parking.name}: {total_occupied}/{total_monitored} plazas ocupadas (monitorización), estado: {new_status}")
     
     return total_monitored, total_occupied
 

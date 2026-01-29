@@ -1188,6 +1188,73 @@ def update_parking_config(pid):
         logger.error(f"Error updating config for parking {pid}: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+
+@api_bp.route('/parkings/recalculate-status', methods=['POST'])
+@require_superadmin
+def recalculate_all_parking_status():
+    """
+    Forzar recálculo de estado (LIBRE/DENSO/COMPLETO) para todos los parkings.
+    
+    Útil para corregir estados inconsistentes después de migraciones o correcciones.
+    Solo accesible para superadmins.
+    """
+    try:
+        session = Session()
+        parkings = session.query(Parking).all()
+        
+        results = []
+        updated_count = 0
+        
+        for parking in parkings:
+            free = parking.max_capacity - parking.current_occupancy
+            old_status = parking.status
+            
+            # Calcular nuevo estado
+            if free < 0:
+                new_status = 'COMPLETO'
+            elif free <= parking.threshold_full:
+                new_status = 'COMPLETO'
+            elif free <= parking.threshold_dense:
+                new_status = 'DENSO'
+            else:
+                new_status = 'LIBRE'
+            
+            # Registrar si hubo cambio
+            status_changed = old_status != new_status
+            if status_changed:
+                parking.status = new_status
+                updated_count += 1
+            
+            results.append({
+                'parking_id': parking.id,
+                'parking_name': parking.name,
+                'current_occupancy': parking.current_occupancy,
+                'max_capacity': parking.max_capacity,
+                'free_spaces': free,
+                'threshold_dense': parking.threshold_dense,
+                'threshold_full': parking.threshold_full,
+                'old_status': old_status,
+                'new_status': new_status,
+                'status_changed': status_changed
+            })
+        
+        session.commit()
+        session.close()
+        
+        logger.info(f"Recálculo de estados completado: {updated_count} parkings actualizados de {len(parkings)} total")
+        
+        return jsonify({
+            'status': 'ok',
+            'total_parkings': len(parkings),
+            'updated_count': updated_count,
+            'results': results
+        })
+        
+    except Exception as e:
+        logger.error(f"Error recalculando estados de parkings: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
 @api_bp.route('/parkings/<int:pid>/cameras', methods=['PUT'])
 @require_parking_access('pid')
 def update_parking_cameras(pid):
