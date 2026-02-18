@@ -1062,23 +1062,25 @@ const Panels = () => {
                       >
                         <Send className="h-4 w-4" />
                       </button>
-                      {/* TEMPORAL: Botones visibles para todos los usuarios */}
-                      <>
-                        <button
-                          onClick={() => handleEditPanel(panel)}
-                          className="text-orange-600 hover:text-orange-900"
-                          title="Editar panel"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeletePanel(panel)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Eliminar panel"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </>
+                      {/* Botones de edición/eliminación solo para superadmin */}
+                      {isSuperadmin && (
+                        <>
+                          <button
+                            onClick={() => handleEditPanel(panel)}
+                            className="text-orange-600 hover:text-orange-900"
+                            title="Editar panel"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeletePanel(panel)}
+                            className="text-red-600 hover:text-red-900"
+                            title="Eliminar panel"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>

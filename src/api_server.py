@@ -1457,8 +1457,10 @@ def set_parking_message(pid):
         return jsonify({'error': 'Internal server error'}), 500
 
 @api_bp.route('/panel/<ip>/message', methods=['POST'])
+@require_auth
+@filter_by_user_permissions
 def set_panel_message(ip):
-    """Establecer mensaje para un panel específico por IP"""
+    """Establecer mensaje para un panel específico por IP - requiere acceso al panel"""
     try:
         req = request.get_json(force=True)
         message = req.get('message')
@@ -1477,6 +1479,12 @@ def set_panel_message(ip):
         if not panel:
             session.close()
             return jsonify({'error': 'Panel not found'}), 404
+        
+        # VISIBILIDAD HORIZONTAL: Verificar que el usuario tiene acceso al panel
+        accessible_panel_ids = getattr(request, 'accessible_panel_ids', [])
+        if panel.id not in accessible_panel_ids:
+            session.close()
+            return jsonify({'error': 'Acceso denegado: no tiene permisos para este panel'}), 403
         
         # Guardar nombres antes de cerrar la sesión
         panel_name = panel.name
@@ -2230,8 +2238,9 @@ def send_message_to_panel(panel_id):
         return jsonify({'error': 'Internal server error'}), 500
 
 @api_bp.route('/panel/<int:panel_id>/test', methods=['POST'])
+@require_panel_access('panel_id')
 def test_panel(panel_id):
-    """Probar comunicación con un panel"""
+    """Probar comunicación con un panel - requiere acceso al panel"""
     try:
         session = Session()
         panel = session.query(Panel).get(panel_id)
@@ -2342,8 +2351,9 @@ def send_message_to_panel_plural(panel_id):
     return send_message_to_panel(panel_id)
 
 @api_bp.route('/panels/<int:panel_id>/test', methods=['POST'])
+@require_panel_access('panel_id')
 def test_panel_plural(panel_id):
-    """Probar comunicación con un panel (ruta plural para compatibilidad con frontend)"""
+    """Probar comunicación con un panel (ruta plural para compatibilidad con frontend) - requiere acceso al panel"""
     return test_panel(panel_id)
 
 @api_bp.route('/panels/<int:panel_id>/windows', methods=['GET'])
@@ -2538,8 +2548,9 @@ def send_multi_message_to_panel(panel_id):
         return jsonify({'error': 'Internal server error'}), 500
 
 @api_bp.route('/panels/<int:panel_id>/status', methods=['GET'])
+@require_panel_access('panel_id')
 def get_panel_status(panel_id):
-    """Obtener estado de un panel específico por ID"""
+    """Obtener estado de un panel específico por ID - requiere acceso al panel"""
     try:
         session = Session()
         panel = session.query(Panel).get(panel_id)
@@ -2565,8 +2576,9 @@ def get_panel_status(panel_id):
         return jsonify({'error': 'Internal server error'}), 500
 
 @api_bp.route('/panels/<int:panel_id>/protocol-info', methods=['GET'])
+@require_panel_access('panel_id')
 def get_panel_protocol_info(panel_id):
-    """Obtener información del protocolo de un panel específico por ID"""
+    """Obtener información del protocolo de un panel específico por ID - requiere acceso al panel"""
     try:
         session = Session()
         panel = session.query(Panel).get(panel_id)
@@ -3786,11 +3798,28 @@ def get_parking_hourly_statistics(pid):
         return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
 
 @api_bp.route('/panels/verify', methods=['POST'])
+@require_auth
+@filter_by_user_permissions
 def verify_all_panels():
-    """Verificar el estado de todos los paneles mediante ping"""
+    """Verificar el estado de los paneles accesibles al usuario mediante ping"""
     try:
         session = Session()
-        panels = session.query(Panel).all()
+        
+        # VISIBILIDAD HORIZONTAL: Filtrar por paneles accesibles al usuario
+        accessible_panel_ids = getattr(request, 'accessible_panel_ids', [])
+        
+        if accessible_panel_ids:
+            panels = session.query(Panel).filter(Panel.id.in_(accessible_panel_ids)).all()
+        else:
+            # Usuario no tiene acceso a ningún panel
+            session.close()
+            return jsonify({
+                'total_panels': 0,
+                'online_count': 0,
+                'offline_count': 0,
+                'updated_count': 0,
+                'results': []
+            })
         
         results = []
         updated_count = 0
