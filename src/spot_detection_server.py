@@ -205,19 +205,40 @@ def update_parking_totals(session, parking):
     REGLAS DE CORRECCIÓN:
     1. La ocupación NUNCA puede ser menor que las plazas ocupadas detectadas
     2. Las plazas libres NUNCA pueden ser menores que las detectadas como libres
+    
+    IMPORTANTE v4.4.1: Calcular basándose en las CÁMARAS asignadas al parking,
+    no en el parking_id de las plazas. Esto permite que una cámara asignada a
+    múltiples parkings actualice correctamente los totales de todos ellos.
     """
     from models import OccupancyHistory
     
-    # Contar total de plazas monitorizadas del parking
-    total_monitored = session.query(func.count(MonitoredSpot.id)).filter(
-        MonitoredSpot.parking_id == parking.id
-    ).scalar() or 0
+    # Obtener IDs de las cámaras de detección asignadas a este parking
+    camera_ids = session.query(CameraParking.camera_id).join(
+        Access, CameraParking.camera_id == Access.id
+    ).filter(
+        CameraParking.parking_id == parking.id,
+        Access.camera_type == 'spot_detection'
+    ).all()
+    camera_ids = [c[0] for c in camera_ids]
     
-    # Contar plazas ocupadas por detección
-    total_occupied = session.query(func.count(MonitoredSpot.id)).filter(
-        MonitoredSpot.parking_id == parking.id,
-        MonitoredSpot.current_status == 1
-    ).scalar() or 0
+    if not camera_ids:
+        # No hay cámaras de detección asignadas a este parking
+        logger.info(f"Parking {parking.name}: No tiene cámaras de detección asignadas")
+        total_monitored = 0
+        total_occupied = 0
+    else:
+        # Contar total de plazas monitorizadas de las cámaras asignadas a este parking
+        total_monitored = session.query(func.count(MonitoredSpot.id)).filter(
+            MonitoredSpot.camera_id.in_(camera_ids)
+        ).scalar() or 0
+        
+        # Contar plazas ocupadas por detección
+        total_occupied = session.query(func.count(MonitoredSpot.id)).filter(
+            MonitoredSpot.camera_id.in_(camera_ids),
+            MonitoredSpot.current_status == 1
+        ).scalar() or 0
+        
+        logger.info(f"Parking {parking.name}: Cámaras de detección IDs={camera_ids}, plazas={total_monitored}, ocupadas={total_occupied}")
     
     # Plazas libres según detección
     total_free_detected = total_monitored - total_occupied

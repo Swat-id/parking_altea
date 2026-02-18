@@ -36,6 +36,55 @@ def token_required(f):
         return f(*args, **kwargs)
     return decorated
 
+
+def calculate_parking_spot_totals(db_session, parking_id):
+    """
+    Calcular dinámicamente los totales de plazas monitorizadas de un parking.
+    
+    Basándose en las CÁMARAS de detección asignadas al parking (no en parking_id de las plazas).
+    Esto permite que cámaras compartidas entre múltiples parkings actualicen correctamente
+    los totales de todos ellos.
+    
+    Returns:
+        dict: {
+            'total_monitored_spots': int,
+            'total_spot_occupied': int,
+            'camera_ids': list
+        }
+    """
+    # Obtener IDs de las cámaras de detección asignadas a este parking
+    camera_ids = db_session.query(CameraParking.camera_id).join(
+        Access, CameraParking.camera_id == Access.id
+    ).filter(
+        CameraParking.parking_id == parking_id,
+        Access.camera_type == 'spot_detection'
+    ).all()
+    camera_ids = [c[0] for c in camera_ids]
+    
+    if not camera_ids:
+        return {
+            'total_monitored_spots': 0,
+            'total_spot_occupied': 0,
+            'camera_ids': []
+        }
+    
+    # Contar total de plazas monitorizadas de las cámaras asignadas
+    total_monitored = db_session.query(func.count(MonitoredSpot.id)).filter(
+        MonitoredSpot.camera_id.in_(camera_ids)
+    ).scalar() or 0
+    
+    # Contar plazas ocupadas
+    total_occupied = db_session.query(func.count(MonitoredSpot.id)).filter(
+        MonitoredSpot.camera_id.in_(camera_ids),
+        MonitoredSpot.current_status == 1
+    ).scalar() or 0
+    
+    return {
+        'total_monitored_spots': total_monitored,
+        'total_spot_occupied': total_occupied,
+        'camera_ids': camera_ids
+    }
+
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -228,8 +277,12 @@ def get_user_parkings():
         
         # Obtener datos de los parkings
         parks = session.query(Parking).filter(Parking.id.in_(parking_ids)).all()
-        data = [
-            {
+        data = []
+        for p in parks:
+            # Calcular dinámicamente los totales basándose en las cámaras asignadas
+            spot_totals = calculate_parking_spot_totals(session, p.id)
+            
+            data.append({
                 'id': p.id,
                 'name': p.name,
                 'location': p.location,
@@ -240,14 +293,12 @@ def get_user_parkings():
                 'threshold_dense': p.threshold_dense,
                 'threshold_full': p.threshold_full,
                 'message_type': p.message_type,
-                # NUEVO v4.4.0: Campos de monitorización por plaza
+                # v4.4.1: Campos de monitorización calculados dinámicamente
                 'spot_monitoring_enabled': getattr(p, 'spot_monitoring_enabled', False),
-                'total_monitored_spots': getattr(p, 'total_monitored_spots', 0),
-                'total_spot_occupied': getattr(p, 'total_spot_occupied', 0),
+                'total_monitored_spots': spot_totals['total_monitored_spots'],
+                'total_spot_occupied': spot_totals['total_spot_occupied'],
                 'last_spot_sync': p.last_spot_sync.isoformat() if getattr(p, 'last_spot_sync', None) else None
-            }
-            for p in parks
-        ]
+            })
         session.close()
         return jsonify(data)
         
@@ -500,8 +551,12 @@ def list_parkings():
             parking_ids = [up.parking_id for up in user_parkings]
             parks = session.query(Parking).filter(Parking.id.in_(parking_ids)).all()
         
-        data = [
-            {
+        data = []
+        for p in parks:
+            # v4.4.1: Calcular dinámicamente los totales basándose en las cámaras asignadas
+            spot_totals = calculate_parking_spot_totals(session, p.id)
+            
+            data.append({
                 'id': p.id,
                 'name': p.name,
                 'location': p.location,
@@ -512,14 +567,12 @@ def list_parkings():
                 'threshold_dense': p.threshold_dense,
                 'threshold_full': p.threshold_full,
                 'message_type': p.message_type,
-                # NUEVO v4.4.0: Campos de monitorización por plaza
+                # v4.4.1: Campos de monitorización calculados dinámicamente
                 'spot_monitoring_enabled': getattr(p, 'spot_monitoring_enabled', False),
-                'total_monitored_spots': getattr(p, 'total_monitored_spots', 0),
-                'total_spot_occupied': getattr(p, 'total_spot_occupied', 0),
+                'total_monitored_spots': spot_totals['total_monitored_spots'],
+                'total_spot_occupied': spot_totals['total_spot_occupied'],
                 'last_spot_sync': p.last_spot_sync.isoformat() if getattr(p, 'last_spot_sync', None) else None
-            }
-            for p in parks
-        ]
+            })
         session.close()
         return jsonify(data)
         
@@ -912,6 +965,9 @@ def get_parking(pid):
             session.close()
             return jsonify({'error':'Parking not found'}), 404
         
+        # v4.4.1: Calcular dinámicamente los totales basándose en las cámaras asignadas
+        spot_totals = calculate_parking_spot_totals(session, p.id)
+        
         data = {
             'id': p.id,
             'name': p.name,
@@ -921,7 +977,13 @@ def get_parking(pid):
             'plazas_libres': p.max_capacity - p.current_occupancy,
             'estado': p.status,
             'threshold_dense': p.threshold_dense,
-            'threshold_full': p.threshold_full
+            'threshold_full': p.threshold_full,
+            'message_type': p.message_type,
+            # v4.4.1: Campos de monitorización calculados dinámicamente
+            'spot_monitoring_enabled': getattr(p, 'spot_monitoring_enabled', False),
+            'total_monitored_spots': spot_totals['total_monitored_spots'],
+            'total_spot_occupied': spot_totals['total_spot_occupied'],
+            'last_spot_sync': p.last_spot_sync.isoformat() if getattr(p, 'last_spot_sync', None) else None
         }
         session.close()
         return jsonify(data)
@@ -3258,6 +3320,9 @@ def get_parking_cameras(pid):
             }
             data.append(camera_data)
         
+        # v4.4.1: Calcular dinámicamente los totales basándose en las cámaras asignadas
+        spot_totals = calculate_parking_spot_totals(session, pid)
+        
         session.close()
         
         return jsonify({
@@ -3265,7 +3330,8 @@ def get_parking_cameras(pid):
             'parking_name': parking.name,
             'cameras': data,
             'spot_monitoring_enabled': getattr(parking, 'spot_monitoring_enabled', False),
-            'total_monitored_spots': getattr(parking, 'total_monitored_spots', 0)
+            'total_monitored_spots': spot_totals['total_monitored_spots'],
+            'total_spot_occupied': spot_totals['total_spot_occupied']
         })
         
     except Exception as e:
@@ -3306,10 +3372,12 @@ def get_parking_monitored_spots(pid):
         total_free = 0
         
         for camera in detection_cameras:
-            # Obtener plazas monitorizadas por esta cámara
+            # v4.4.1: Obtener plazas monitorizadas por esta cámara
+            # Las plazas se filtran solo por camera_id, ya que el parking_id de las plazas
+            # corresponde al primer parking donde se procesaron, no a todos los parkings
+            # donde está asignada la cámara
             spots = session.query(MonitoredSpot).filter(
-                MonitoredSpot.camera_id == camera.id,
-                MonitoredSpot.parking_id == pid
+                MonitoredSpot.camera_id == camera.id
             ).order_by(MonitoredSpot.area_name, MonitoredSpot.spot_number).all()
             
             # Agrupar por área
@@ -3364,14 +3432,17 @@ def get_parking_monitored_spots(pid):
             total_occupied += camera_occupied
             total_free += camera_free
         
+        # v4.4.1: Calcular dinámicamente los totales basándose en las cámaras asignadas
+        spot_totals = calculate_parking_spot_totals(session, pid)
+        
         session.close()
         
         return jsonify({
             'parking_id': pid,
             'parking_name': parking.name,
             'spot_monitoring_enabled': getattr(parking, 'spot_monitoring_enabled', False),
-            'total_monitored_spots': getattr(parking, 'total_monitored_spots', 0),
-            'total_spot_occupied': getattr(parking, 'total_spot_occupied', 0),
+            'total_monitored_spots': spot_totals['total_monitored_spots'],
+            'total_spot_occupied': spot_totals['total_spot_occupied'],
             'current_occupancy': parking.current_occupancy,
             'max_capacity': parking.max_capacity,
             'summary': {
