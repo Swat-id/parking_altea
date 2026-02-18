@@ -1263,6 +1263,10 @@ def update_parking_cameras(pid):
         req = request.get_json(force=True)
         cameras = req.get('cameras', [])
         
+        logger.info(f"[CAMERA UPDATE] Parking {pid} - Recibidas {len(cameras)} cámaras")
+        for i, cam in enumerate(cameras):
+            logger.info(f"[CAMERA UPDATE] Cámara {i}: IP={cam.get('ip')}, line={cam.get('line')}, name={cam.get('name')}, type={cam.get('camera_type')}, spots={cam.get('monitored_spots_count')}")
+        
         session = Session()
         
         # Verificar que el parking existe
@@ -1275,7 +1279,8 @@ def update_parking_cameras(pid):
         parking_name = parking.name
         
         # Eliminar relaciones existentes del parking
-        session.query(CameraParking).filter(CameraParking.parking_id == pid).delete()
+        deleted_count = session.query(CameraParking).filter(CameraParking.parking_id == pid).delete()
+        logger.info(f"[CAMERA UPDATE] Eliminadas {deleted_count} relaciones existentes del parking {pid}")
         
         # Crear nuevas relaciones y calcular plazas monitorizadas
         cameras_created = []
@@ -1284,20 +1289,33 @@ def update_parking_cameras(pid):
         for camera_data in cameras:
             if camera_data.get('ip'):
                 camera_type = camera_data.get('camera_type', 'counting')
-                monitored_spots_count = camera_data.get('monitored_spots_count', 0) if camera_type == 'spot_detection' else 0
+                camera_name = camera_data.get('name', '')
+                camera_line = camera_data.get('line', 0)
+                
+                # IMPORTANTE: monitored_spots_count SOLO tiene valor para cámaras de detección
+                # Para cámaras de conteo, siempre es 0
+                if camera_type == 'spot_detection':
+                    monitored_spots_count = int(camera_data.get('monitored_spots_count', 0))
+                else:
+                    monitored_spots_count = 0
+                
+                logger.info(f"[CAMERA UPDATE] Procesando: IP={camera_data['ip']}, line={camera_line}, type={camera_type}, spots_count={monitored_spots_count}")
                 
                 # Verificar si ya existe una cámara con esa IP y línea
                 existing_access = session.query(Access).filter(
                     Access.ip == camera_data['ip'],
-                    Access.line == camera_data.get('line', 0)
+                    Access.line == camera_line
                 ).first()
                 
                 if existing_access:
-                    # Si existe, actualizar tipo y plazas monitorizadas
-                    if hasattr(existing_access, 'camera_type'):
-                        existing_access.camera_type = camera_type
-                    if hasattr(existing_access, 'monitored_spots_count'):
-                        existing_access.monitored_spots_count = monitored_spots_count
+                    logger.info(f"[CAMERA UPDATE] Cámara existente encontrada: ID={existing_access.id}, tipo_anterior={getattr(existing_access, 'camera_type', 'N/A')}, spots_anterior={getattr(existing_access, 'monitored_spots_count', 'N/A')}")
+                    
+                    # Actualizar TODOS los campos de la cámara existente
+                    existing_access.camera_type = camera_type
+                    existing_access.monitored_spots_count = monitored_spots_count
+                    existing_access.name = camera_name  # También actualizar el nombre
+                    
+                    logger.info(f"[CAMERA UPDATE] Cámara actualizada: ID={existing_access.id}, tipo_nuevo={camera_type}, spots_nuevo={monitored_spots_count}, name={camera_name}")
                     
                     # Crear relación con el parking actual
                     new_camera_parking = CameraParking(
@@ -1309,17 +1327,17 @@ def update_parking_cameras(pid):
                         'id': existing_access.id,
                         'ip': existing_access.ip,
                         'line': existing_access.line,
-                        'name': existing_access.name,
+                        'name': camera_name,
                         'camera_type': camera_type,
                         'monitored_spots_count': monitored_spots_count,
-                        'status': 'existing'
+                        'status': 'existing_updated'
                     })
                 else:
                     # Crear nueva cámara con tipo y plazas monitorizadas
                     new_access = Access(
                         ip=camera_data['ip'],
-                        line=camera_data.get('line', 0),
-                        name=camera_data.get('name', ''),
+                        line=camera_line,
+                        name=camera_name,
                         last_vehicle_in=0,
                         last_vehicle_out=0,
                         status='OFFLINE',
@@ -1328,6 +1346,8 @@ def update_parking_cameras(pid):
                     )
                     session.add(new_access)
                     session.flush()  # Para obtener el ID
+                    
+                    logger.info(f"[CAMERA UPDATE] Nueva cámara creada: ID={new_access.id}, IP={new_access.ip}, type={camera_type}, spots={monitored_spots_count}")
                     
                     # Crear relación con el parking
                     new_camera_parking = CameraParking(
@@ -1339,7 +1359,7 @@ def update_parking_cameras(pid):
                         'id': new_access.id,
                         'ip': new_access.ip,
                         'line': new_access.line,
-                        'name': new_access.name,
+                        'name': camera_name,
                         'camera_type': camera_type,
                         'monitored_spots_count': monitored_spots_count,
                         'status': 'new'
@@ -1350,14 +1370,15 @@ def update_parking_cameras(pid):
                     total_monitored_spots += monitored_spots_count
         
         # Actualizar el parking con el total de plazas monitorizadas
-        if hasattr(parking, 'total_monitored_spots'):
-            parking.total_monitored_spots = total_monitored_spots
-            parking.spot_monitoring_enabled = total_monitored_spots > 0
+        parking.total_monitored_spots = total_monitored_spots
+        parking.spot_monitoring_enabled = total_monitored_spots > 0
+        
+        logger.info(f"[CAMERA UPDATE] Parking {parking_name}: total_monitored_spots={total_monitored_spots}, spot_monitoring_enabled={total_monitored_spots > 0}")
         
         session.commit()
         session.close()
         
-        logger.info(f"Parking cameras updated - Parking: {parking_name}, Cameras: {len(cameras_created)}, Monitored spots: {total_monitored_spots}")
+        logger.info(f"[CAMERA UPDATE] Parking cameras updated - Parking: {parking_name}, Cameras: {len(cameras_created)}, Monitored spots: {total_monitored_spots}")
         return jsonify({
             'status': 'ok',
             'parking': parking_name,

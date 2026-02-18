@@ -365,12 +365,16 @@ const Parkings = () => {
     // Si estamos editando un parking existente, guardar las cámaras
     if (editingParking) {
       try {
-        await parkingService.updateCameras(editingParking, cameras)
-        toast.success('Cámaras actualizadas correctamente')
+        console.log('[CAMERA SAVE] Parking:', editingParking, 'Cameras:', cameras)
+        const result = await parkingService.updateCameras(editingParking, cameras)
+        console.log('[CAMERA SAVE] Result:', result)
+        toast.success(`Cámaras actualizadas: ${result.total_monitored_spots || 0} plazas monitorizadas`)
         queryClient.invalidateQueries('allParkings')
+        // Resetear el estado de edición después de guardar las cámaras
+        setEditingParking(null)
       } catch (error) {
         toast.error('Error al actualizar las cámaras')
-        console.error('Error:', error)
+        console.error('[CAMERA SAVE] Error:', error)
       }
     }
   }
@@ -804,6 +808,7 @@ const Parkings = () => {
                       <button
                         onClick={() => {
                           loadParkingCameras(parking.id)
+                          setEditingParking(parking.id)  // Establecer el parking que se está editando
                           setShowCameraModal(true)
                         }}
                         className="text-purple-600 hover:text-purple-900"

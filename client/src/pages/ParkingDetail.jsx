@@ -435,7 +435,9 @@ const ParkingDetail = () => {
   }
 
   // Guardar cámaras desde el modal
-  const handleCameraAssignment = async (newCameras) => {
+  const handleCameraAssignment = async (newCameras, totalMonitoredSpots = 0) => {
+    console.log('[ParkingDetail] Guardando cámaras:', newCameras)
+    console.log('[ParkingDetail] Total plazas monitorizadas:', totalMonitoredSpots)
     setAssignedCameras(newCameras)
     updateCamerasMutation.mutate(newCameras)
   }

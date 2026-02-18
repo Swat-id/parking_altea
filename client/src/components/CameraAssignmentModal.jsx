@@ -39,6 +39,12 @@ const CameraAssignmentModal = ({ isOpen, onClose, onSave, existingCameras = [] }
   const updateCamera = (index, field, value) => {
     const updatedCameras = [...cameras]
     updatedCameras[index] = { ...updatedCameras[index], [field]: value }
+    
+    // IMPORTANTE: Si se cambia el tipo de cámara a 'counting', limpiar las plazas monitorizadas
+    if (field === 'camera_type' && value === 'counting') {
+      updatedCameras[index].monitored_spots_count = 0
+    }
+    
     setCameras(updatedCameras)
   }
 
