@@ -359,9 +359,12 @@ def apply_occupancy_limits(parking, raw_occupancy, session):
     return new_occupancy
 
 
-def process_trigger_message(session, camera, parking, data, device_name, client_ip, start_time):
+def process_trigger_message(session, camera, parking, data, device_name, client_ip, start_time, do_commit=True):
     """
     Procesar mensaje tipo 'trigger' (evento individual de una plaza).
+    
+    Args:
+        do_commit: Si es False, no hacer commit (para procesamiento de múltiples parkings)
     """
     area_name = data.get('parking_area', '')
     spot_number = data.get('index_number', 0)
@@ -396,7 +399,8 @@ def process_trigger_message(session, camera, parking, data, device_name, client_
         processing_time, data
     )
     
-    session.commit()
+    if do_commit:
+        session.commit()
     
     return {
         'status': 'ok',
@@ -407,9 +411,12 @@ def process_trigger_message(session, camera, parking, data, device_name, client_
     }, 200
 
 
-def process_interval_message(session, camera, parking, data, device_name, client_ip, start_time):
+def process_interval_message(session, camera, parking, data, device_name, client_ip, start_time, do_commit=True):
     """
     Procesar mensaje tipo 'interval' (reporte periódico con todas las plazas).
+    
+    Args:
+        do_commit: Si es False, no hacer commit (para procesamiento de múltiples parkings)
     """
     total_occupied_reported = data.get('total_occupied', 0)
     total_available_reported = data.get('total_available', 0)
@@ -464,7 +471,8 @@ def process_interval_message(session, camera, parking, data, device_name, client
         'processed', None, processing_time, data
     )
     
-    session.commit()
+    if do_commit:
+        session.commit()
     
     return {
         'status': 'ok',
@@ -572,12 +580,12 @@ def handle_detection():
         camera.status = 'ONLINE'
         camera.last_message_received = datetime.now()
         
-        # Obtener parking asociado
-        camera_parking = session.query(CameraParking).filter_by(
+        # Obtener TODOS los parkings asociados a esta cámara
+        camera_parkings = session.query(CameraParking).filter_by(
             camera_id=camera.id
-        ).first()
+        ).all()
         
-        if not camera_parking:
+        if not camera_parkings:
             error_msg = f"Cámara {device_name} no está asignada a ningún parking"
             logger.error(error_msg)
             log_detection_message(
@@ -588,31 +596,67 @@ def handle_detection():
             session.close()
             return jsonify({'error': error_msg}), 400
         
-        parking = camera_parking.parking
+        # Filtrar parkings que tienen habilitada la monitorización por plaza
+        enabled_parkings = []
+        for cp in camera_parkings:
+            if cp.parking.spot_monitoring_enabled:
+                enabled_parkings.append(cp.parking)
+            else:
+                logger.warning(f"Parking {cp.parking.name} no tiene habilitada la monitorización por plaza - skipping")
         
-        # Verificar que el parking tiene habilitada la monitorización por plaza
-        if not parking.spot_monitoring_enabled:
-            error_msg = f"Parking {parking.name} no tiene habilitada la monitorización por plaza"
+        if not enabled_parkings:
+            error_msg = f"Ninguno de los parkings de la cámara {device_name} tiene monitorización por plaza habilitada"
             logger.warning(error_msg)
+            parking_names = [cp.parking.name for cp in camera_parkings]
             log_detection_message(
-                session, camera.id, parking.id, device_name, client_ip,
-                report_type, None, None, 0, 'parking_disabled', error_msg,
+                session, camera.id, None, device_name, client_ip,
+                report_type, None, None, 0, 'all_parkings_disabled', error_msg,
                 (time.time() - start_time) * 1000, data
             )
             session.close()
-            return jsonify({'error': error_msg}), 400
+            return jsonify({'error': error_msg, 'parkings': parking_names}), 400
         
-        logger.info(f"Cámara: {camera.name} (ID: {camera.id}) -> Parking: {parking.name} (ID: {parking.id})")
+        parking_names = [p.name for p in enabled_parkings]
+        logger.info(f"Cámara: {camera.name} (ID: {camera.id}) -> {len(enabled_parkings)} Parkings: {parking_names}")
         
-        # Procesar según tipo de reporte
-        if report_type == 'trigger':
-            result, status_code = process_trigger_message(
-                session, camera, parking, data, device_name, client_ip, start_time
-            )
-        else:  # interval
-            result, status_code = process_interval_message(
-                session, camera, parking, data, device_name, client_ip, start_time
-            )
+        # Procesar el mensaje para CADA parking asociado
+        all_results = []
+        final_status_code = 200
+        multiple_parkings = len(enabled_parkings) > 1
+        
+        for idx, parking in enumerate(enabled_parkings):
+            is_last = (idx == len(enabled_parkings) - 1)
+            logger.info(f"Procesando para parking: {parking.name} (ID: {parking.id}) [{idx+1}/{len(enabled_parkings)}]")
+            
+            # Procesar según tipo de reporte
+            # Solo hacer commit en el último parking si hay múltiples
+            do_commit = not multiple_parkings or is_last
+            
+            if report_type == 'trigger':
+                result, status_code = process_trigger_message(
+                    session, camera, parking, data, device_name, client_ip, start_time, do_commit=do_commit
+                )
+            else:  # interval
+                result, status_code = process_interval_message(
+                    session, camera, parking, data, device_name, client_ip, start_time, do_commit=do_commit
+                )
+            
+            result['parking_name'] = parking.name
+            result['parking_id'] = parking.id
+            all_results.append(result)
+            
+            if status_code != 200:
+                final_status_code = status_code
+        
+        # Combinar resultados
+        combined_result = {
+            'status': 'ok' if final_status_code == 200 else 'partial',
+            'parkings_processed': len(all_results),
+            'parking_results': all_results,
+            'processing_time_ms': (time.time() - start_time) * 1000
+        }
+        result = combined_result
+        status_code = final_status_code
         
         session.close()
         logger.info(f"=== END SPOT DETECTION PROCESSING ===")
