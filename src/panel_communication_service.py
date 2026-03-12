@@ -131,56 +131,57 @@ class PanelCommunicationService:
                 # Convertir efecto numérico a string descriptivo y ajustar parámetros según protocolo
                 effect_value = show_effects[i] if i < len(show_effects) else 2
                 
-                # Determinar efecto string y stayTime según protocolo
+                # Determinar efecto y stayTime según protocolo
                 if protocol == "old":
-                    # Protocolo antiguo: usar valores específicos
+                    # Protocolo antiguo: usar strings específicos
                     if effect_value == 2:  # Fijo
-                        effect_string = "fijo"
+                        effect_for_api = "fijo"
                         stay_time = 0  # Requerido para protocolo antiguo
                     elif effect_value == 12:  # Scroll
-                        effect_string = "scroll"
+                        effect_for_api = "scroll"
                         stay_time = 5  # Requerido para protocolo antiguo
                     else:
                         # Fallback a fijo
-                        effect_string = "fijo"
+                        effect_for_api = "fijo"
                         stay_time = 0
                 else:
-                    # v4.5.0: Protocolo nuevo con efectos específicos
+                    # v4.5.0: Protocolo nuevo - enviar códigos numéricos directamente
+                    # El servicio 8888 acepta códigos numéricos para el protocolo nuevo
                     # 0x00 (0) = DRAW (instantáneo)
                     # 0x0B (11) = SCROLL_LEFT - scroll si texto largo (para static/center)
                     # 0x0E (14) = CONTINUOUS_SCROLL_LEFT - siempre scroll
                     # 0x0F (15) = CONTINUOUS_SCROLL_RIGHT - siempre scroll
                     if effect_value == 0x00:  # DRAW - instantáneo
-                        effect_string = "fijo"
+                        effect_for_api = 0  # Código numérico directo
                         stay_time = 50
                     elif effect_value == 0x0B:  # SCROLL_LEFT - auto-scroll si texto largo
-                        effect_string = "scroll_left"
+                        effect_for_api = 11  # Código numérico directo (0x0B = 11)
                         stay_time = 50
                     elif effect_value == 0x0E:  # CONTINUOUS_SCROLL_LEFT - siempre scroll
-                        effect_string = "continuous_scroll_left"
+                        effect_for_api = 14  # Código numérico directo (0x0E = 14)
                         stay_time = 0  # Sin tiempo de espera para scroll continuo
                     elif effect_value == 0x0F:  # CONTINUOUS_SCROLL_RIGHT - siempre scroll
-                        effect_string = "continuous_scroll_right"
+                        effect_for_api = 15  # Código numérico directo (0x0F = 15)
                         stay_time = 0  # Sin tiempo de espera para scroll continuo
                     elif effect_value == 1:  # Compatibilidad: Fijo
-                        effect_string = "fijo"
+                        effect_for_api = 0
                         stay_time = 50
                     elif effect_value == 12:  # Compatibilidad: Scroll genérico
-                        effect_string = "scroll_left"
+                        effect_for_api = 11  # SCROLL_LEFT
                         stay_time = 50
                     else:
-                        # Fallback a scroll_left para protocolo nuevo
-                        effect_string = "scroll_left"
+                        # Fallback: usar el valor directamente si no es conocido
+                        effect_for_api = effect_value
                         stay_time = 50
                     
-                    logger.info(f"[EFFECT] Protocolo nuevo: código {hex(effect_value)} -> efecto '{effect_string}'")
+                    logger.info(f"[EFFECT] Protocolo nuevo: código entrada {hex(effect_value)} -> código API {effect_for_api}")
                 
                 window = {
                     "id": i,
                     "text": text,
                     "color": colors[i] if i < len(colors) else 1,
                     "fontSize": font_sizes[i] if i < len(font_sizes) else 2,
-                    "effect": effect_string,  # Usar string descriptivo
+                    "effect": effect_for_api,  # String para protocolo antiguo, número para nuevo
                     "stayTime": stay_time,  # Ajustado según protocolo
                     "alignmentH": 0,  # Centrado horizontal
                     "alignmentV": 0   # Centrado vertical
