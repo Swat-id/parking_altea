@@ -66,8 +66,10 @@ class PanelCommunicationService:
     
     def __init__(self, 
                  api_url: str = "http://localhost:8888/api/v1/panels/send",
+                 api_url_new: str = "http://localhost:7110/api/v1/panels/send-text",
                  timeout: int = 45, retry_attempts: int = 2, retry_delay: int = 3):
-        self.api_url = api_url
+        self.api_url = api_url  # Puerto 8888 para protocolo antiguo (SDK Java)
+        self.api_url_new = api_url_new  # Puerto 7110 para protocolo nuevo (Python directo)
         self.timeout = timeout
         self.retry_attempts = retry_attempts
         self.retry_delay = retry_delay
@@ -106,11 +108,119 @@ class PanelCommunicationService:
             logger.error(f"Error obteniendo protocolo del panel {panel_ip}: {e}")
             return 'old'  # Por defecto protocolo antiguo
     
+    def _send_to_new_protocol_api(self, panel_ip: str, text: str, window_id: int = 0,
+                                    color: int = 1, font_size: int = 2, 
+                                    effect: int = 0, alignment: int = 1,
+                                    speed: int = 5, stay_time: int = 3) -> Dict:
+        """
+        v4.6.1: Enviar mensaje al servicio de protocolo nuevo (puerto 7110)
+        Códigos de efecto según documentación del fabricante:
+        - 0 = Draw (instantáneo)
+        - 11 = Scroll to left
+        - 14 = Continuous scroll to left
+        - 15 = Continuous scroll to right
+        """
+        try:
+            payload = {
+                "panel_ip": panel_ip,
+                "panel_port": 5200,
+                "window_id": window_id,
+                "text": text,
+                "color": color,
+                "font_size": font_size,
+                "effect": effect,
+                "alignment": alignment,
+                "speed": speed,
+                "stay_time": stay_time,
+                "card_id": 1
+            }
+            
+            logger.info(f"[NEW PROTOCOL] Enviando a {panel_ip} via puerto 7110: text='{text}', effect={effect}")
+            
+            for attempt in range(self.retry_attempts):
+                try:
+                    response = requests.post(
+                        self.api_url_new,
+                        json=payload,
+                        headers={'Content-Type': 'application/json'},
+                        timeout=self.timeout
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        if result.get('success'):
+                            logger.info(f"✅ [NEW PROTOCOL] Texto enviado exitosamente a {panel_ip}")
+                            return {
+                                'success': True,
+                                'message': 'Texto enviado exitosamente (protocolo nuevo)',
+                                'panel_ip': panel_ip,
+                                'protocol': 'new',
+                                'task_id': result.get('task_id'),
+                                'timestamp': datetime.now().isoformat()
+                            }
+                        else:
+                            error_msg = result.get('error') or result.get('message', 'Error desconocido')
+                            logger.error(f"❌ [NEW PROTOCOL] Error en respuesta: {error_msg}")
+                            return {
+                                'success': False,
+                                'message': error_msg,
+                                'panel_ip': panel_ip,
+                                'protocol': 'new',
+                                'timestamp': datetime.now().isoformat()
+                            }
+                    else:
+                        logger.error(f"❌ [NEW PROTOCOL] Error HTTP {response.status_code}: {response.text}")
+                        if attempt < self.retry_attempts - 1:
+                            time.sleep(self.retry_delay)
+                            continue
+                        return {
+                            'success': False,
+                            'message': f'Error HTTP {response.status_code}',
+                            'panel_ip': panel_ip,
+                            'protocol': 'new',
+                            'timestamp': datetime.now().isoformat()
+                        }
+                        
+                except requests.exceptions.Timeout:
+                    logger.warning(f"⏰ [NEW PROTOCOL] Timeout en intento {attempt + 1}")
+                    if attempt < self.retry_attempts - 1:
+                        time.sleep(self.retry_delay)
+                        continue
+                    return {
+                        'success': False,
+                        'message': 'Timeout en la comunicación',
+                        'panel_ip': panel_ip,
+                        'protocol': 'new',
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    
+                except requests.exceptions.ConnectionError:
+                    logger.error(f"🔌 [NEW PROTOCOL] Error de conexión con API en {self.api_url_new}")
+                    return {
+                        'success': False,
+                        'message': 'Error de conexión con la API de protocolo nuevo',
+                        'panel_ip': panel_ip,
+                        'protocol': 'new',
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    
+        except Exception as e:
+            logger.error(f"❌ [NEW PROTOCOL] Error general: {str(e)}")
+            return {
+                'success': False,
+                'message': f'Error general: {str(e)}',
+                'panel_ip': panel_ip,
+                'protocol': 'new',
+                'timestamp': datetime.now().isoformat()
+            }
+
     def _send_to_unified_api(self, panel_ip: str, texts: List[str], 
                             colors: List[int] = None, font_sizes: List[int] = None,
                             show_effects: List[int] = None, protocol: str = None) -> Dict:
         """
-        Enviar mensaje a la API unificada de paneles
+        Enviar mensaje a la API de paneles según el protocolo:
+        - 'old': Puerto 8888 (SDK Java)
+        - 'new': Puerto 7110 (Python directo)
         """
         try:
             # Determinar protocolo si no se especifica
@@ -123,55 +233,74 @@ class PanelCommunicationService:
             if font_sizes is None:
                 font_sizes = [2] * len(texts)  # Tamaño 16 (valor 2) por defecto
             if show_effects is None:
-                show_effects = [2] * len(texts)  # Fijo por defecto (valor 2) - CORREGIDO
+                show_effects = [2] * len(texts)  # Fijo por defecto (valor 2)
+            
+            # v4.6.1: Si es protocolo nuevo, usar servicio 7110
+            if protocol == "new":
+                # Enviar cada ventana por separado al servicio 7110
+                results = []
+                for i, text in enumerate(texts):
+                    effect_value = show_effects[i] if i < len(show_effects) else 0
+                    color_value = colors[i] if i < len(colors) else 1
+                    font_value = font_sizes[i] if i < len(font_sizes) else 2
+                    
+                    # Convertir efecto si es necesario
+                    # 0=Draw, 14=Continuous scroll left, 15=Continuous scroll right
+                    if effect_value == 2:  # Fijo del protocolo antiguo
+                        effect_value = 0  # Draw
+                    elif effect_value == 12:  # Scroll del protocolo antiguo
+                        effect_value = 14  # Continuous scroll left
+                    
+                    # Determinar stay_time y speed según efecto
+                    if effect_value in [14, 15]:  # Scroll continuo
+                        stay_time = 0
+                        speed = 3  # Velocidad moderada
+                    else:
+                        stay_time = 50
+                        speed = 5
+                    
+                    result = self._send_to_new_protocol_api(
+                        panel_ip=panel_ip,
+                        text=text,
+                        window_id=i,
+                        color=color_value,
+                        font_size=font_value,
+                        effect=effect_value,
+                        alignment=1,  # Centro
+                        speed=speed,
+                        stay_time=stay_time
+                    )
+                    results.append(result)
                 
-            # Preparar ventanas para la API
+                # Si alguno falló, retornar el primer error
+                for r in results:
+                    if not r.get('success'):
+                        return r
+                
+                return {
+                    'success': True,
+                    'message': f'Textos enviados exitosamente a {len(texts)} ventanas (protocolo nuevo)',
+                    'panel_ip': panel_ip,
+                    'protocol': 'new',
+                    'texts': texts,
+                    'timestamp': datetime.now().isoformat()
+                }
+                
+            # Protocolo antiguo: usar servicio 8888 (SDK Java)
             windows = []
             for i, text in enumerate(texts):
-                # Convertir efecto numérico a string descriptivo y ajustar parámetros según protocolo
                 effect_value = show_effects[i] if i < len(show_effects) else 2
                 
-                # Determinar efecto y stayTime según protocolo
-                if protocol == "old":
-                    # Protocolo antiguo: usar strings específicos
-                    if effect_value == 2:  # Fijo
-                        effect_for_api = "fijo"
-                        stay_time = 0  # Requerido para protocolo antiguo
-                    elif effect_value == 12:  # Scroll
-                        effect_for_api = "scroll"
-                        stay_time = 5  # Requerido para protocolo antiguo
-                    else:
-                        # Fallback a fijo
-                        effect_for_api = "fijo"
-                        stay_time = 0
+                # Protocolo antiguo: usar strings específicos
+                if effect_value == 2:  # Fijo
+                    effect_for_api = "fijo"
+                    stay_time = 0
+                elif effect_value == 12:  # Scroll
+                    effect_for_api = "scroll"
+                    stay_time = 5
                 else:
-                    # v4.6.1: Protocolo nuevo - códigos según documentación del fabricante
-                    # 0 = Draw (instantáneo)
-                    # 11 = Scroll to left
-                    # 12 = Scroll to right
-                    # 14 = Continuous scroll to left
-                    # 15 = Continuous scroll to right
-                    if effect_value == 0:  # Draw - instantáneo
-                        effect_for_api = 0
-                        stay_time = 50
-                    elif effect_value == 11:  # Scroll to left
-                        effect_for_api = 11
-                        stay_time = 50
-                    elif effect_value == 12:  # Scroll to right
-                        effect_for_api = 12
-                        stay_time = 50
-                    elif effect_value == 14:  # Continuous scroll to left
-                        effect_for_api = 14
-                        stay_time = 0  # Sin tiempo de espera para scroll continuo
-                    elif effect_value == 15:  # Continuous scroll to right
-                        effect_for_api = 15
-                        stay_time = 0  # Sin tiempo de espera para scroll continuo
-                    else:
-                        # Fallback: usar Draw si no es conocido
-                        effect_for_api = 0
-                        stay_time = 50
-                    
-                    logger.info(f"[EFFECT] Protocolo nuevo: código entrada {effect_value} -> código API {effect_for_api}")
+                    effect_for_api = "fijo"
+                    stay_time = 0
                 
                 window = {
                     "id": i,
