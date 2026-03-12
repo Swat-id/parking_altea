@@ -139,23 +139,23 @@ class PacketBuilder:
         font_size: int,
         effect: int = 0x00,
         alignment: int = 0x00,
-        speed: int = 0x00,
+        speed: int = 0x03,
         stay_time: int = 3,
         request_confirmation: bool = True
     ) -> bytes:
         """
-        Construye un paquete para enviar texto a una ventana.
+        Construye un paquete para enviar texto a una ventana (CC=0x02).
         
         Args:
             card_id: ID de la tarjeta
-            window_id: ID de la ventana (0, 1, 2, ...)
+            window_id: ID de la ventana (0-7)
             text: Texto a enviar
             color: Color del texto (0x01-0x07)
             font_size: Tamaño de fuente (0x00-0x07)
-            effect: Efecto de texto (0x00 = instantáneo)
-            alignment: Alineación (0x00 = left top)
-            speed: Velocidad del efecto (0x00 = más rápido)
-            stay_time: Tiempo de espera en segundos
+            effect: Efecto de texto (0=Draw, 11=Scroll left, 14=Continuous scroll left, etc.)
+            alignment: Alineación horizontal (0=left, 1=center, 2=right)
+            speed: Velocidad del efecto (1-100, más bajo = más rápido)
+            stay_time: Tiempo de espera en segundos (para efectos no-scroll)
             request_confirmation: Si solicita confirmación
             
         Returns:
@@ -164,19 +164,33 @@ class PacketBuilder:
         # Calcular byte de color + tamaño: (color << 4) | font_size
         color_font = (color << 4) | font_size
         
+        # Validar y ajustar alignment (solo 0-2 según documentación CC=0x02)
+        # 0=left, 1=center, 2=right
+        if alignment > 2:
+            # Convertir valores extendidos a valores simples
+            # 0x04=LEFT_CENTER, 0x05=CENTER_CENTER, 0x06=RIGHT_CENTER -> extraer bits 0-1
+            alignment = alignment & 0x03
+            if alignment > 2:
+                alignment = 1  # center por defecto
+        
+        # Validar speed (1-100 según documentación, 0 podría causar problemas)
+        if speed < 1:
+            speed = 3  # valor por defecto seguro
+        elif speed > 100:
+            speed = 100
+        
         # Construir datos del comando CC (sin incluir la longitud)
-        # Comando CC: 0x02 (enviar texto)
-        # Según documentación: CC, window_id, effect, alignment, speed, stay_time
+        # Según documentación CC=0x02: CC, window_id, mode(effect), alignment, speed, stay_time
         command_data = bytes([
             SUB_CMD_SEND_TEXT,  # 0x02
-            window_id,          # Número de ventana
-            effect,             # Efecto (0x00 = instantáneo)
-            alignment,          # Alineación
-            speed               # Velocidad (0x03 según ejemplo)
+            window_id,          # Número de ventana (0-7)
+            effect,             # Mode/Efecto (códigos 0-70)
+            alignment,          # Alineación (0-2)
+            speed               # Velocidad (1-100)
         ])
         
-        # Tiempo de espera (2 bytes, little-endian)
-        command_data += struct.pack('<H', stay_time)
+        # Tiempo de espera (2 bytes, BIG-ENDIAN según doc: "High byte in the former")
+        command_data += struct.pack('>H', stay_time)
         
         # Según el ejemplo exacto de la documentación (línea 47-68):
         # Formato para cada carácter: color_font + 0x00 + carácter

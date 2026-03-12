@@ -65,12 +65,16 @@ class Effect:
     CONTINUOUS_SCROLL_LEFT = 0x0E
     CONTINUOUS_SCROLL_RIGHT = 0x0F
 
-# Alineación
+# Alineación horizontal para CC=0x02 (solo 0-2 según documentación)
 class Alignment:
+    LEFT = 0x00        # Left-aligned
+    CENTER = 0x01      # Horizontal center
+    RIGHT = 0x02       # Right-aligned
+    # Aliases para compatibilidad
     LEFT_TOP = 0x00
-    LEFT_CENTER = 0x04
-    CENTER_CENTER = 0x05
-    RIGHT_CENTER = 0x06
+    LEFT_CENTER = 0x00
+    CENTER_CENTER = 0x01
+    RIGHT_CENTER = 0x02
 
 # Configuración por defecto
 DEFAULT_PORT = 5200  # Puerto TCP para comunicación con paneles
