@@ -654,10 +654,12 @@ class PanelScheduleService:
         """
         Convertir efecto de texto a código numérico según protocolo.
         
-        Protocolo nuevo (v4.5.0):
-        - static/center: SCROLL_LEFT (0x0B) - solo se desplaza si el texto es más largo que el panel
-        - scroll_left: CONTINUOUS_SCROLL_LEFT (0x0E) - siempre se desplaza
-        - scroll_right: CONTINUOUS_SCROLL_RIGHT (0x0F) - siempre se desplaza
+        Protocolo nuevo (SDK v1.4.7) - CÓDIGOS CORREGIDOS:
+        - 1 = Instant (fijo/static/center)
+        - 2 = Scroll_left (scroll con pausa)
+        - 3 = Scroll_right (scroll con pausa)
+        - 55 = Scrollleft_continuously (scroll continuo izquierda)
+        - 56 = Scroll_right_continuously (scroll continuo derecha)
         
         Protocolo antiguo:
         - static/center: 2 (fijo)
@@ -665,14 +667,14 @@ class PanelScheduleService:
         """
         if protocol == 'new':
             effect_codes_new = {
-                'static': 0x0B,       # SCROLL_LEFT - auto-scroll si texto largo
-                'center': 0x0B,       # SCROLL_LEFT - auto-scroll si texto largo
-                'scroll_left': 0x0E,  # CONTINUOUS_SCROLL_LEFT - siempre scroll
-                'scroll_right': 0x0F, # CONTINUOUS_SCROLL_RIGHT - siempre scroll
-                'fijo': 0x0B,         # Alias para static
-                'scroll': 0x0E        # Alias para scroll_left
+                'static': 2,          # Scroll_left - auto-scroll si texto largo
+                'center': 2,          # Scroll_left - auto-scroll si texto largo
+                'fijo': 1,            # Instant - texto fijo
+                'scroll_left': 55,    # Scrollleft_continuously - siempre scroll
+                'scroll_right': 56,   # Scroll_right_continuously - siempre scroll
+                'scroll': 55          # Alias para scroll_left continuo
             }
-            return effect_codes_new.get(effect, 0x0B)  # SCROLL_LEFT por defecto
+            return effect_codes_new.get(effect, 2)  # Scroll_left por defecto
         else:
             effect_codes_old = {
                 'static': 2,      # Fijo para protocolo antiguo

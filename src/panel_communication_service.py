@@ -145,36 +145,39 @@ class PanelCommunicationService:
                         effect_for_api = "fijo"
                         stay_time = 0
                 else:
-                    # v4.5.0: Protocolo nuevo - enviar códigos numéricos directamente
-                    # El servicio 8888 acepta códigos numéricos para el protocolo nuevo
-                    # 0x00 (0) = DRAW (instantáneo)
-                    # 0x0B (11) = SCROLL_LEFT - scroll si texto largo (para static/center)
-                    # 0x0E (14) = CONTINUOUS_SCROLL_LEFT - siempre scroll
-                    # 0x0F (15) = CONTINUOUS_SCROLL_RIGHT - siempre scroll
-                    if effect_value == 0x00:  # DRAW - instantáneo
-                        effect_for_api = 0  # Código numérico directo
+                    # v4.6.0: Protocolo nuevo - códigos según SDK v1.4.7
+                    # 1 = Instant (fijo)
+                    # 2 = Scroll_left (con pausa)
+                    # 3 = Scroll_right (con pausa)
+                    # 55 = Scrollleft_continuously (scroll continuo)
+                    # 56 = Scroll_right_continuously (scroll continuo)
+                    if effect_value == 1:  # Instant - fijo
+                        effect_for_api = 1
                         stay_time = 50
-                    elif effect_value == 0x0B:  # SCROLL_LEFT - auto-scroll si texto largo
-                        effect_for_api = 11  # Código numérico directo (0x0B = 11)
+                    elif effect_value == 2:  # Scroll_left - auto-scroll con pausa
+                        effect_for_api = 2
                         stay_time = 50
-                    elif effect_value == 0x0E:  # CONTINUOUS_SCROLL_LEFT - siempre scroll
-                        effect_for_api = 14  # Código numérico directo (0x0E = 14)
+                    elif effect_value == 3:  # Scroll_right - auto-scroll con pausa
+                        effect_for_api = 3
+                        stay_time = 50
+                    elif effect_value == 55:  # Scrollleft_continuously - siempre scroll
+                        effect_for_api = 55
                         stay_time = 0  # Sin tiempo de espera para scroll continuo
-                    elif effect_value == 0x0F:  # CONTINUOUS_SCROLL_RIGHT - siempre scroll
-                        effect_for_api = 15  # Código numérico directo (0x0F = 15)
+                    elif effect_value == 56:  # Scroll_right_continuously - siempre scroll
+                        effect_for_api = 56
                         stay_time = 0  # Sin tiempo de espera para scroll continuo
-                    elif effect_value == 1:  # Compatibilidad: Fijo
-                        effect_for_api = 0
-                        stay_time = 50
-                    elif effect_value == 12:  # Compatibilidad: Scroll genérico
-                        effect_for_api = 11  # SCROLL_LEFT
+                    elif effect_value == 12:  # Compatibilidad: Scroll genérico de protocolo antiguo
+                        effect_for_api = 55  # Convertir a Scrollleft_continuously
+                        stay_time = 0
+                    elif effect_value == 0:  # Random
+                        effect_for_api = 2  # Convertir a Scroll_left
                         stay_time = 50
                     else:
-                        # Fallback: usar el valor directamente si no es conocido
-                        effect_for_api = effect_value
+                        # Fallback: usar Scroll_left si no es conocido
+                        effect_for_api = 2
                         stay_time = 50
                     
-                    logger.info(f"[EFFECT] Protocolo nuevo: código entrada {hex(effect_value)} -> código API {effect_for_api}")
+                    logger.info(f"[EFFECT] Protocolo nuevo: código entrada {effect_value} -> código API {effect_for_api}")
                 
                 window = {
                     "id": i,
