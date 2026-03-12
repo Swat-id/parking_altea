@@ -145,17 +145,35 @@ class PanelCommunicationService:
                         effect_string = "fijo"
                         stay_time = 0
                 else:
-                    # Protocolo nuevo: usar valores estándar
-                    if effect_value == 1:  # Fijo
+                    # v4.5.0: Protocolo nuevo con efectos específicos
+                    # 0x00 (0) = DRAW (instantáneo)
+                    # 0x0B (11) = SCROLL_LEFT - scroll si texto largo (para static/center)
+                    # 0x0E (14) = CONTINUOUS_SCROLL_LEFT - siempre scroll
+                    # 0x0F (15) = CONTINUOUS_SCROLL_RIGHT - siempre scroll
+                    if effect_value == 0x00:  # DRAW - instantáneo
                         effect_string = "fijo"
                         stay_time = 50
-                    elif effect_value == 12:  # Scroll
-                        effect_string = "scroll"
+                    elif effect_value == 0x0B:  # SCROLL_LEFT - auto-scroll si texto largo
+                        effect_string = "scroll_left"
+                        stay_time = 50
+                    elif effect_value == 0x0E:  # CONTINUOUS_SCROLL_LEFT - siempre scroll
+                        effect_string = "continuous_scroll_left"
+                        stay_time = 0  # Sin tiempo de espera para scroll continuo
+                    elif effect_value == 0x0F:  # CONTINUOUS_SCROLL_RIGHT - siempre scroll
+                        effect_string = "continuous_scroll_right"
+                        stay_time = 0  # Sin tiempo de espera para scroll continuo
+                    elif effect_value == 1:  # Compatibilidad: Fijo
+                        effect_string = "fijo"
+                        stay_time = 50
+                    elif effect_value == 12:  # Compatibilidad: Scroll genérico
+                        effect_string = "scroll_left"
                         stay_time = 50
                     else:
-                        # Fallback a fijo
-                        effect_string = "fijo"
+                        # Fallback a scroll_left para protocolo nuevo
+                        effect_string = "scroll_left"
                         stay_time = 50
+                    
+                    logger.info(f"[EFFECT] Protocolo nuevo: código {hex(effect_value)} -> efecto '{effect_string}'")
                 
                 window = {
                     "id": i,

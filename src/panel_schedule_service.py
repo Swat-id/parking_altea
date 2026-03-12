@@ -268,12 +268,18 @@ class PanelScheduleService:
                 success_count = 0
                 for panel in panels:
                     try:
+                        # v4.5.0: Obtener protocolo del panel para usar efectos correctos
+                        panel_protocol = getattr(panel, 'protocol_version', 'old') or 'old'
+                        effect_code = self._get_effect_code(schedule.effect, panel_protocol)
+                        
+                        logger.info(f"[SCHEDULE-THREAD] Panel {panel.ip} ({panel_protocol}): efecto '{schedule.effect}' -> código {hex(effect_code)}")
+                        
                         result = panel_service.send_custom_text(
                             panel_ip=panel.ip,
                             text=schedule.message,
                             color=schedule.color,
                             font_size=2,
-                            effect=self._get_effect_code(schedule.effect)
+                            effect=effect_code
                         )
                         if result.get('success'):
                             success_count += 1
@@ -531,12 +537,18 @@ class PanelScheduleService:
             success_count = 0
             for panel in panels:
                 try:
+                    # v4.5.0: Obtener protocolo del panel para usar efectos correctos
+                    panel_protocol = getattr(panel, 'protocol_version', 'old') or 'old'
+                    effect_code = self._get_effect_code(schedule.effect, panel_protocol)
+                    
+                    logger.info(f"[SCHEDULE] Panel {panel.ip} ({panel_protocol}): efecto '{schedule.effect}' -> código {hex(effect_code)}")
+                    
                     result = self.panel_communication_service.send_custom_text(
                         panel_ip=panel.ip,
                         text=schedule.message,
                         color=schedule.color,
                         font_size=2,  # Código 2 = 16 píxeles (valor correcto para el protocolo)
-                        effect=self._get_effect_code(schedule.effect)
+                        effect=effect_code
                     )
                     if result.get('success'):
                         success_count += 1
@@ -638,17 +650,39 @@ class PanelScheduleService:
             logger.error(f"Error finalizando programación: {e}")
             return {'success': False, 'error': str(e)}
     
-    def _get_effect_code(self, effect: str) -> int:
-        """Convertir efecto de texto a código numérico"""
-        effect_codes = {
-            'static': 2,  # Fijo para protocolo antiguo
-            'scroll_left': 12,  # Scroll para protocolo antiguo
-            'scroll_right': 12,  # Scroll para protocolo antiguo
-            'center': 2,  # Fijo para protocolo antiguo
-            'fijo': 2,  # Fijo para protocolo antiguo
-            'scroll': 12  # Scroll para protocolo antiguo
-        }
-        return effect_codes.get(effect, 2)  # Fijo por defecto
+    def _get_effect_code(self, effect: str, protocol: str = 'old') -> int:
+        """
+        Convertir efecto de texto a código numérico según protocolo.
+        
+        Protocolo nuevo (v4.5.0):
+        - static/center: SCROLL_LEFT (0x0B) - solo se desplaza si el texto es más largo que el panel
+        - scroll_left: CONTINUOUS_SCROLL_LEFT (0x0E) - siempre se desplaza
+        - scroll_right: CONTINUOUS_SCROLL_RIGHT (0x0F) - siempre se desplaza
+        
+        Protocolo antiguo:
+        - static/center: 2 (fijo)
+        - scroll_left/scroll_right: 12 (scroll)
+        """
+        if protocol == 'new':
+            effect_codes_new = {
+                'static': 0x0B,       # SCROLL_LEFT - auto-scroll si texto largo
+                'center': 0x0B,       # SCROLL_LEFT - auto-scroll si texto largo
+                'scroll_left': 0x0E,  # CONTINUOUS_SCROLL_LEFT - siempre scroll
+                'scroll_right': 0x0F, # CONTINUOUS_SCROLL_RIGHT - siempre scroll
+                'fijo': 0x0B,         # Alias para static
+                'scroll': 0x0E        # Alias para scroll_left
+            }
+            return effect_codes_new.get(effect, 0x0B)  # SCROLL_LEFT por defecto
+        else:
+            effect_codes_old = {
+                'static': 2,      # Fijo para protocolo antiguo
+                'scroll_left': 12,  # Scroll para protocolo antiguo
+                'scroll_right': 12, # Scroll para protocolo antiguo
+                'center': 2,      # Fijo para protocolo antiguo
+                'fijo': 2,        # Fijo para protocolo antiguo
+                'scroll': 12      # Scroll para protocolo antiguo
+            }
+            return effect_codes_old.get(effect, 2)  # Fijo por defecto
     
     def get_schedule_logs(self, schedule_id: int = None, parking_id: int = None, limit: int = 100) -> dict:
         """Obtener logs de programaciones"""
