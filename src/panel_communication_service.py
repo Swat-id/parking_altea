@@ -145,36 +145,30 @@ class PanelCommunicationService:
                         effect_for_api = "fijo"
                         stay_time = 0
                 else:
-                    # v4.6.0: Protocolo nuevo - códigos según SDK v1.4.7
-                    # 1 = Instant (fijo)
-                    # 2 = Scroll_left (con pausa)
-                    # 3 = Scroll_right (con pausa)
-                    # 55 = Scrollleft_continuously (scroll continuo)
-                    # 56 = Scroll_right_continuously (scroll continuo)
-                    if effect_value == 1:  # Instant - fijo
-                        effect_for_api = 1
+                    # v4.6.1: Protocolo nuevo - códigos según documentación del fabricante
+                    # 0 = Draw (instantáneo)
+                    # 11 = Scroll to left
+                    # 12 = Scroll to right
+                    # 14 = Continuous scroll to left
+                    # 15 = Continuous scroll to right
+                    if effect_value == 0:  # Draw - instantáneo
+                        effect_for_api = 0
                         stay_time = 50
-                    elif effect_value == 2:  # Scroll_left - auto-scroll con pausa
-                        effect_for_api = 2
+                    elif effect_value == 11:  # Scroll to left
+                        effect_for_api = 11
                         stay_time = 50
-                    elif effect_value == 3:  # Scroll_right - auto-scroll con pausa
-                        effect_for_api = 3
+                    elif effect_value == 12:  # Scroll to right
+                        effect_for_api = 12
                         stay_time = 50
-                    elif effect_value == 55:  # Scrollleft_continuously - siempre scroll
-                        effect_for_api = 55
+                    elif effect_value == 14:  # Continuous scroll to left
+                        effect_for_api = 14
                         stay_time = 0  # Sin tiempo de espera para scroll continuo
-                    elif effect_value == 56:  # Scroll_right_continuously - siempre scroll
-                        effect_for_api = 56
+                    elif effect_value == 15:  # Continuous scroll to right
+                        effect_for_api = 15
                         stay_time = 0  # Sin tiempo de espera para scroll continuo
-                    elif effect_value == 12:  # Compatibilidad: Scroll genérico de protocolo antiguo
-                        effect_for_api = 55  # Convertir a Scrollleft_continuously
-                        stay_time = 0
-                    elif effect_value == 0:  # Random
-                        effect_for_api = 2  # Convertir a Scroll_left
-                        stay_time = 50
                     else:
-                        # Fallback: usar Scroll_left si no es conocido
-                        effect_for_api = 2
+                        # Fallback: usar Draw si no es conocido
+                        effect_for_api = 0
                         stay_time = 50
                     
                     logger.info(f"[EFFECT] Protocolo nuevo: código entrada {effect_value} -> código API {effect_for_api}")
