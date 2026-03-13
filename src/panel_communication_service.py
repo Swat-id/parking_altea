@@ -218,14 +218,17 @@ class PanelCommunicationService:
                             colors: List[int] = None, font_sizes: List[int] = None,
                             show_effects: List[int] = None, protocol: str = None) -> Dict:
         """
-        Enviar mensaje a la API de paneles según el protocolo:
-        - 'old': Puerto 8888 (SDK Java)
-        - 'new': Puerto 7110 (Python directo)
+        Enviar mensaje a la API unificada de paneles (puerto 8888).
+        El panelSender selecciona internamente el controlador según el protocolo:
+        - 'old': sender_oldProtocol (SDK v1.2.6)
+        - 'new': sender_newProtocol (SDK v1.4.7)
         """
         try:
             # Determinar protocolo si no se especifica
             if protocol is None:
                 protocol = self._get_panel_protocol(panel_ip)
+            
+            logger.info(f"[PROTOCOL] Panel {panel_ip} usando protocolo: {protocol}")
             
             # Valores por defecto
             if colors is None:
@@ -235,9 +238,9 @@ class PanelCommunicationService:
             if show_effects is None:
                 show_effects = [2] * len(texts)  # Fijo por defecto (valor 2)
             
-            # v4.6.4: Usar servicio 8888 (SDK Java) para TODOS los paneles
-            # El servicio 7110 (Python directo) tiene problemas con algunos paneles
-            # Los códigos de efecto para SDK Java son:
+            # v4.6.4: Todos los paneles usan API unificada (puerto 8888)
+            # El panelSender internamente usa sender_newProtocol o sender_oldProtocol
+            # Códigos de efecto para protocolo nuevo (SDK v1.4.7):
             # 1 = Instant (fijo), 2 = Scroll_left (auto-scroll), 55 = Scrollleft_continuously
             
             # Preparar ventanas para la API 8888
@@ -291,7 +294,7 @@ class PanelCommunicationService:
                 ]
             }
             
-            logger.info(f"Enviando a panel {panel_ip} ({protocol}): {texts} con stayTime={stay_time}")
+            logger.info(f"[SEND] Panel {panel_ip} ({protocol}): textos={texts}, effect={effect_for_api}, stayTime={stay_time}")
             
             # Intentar envío con reintentos
             for attempt in range(self.retry_attempts):
