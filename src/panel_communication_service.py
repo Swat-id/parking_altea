@@ -135,7 +135,7 @@ class PanelCommunicationService:
                 "card_id": 1
             }
             
-            logger.info(f"[NEW PROTOCOL] Enviando a {panel_ip} via puerto 7110: text='{text}', effect={effect}")
+            logger.info(f"[NEW PROTOCOL] Enviando a {panel_ip} via puerto 7110: text='{text}', effect={effect}, speed={speed}, stay_time={stay_time}, alignment={alignment}")
             
             for attempt in range(self.retry_attempts):
                 try:
@@ -245,17 +245,20 @@ class PanelCommunicationService:
                     font_value = font_sizes[i] if i < len(font_sizes) else 2
                     
                     # Convertir efecto si es necesario
-                    # 0=Draw, 14=Continuous scroll left, 15=Continuous scroll right
+                    # 0=Draw, 11=Scroll left, 12=Scroll right, 14=Continuous scroll left
                     if effect_value == 2:  # Fijo del protocolo antiguo
                         effect_value = 0  # Draw
-                    elif effect_value == 12:  # Scroll del protocolo antiguo
-                        effect_value = 14  # Continuous scroll left
+                    # Los códigos 11, 12, 14, 15 ya son correctos para protocolo nuevo
                     
                     # Determinar stay_time y speed según efecto
-                    if effect_value in [14, 15]:  # Scroll continuo
-                        stay_time = 0
+                    # NOTA: stay_time indica tiempo de pausa al final del scroll
+                    if effect_value in [11, 12]:  # Scroll normal (izq/der)
+                        stay_time = 3  # Pausa al final del scroll
+                        speed = 3  # Velocidad moderada (1=rápido, 100=lento)
+                    elif effect_value in [14, 15]:  # Scroll continuo
+                        stay_time = 0  # Sin pausa para scroll continuo
                         speed = 3  # Velocidad moderada
-                    else:
+                    else:  # Draw/estático
                         stay_time = 50
                         speed = 5
                     
