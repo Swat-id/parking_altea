@@ -51,19 +51,32 @@ class FontSize:
     SIZE_48 = 0x06
     SIZE_56 = 0x07
 
-# Efectos de texto
+# Efectos de texto según documentación del fabricante (códigos 0-70)
 class Effect:
-    DRAW = 0x00              # Instantáneo
-    OPEN_FROM_LEFT = 0x01
-    OPEN_FROM_RIGHT = 0x02
-    MOVE_TO_LEFT = 0x06
-    MOVE_TO_RIGHT = 0x07
-    SCROLL_UP = 0x0A
-    SCROLL_LEFT = 0x0B
-    SCROLL_RIGHT = 0x0C
-    FLICKER = 0x0D
-    CONTINUOUS_SCROLL_LEFT = 0x0E
-    CONTINUOUS_SCROLL_RIGHT = 0x0F
+    # Efectos básicos
+    DRAW = 0x00                      # 0 - Instantáneo
+    OPEN_FROM_LEFT = 0x01            # 1
+    OPEN_FROM_RIGHT = 0x02           # 2
+    OPEN_FROM_CENTER_H = 0x03        # 3 - Horizontal
+    OPEN_FROM_CENTER_V = 0x04        # 4 - Vertical
+    SHUTTER_VERTICAL = 0x05          # 5
+    MOVE_TO_LEFT = 0x06              # 6
+    MOVE_TO_RIGHT = 0x07             # 7
+    MOVE_UP = 0x08                   # 8
+    MOVE_DOWN = 0x09                 # 9
+    SCROLL_UP = 0x0A                 # 10
+    SCROLL_LEFT = 0x0B               # 11 - Scroll con pausa al final
+    SCROLL_RIGHT = 0x0C              # 12 - Scroll con pausa al final
+    FLICKER = 0x0D                   # 13
+    CONTINUOUS_SCROLL_LEFT = 0x0E    # 14 - Scroll continuo sin pausa
+    CONTINUOUS_SCROLL_RIGHT = 0x0F   # 15 - Scroll continuo sin pausa
+    SHUTTER_HORIZONTAL = 0x10        # 16
+    # Efectos adicionales (17-54)
+    CONTINUOUS_SCROLL_UP = 0x35      # 53
+    CONTINUOUS_SCROLL_DOWN = 0x36    # 54
+    # NOTA: 55 (0x37) y 56 (0x38) son RESERVADOS - NO USAR
+    # Efecto aleatorio
+    RANDOM = 0xFF                    # 255 (1 byte) o 0x8000 (2 bytes)
 
 # Alineación horizontal para CC=0x02 (solo 0-2 según documentación)
 class Alignment:

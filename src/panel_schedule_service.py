@@ -666,15 +666,18 @@ class PanelScheduleService:
         - scroll_left/scroll_right: 12 (scroll)
         """
         if protocol == 'new':
-            # Códigos según protocolo del fabricante (documentación)
-            # 0=Draw, 11=Scroll left (con pausa), 14=Continuous scroll left
+            # Códigos según documentación del fabricante (protocolo 0x7B)
+            # 0 = Draw (instantáneo)
+            # 11 = Scroll to left (con pausa al final según stay_time)
+            # 14 = Continuous scroll to left (sin pausa, repite infinitamente)
+            # 15 = Continuous scroll to right (sin pausa, repite infinitamente)
             effect_codes_new = {
                 'static': 0,          # Draw - texto instantáneo
-                'center': 0,          # Draw - texto instantáneo
+                'center': 0,          # Draw - texto instantáneo  
                 'fijo': 0,            # Draw - texto instantáneo
-                'scroll_left': 11,    # Scroll to left (0x0B)
-                'scroll_right': 12,   # Scroll to right (0x0C)
-                'scroll': 11          # Alias para scroll_left
+                'scroll_left': 14,    # Continuous scroll to left (0x0E)
+                'scroll_right': 15,   # Continuous scroll to right (0x0F)
+                'scroll': 14          # Alias para scroll continuo izquierda
             }
             return effect_codes_new.get(effect, 0)  # Draw por defecto
         else:

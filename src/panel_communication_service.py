@@ -251,16 +251,18 @@ class PanelCommunicationService:
                     # Los códigos 11, 12, 14, 15 ya son correctos para protocolo nuevo
                     
                     # Determinar stay_time y speed según efecto
-                    # NOTA: stay_time indica tiempo de pausa al final del scroll
-                    if effect_value in [11, 12]:  # Scroll normal (izq/der)
-                        stay_time = 3  # Pausa al final del scroll
-                        speed = 3  # Velocidad moderada (1=rápido, 100=lento)
-                    elif effect_value in [14, 15]:  # Scroll continuo
-                        stay_time = 0  # Sin pausa para scroll continuo
-                        speed = 3  # Velocidad moderada
-                    else:  # Draw/estático
-                        stay_time = 50
-                        speed = 5
+                    # Según documentación del fabricante:
+                    # - stay_time: tiempo de pausa (0 para scroll continuo)
+                    # - speed: 1-100 (1=más rápido, 100=más lento)
+                    if effect_value in [14, 15]:  # Continuous scroll (izq/der)
+                        stay_time = 0  # Sin pausa - scroll infinito
+                        speed = 3     # Velocidad rápida pero legible
+                    elif effect_value in [11, 12]:  # Scroll con pausa
+                        stay_time = 3  # Pausa de 3 segundos al final
+                        speed = 3
+                    else:  # Draw/estático (efecto 0)
+                        stay_time = 50  # Tiempo visible
+                        speed = 1
                     
                     result = self._send_to_new_protocol_api(
                         panel_ip=panel_ip,
