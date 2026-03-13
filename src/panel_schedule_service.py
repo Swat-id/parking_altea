@@ -666,20 +666,20 @@ class PanelScheduleService:
         - scroll_left/scroll_right: 12 (scroll)
         """
         if protocol == 'new':
-            # Códigos según documentación del fabricante (protocolo 0x7B)
-            # 0 = Draw (instantáneo)
-            # 11 = Scroll to left (con pausa al final según stay_time)
-            # 14 = Continuous scroll to left (sin pausa, repite infinitamente)
-            # 15 = Continuous scroll to right (sin pausa, repite infinitamente)
+            # Códigos para SDK Java (panelSender puerto 8888)
+            # 1 = Instant (texto fijo, nunca scroll)
+            # 2 = Scroll_left (scroll automático si texto largo, pausa al final)
+            # 55 = Scrollleft_continuously (scroll siempre, sin pausa)
+            # 56 = Scroll_right_continuously (scroll siempre, sin pausa)
             effect_codes_new = {
-                'static': 0,          # Draw - texto instantáneo
-                'center': 0,          # Draw - texto instantáneo  
-                'fijo': 0,            # Draw - texto instantáneo
-                'scroll_left': 14,    # Continuous scroll to left (0x0E)
-                'scroll_right': 15,   # Continuous scroll to right (0x0F)
-                'scroll': 14          # Alias para scroll continuo izquierda
+                'static': 2,          # Scroll_left - auto-scroll si texto largo
+                'center': 2,          # Scroll_left - auto-scroll si texto largo
+                'fijo': 1,            # Instant - texto fijo, nunca scroll
+                'scroll_left': 55,    # Scrollleft_continuously - scroll siempre
+                'scroll_right': 56,   # Scroll_right_continuously - scroll siempre
+                'scroll': 55          # Alias para scroll continuo izquierda
             }
-            return effect_codes_new.get(effect, 0)  # Draw por defecto
+            return effect_codes_new.get(effect, 2)  # Scroll_left por defecto
         else:
             effect_codes_old = {
                 'static': 2,      # Fijo para protocolo antiguo

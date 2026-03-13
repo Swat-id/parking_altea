@@ -235,77 +235,37 @@ class PanelCommunicationService:
             if show_effects is None:
                 show_effects = [2] * len(texts)  # Fijo por defecto (valor 2)
             
-            # v4.6.1: Si es protocolo nuevo, usar servicio 7110
-            if protocol == "new":
-                # Enviar cada ventana por separado al servicio 7110
-                results = []
-                for i, text in enumerate(texts):
-                    effect_value = show_effects[i] if i < len(show_effects) else 0
-                    color_value = colors[i] if i < len(colors) else 1
-                    font_value = font_sizes[i] if i < len(font_sizes) else 2
-                    
-                    # Convertir efecto si es necesario
-                    # 0=Draw, 11=Scroll left, 12=Scroll right, 14=Continuous scroll left
-                    if effect_value == 2:  # Fijo del protocolo antiguo
-                        effect_value = 0  # Draw
-                    # Los códigos 11, 12, 14, 15 ya son correctos para protocolo nuevo
-                    
-                    # Determinar stay_time y speed según efecto
-                    # Según documentación del fabricante:
-                    # - stay_time: tiempo de pausa (0 para scroll continuo)
-                    # - speed: 1-100 (1=más rápido, 100=más lento)
-                    if effect_value in [14, 15]:  # Continuous scroll (izq/der)
-                        stay_time = 0  # Sin pausa - scroll infinito
-                        speed = 3     # Velocidad rápida pero legible
-                    elif effect_value in [11, 12]:  # Scroll con pausa
-                        stay_time = 3  # Pausa de 3 segundos al final
-                        speed = 3
-                    else:  # Draw/estático (efecto 0)
-                        stay_time = 50  # Tiempo visible
-                        speed = 1
-                    
-                    result = self._send_to_new_protocol_api(
-                        panel_ip=panel_ip,
-                        text=text,
-                        window_id=i,
-                        color=color_value,
-                        font_size=font_value,
-                        effect=effect_value,
-                        alignment=1,  # Centro
-                        speed=speed,
-                        stay_time=stay_time
-                    )
-                    results.append(result)
-                
-                # Si alguno falló, retornar el primer error
-                for r in results:
-                    if not r.get('success'):
-                        return r
-                
-                return {
-                    'success': True,
-                    'message': f'Textos enviados exitosamente a {len(texts)} ventanas (protocolo nuevo)',
-                    'panel_ip': panel_ip,
-                    'protocol': 'new',
-                    'texts': texts,
-                    'timestamp': datetime.now().isoformat()
-                }
-                
-            # Protocolo antiguo: usar servicio 8888 (SDK Java)
+            # v4.6.4: Usar servicio 8888 (SDK Java) para TODOS los paneles
+            # El servicio 7110 (Python directo) tiene problemas con algunos paneles
+            # Los códigos de efecto para SDK Java son:
+            # 1 = Instant (fijo), 2 = Scroll_left (auto-scroll), 55 = Scrollleft_continuously
+            
+            # Preparar ventanas para la API 8888
             windows = []
             for i, text in enumerate(texts):
                 effect_value = show_effects[i] if i < len(show_effects) else 2
                 
-                # Protocolo antiguo: usar strings específicos
-                if effect_value == 2:  # Fijo
-                    effect_for_api = "fijo"
-                    stay_time = 0
-                elif effect_value == 12:  # Scroll
-                    effect_for_api = "scroll"
-                    stay_time = 5
+                if protocol == "old":
+                    # Protocolo antiguo: usar strings específicos
+                    if effect_value == 2:  # Fijo
+                        effect_for_api = "fijo"
+                        stay_time = 0
+                    elif effect_value == 12:  # Scroll
+                        effect_for_api = "scroll"
+                        stay_time = 5
+                    else:
+                        effect_for_api = "fijo"
+                        stay_time = 0
                 else:
-                    effect_for_api = "fijo"
-                    stay_time = 0
+                    # Protocolo nuevo (SDK Java): usar códigos numéricos
+                    # 1=Instant, 2=Scroll_left (auto), 55=Scrollleft_continuously
+                    effect_for_api = effect_value
+                    if effect_value in [55, 56]:  # Scroll continuo
+                        stay_time = 0
+                    elif effect_value == 2:  # Scroll_left (auto-scroll si texto largo)
+                        stay_time = 50  # Pausa de 50ms al final del scroll
+                    else:
+                        stay_time = 50
                 
                 window = {
                     "id": i,
