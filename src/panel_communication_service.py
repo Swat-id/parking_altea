@@ -531,7 +531,10 @@ class PanelCommunicationService:
                           colors: List[int] = None, font_sizes: List[int] = None,
                           show_effects: List[int] = None) -> Dict:
         """
-        Enviar texto a un panel específico
+        Enviar texto a un panel específico.
+        Detecta automáticamente el protocolo:
+        - Protocolo "new": usa puerto 7110 (Python directo)
+        - Protocolo "old": usa puerto 8888 (SDK Java)
         
         Args:
             panel_ip: IP del panel
@@ -543,7 +546,54 @@ class PanelCommunicationService:
         Returns:
             Diccionario con el resultado de la operación
         """
-        return self._send_to_unified_api(panel_ip, texts, colors, font_sizes, show_effects)
+        # Detectar protocolo
+        protocol = self._get_panel_protocol(panel_ip)
+        
+        logger.info(f"[SEND_TEXT_TO_PANEL] Panel {panel_ip} protocolo={protocol}")
+        
+        if protocol == "new":
+            # Protocolo nuevo: enviar cada texto al puerto 7110
+            # Por ahora solo soporta un texto (primera ventana)
+            text = texts[0] if texts else ""
+            color = colors[0] if colors else 1
+            font_size = font_sizes[0] if font_sizes else 2
+            effect = show_effects[0] if show_effects else 11
+            
+            # Mapear efecto al código del protocolo directo
+            effect_map_new = {
+                0: 0,    # Draw
+                1: 0,    # Instant -> Draw
+                2: 11,   # Scroll_left (auto)
+                11: 11,  # Scroll to left
+                12: 11,  # Scroll protocolo antiguo -> Scroll to left
+                14: 14,  # Continuous scroll left
+                15: 15,  # Continuous scroll right
+                55: 14,  # SDK code -> Direct code
+                56: 15,
+            }
+            effect_direct = effect_map_new.get(effect, 11)
+            
+            if effect_direct in [14, 15]:
+                stay_time = 0
+            else:
+                stay_time = 3
+            
+            speed = 5 if effect_direct in [11, 14, 15] else 1
+            
+            return self._send_to_new_protocol_api(
+                panel_ip=panel_ip,
+                text=text,
+                window_id=0,
+                color=color,
+                font_size=font_size,
+                effect=effect_direct,
+                alignment=1,
+                speed=speed,
+                stay_time=stay_time
+            )
+        else:
+            # Protocolo antiguo: usar API unificada
+            return self._send_to_unified_api(panel_ip, texts, colors, font_sizes, show_effects, protocol="old")
     
     def send_parking_status(self, panel_ip: str, parking_name: str, 
                            free_spaces: int, total_spaces: int,
@@ -595,53 +645,148 @@ class PanelCommunicationService:
     
     def send_custom_text(self, panel_ip: str, text: str, 
                         color: int = 1, font_size: int = 2, 
-                        effect: int = 2) -> Dict:  # Fijo por defecto (valor 2) - CORREGIDO
+                        effect: int = 2) -> Dict:
         """
-        Enviar texto personalizado a un panel
+        Enviar texto personalizado a un panel.
+        Detecta automáticamente el protocolo del panel:
+        - Protocolo "new": usa puerto 7110 (Python directo, genera hexadecimal)
+        - Protocolo "old": usa puerto 8888 (SDK Java)
         
         Args:
             panel_ip: IP del panel
             text: Texto a enviar
             color: Color del texto (1=Rojo, 2=Verde, 3=Amarillo, etc.)
             font_size: Tamaño de fuente (0=8px, 1=12px, 2=16px, etc.)
-            effect: Efecto (2=fijo, 12=scroll) - CORREGIDO
+            effect: Código de efecto según protocolo
             
         Returns:
             Diccionario con el resultado de la operación
         """
-        return self._send_to_unified_api(
-            panel_ip, 
-            [text], 
-            [color], 
-            [font_size], 
-            [effect]
-        )
+        # Detectar protocolo del panel
+        protocol = self._get_panel_protocol(panel_ip)
+        
+        logger.info(f"[SEND_CUSTOM_TEXT] Panel {panel_ip} protocolo={protocol}, text='{text[:30]}...', effect={effect}")
+        logger.info(f"[ROUTING] Panel {panel_ip} -> {'PUERTO 7110 (Python directo)' if protocol == 'new' else 'PUERTO 8888 (SDK Java)'}")
+        
+        if protocol == "new":
+            # Protocolo nuevo: usar puerto 7110 (Python directo, hexadecimal)
+            # Códigos de efecto para protocolo directo (documentación fabricante):
+            # 0 = Draw (instantáneo/fijo)
+            # 11 = Scroll to left (con pausa al final)
+            # 14 = Continuous scroll to left (sin pausa)
+            # 15 = Continuous scroll to right (sin pausa)
+            
+            # Mapear códigos de efecto del frontend/protocolo antiguo al protocolo directo
+            effect_map_new = {
+                0: 0,    # Draw/Fijo -> Draw
+                1: 0,    # Instant -> Draw
+                2: 11,   # Scroll_left (auto) -> Scroll to left (con pausa)
+                11: 11,  # Ya es código directo
+                12: 11,  # Scroll protocolo antiguo -> Scroll to left (con pausa)
+                14: 14,  # Continuous scroll left
+                15: 15,  # Continuous scroll right
+                55: 14,  # SDK Scrollleft_continuously -> Continuous scroll left
+                56: 15,  # SDK Scroll_right_continuously -> Continuous scroll right
+            }
+            
+            effect_direct = effect_map_new.get(effect, 11)  # Por defecto scroll con pausa
+            
+            # Determinar stay_time según efecto
+            if effect_direct in [14, 15]:  # Scroll continuo
+                stay_time = 0
+            else:
+                stay_time = 3  # 3 segundos para Draw y Scroll con pausa
+            
+            # Determinar speed según efecto
+            if effect_direct in [11, 14, 15]:  # Scroll
+                speed = 5  # Velocidad media
+            else:
+                speed = 1  # No relevante para Draw
+            
+            logger.info(f"[NEW PROTOCOL] Panel {panel_ip}: effect_direct={effect_direct}, speed={speed}, stay_time={stay_time}")
+            
+            return self._send_to_new_protocol_api(
+                panel_ip=panel_ip,
+                text=text,
+                window_id=0,
+                color=color,
+                font_size=font_size,
+                effect=effect_direct,
+                alignment=1,  # Centrado
+                speed=speed,
+                stay_time=stay_time
+            )
+        else:
+            # Protocolo antiguo: usar puerto 8888 (SDK Java)
+            return self._send_to_unified_api(
+                panel_ip, 
+                [text], 
+                [color], 
+                [font_size], 
+                [effect],
+                protocol="old"
+            )
     
     def send_custom_text_to_window(self, panel_ip: str, text: str, 
                                   color: int = 1, font_size: int = 2, 
                                   effect: int = 2, window_id: int = 0) -> Dict:
         """
-        NUEVO v4.1.0: Enviar texto personalizado a una ventana específica de un panel Tipo 3
+        Enviar texto personalizado a una ventana específica de un panel.
+        Detecta automáticamente el protocolo:
+        - Protocolo "new": usa puerto 7110 (Python directo)
+        - Protocolo "old": usa puerto 8888 (SDK Java)
         
         Args:
             panel_ip: IP del panel
             text: Texto a enviar
             color: Color del texto (1=Rojo, 2=Verde, 3=Amarillo, etc.)
             font_size: Tamaño de fuente (0=8px, 1=12px, 2=16px, etc.)
-            effect: Efecto (2=fijo, 12=scroll)
+            effect: Efecto según protocolo
             window_id: ID de la ventana (0 o 1)
             
         Returns:
             Diccionario con el resultado de la operación
         """
-        return self._send_to_unified_api_with_window(
-            panel_ip, 
-            text, 
-            color, 
-            font_size, 
-            effect,
-            window_id
-        )
+        # Detectar protocolo
+        protocol = self._get_panel_protocol(panel_ip)
+        
+        logger.info(f"[SEND_TO_WINDOW] Panel {panel_ip} protocolo={protocol}, window={window_id}")
+        
+        if protocol == "new":
+            # Protocolo nuevo: usar puerto 7110 (Python directo)
+            effect_map_new = {
+                0: 0, 1: 0, 2: 11, 11: 11, 12: 11, 14: 14, 15: 15, 55: 14, 56: 15,
+            }
+            effect_direct = effect_map_new.get(effect, 11)
+            
+            if effect_direct in [14, 15]:
+                stay_time = 0
+            else:
+                stay_time = 3
+            
+            speed = 5 if effect_direct in [11, 14, 15] else 1
+            
+            return self._send_to_new_protocol_api(
+                panel_ip=panel_ip,
+                text=text,
+                window_id=window_id,
+                color=color,
+                font_size=font_size,
+                effect=effect_direct,
+                alignment=1,
+                speed=speed,
+                stay_time=stay_time
+            )
+        else:
+            # Protocolo antiguo: usar puerto 8888 (SDK Java)
+            return self._send_to_unified_api_with_window(
+                panel_ip, 
+                text, 
+                color, 
+                font_size, 
+                effect,
+                window_id
+            )
     
     def test_connection(self) -> Dict:
         """

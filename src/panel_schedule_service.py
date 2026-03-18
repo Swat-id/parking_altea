@@ -272,7 +272,8 @@ class PanelScheduleService:
                         panel_protocol = getattr(panel, 'protocol_version', 'old') or 'old'
                         effect_code = self._get_effect_code(schedule.effect, panel_protocol)
                         
-                        logger.info(f"[SCHEDULE-THREAD] Panel {panel.ip} ({panel_protocol}): efecto '{schedule.effect}' -> código {hex(effect_code)}")
+                        logger.info(f"[SCHEDULE-THREAD] Panel {panel.ip} protocolo={panel_protocol}: efecto '{schedule.effect}' -> código {hex(effect_code)} ({effect_code})")
+                        logger.info(f"[SCHEDULE-THREAD] Enviando a {panel.ip} via {'7110' if panel_protocol == 'new' else '8888'}: mensaje='{schedule.message[:30]}...'")
                         
                         result = panel_service.send_custom_text(
                             panel_ip=panel.ip,
@@ -541,7 +542,8 @@ class PanelScheduleService:
                     panel_protocol = getattr(panel, 'protocol_version', 'old') or 'old'
                     effect_code = self._get_effect_code(schedule.effect, panel_protocol)
                     
-                    logger.info(f"[SCHEDULE] Panel {panel.ip} ({panel_protocol}): efecto '{schedule.effect}' -> código {hex(effect_code)}")
+                    logger.info(f"[SCHEDULE] Panel {panel.ip} protocolo={panel_protocol}: efecto '{schedule.effect}' -> código {hex(effect_code)} ({effect_code})")
+                    logger.info(f"[SCHEDULE] Enviando a {panel.ip} via {'7110' if panel_protocol == 'new' else '8888'}: mensaje='{schedule.message[:30]}...'")
                     
                     result = self.panel_communication_service.send_custom_text(
                         panel_ip=panel.ip,
@@ -654,33 +656,32 @@ class PanelScheduleService:
         """
         Convertir efecto de texto a código numérico según protocolo.
         
-        Protocolo nuevo (SDK v1.4.7) - CÓDIGOS CORREGIDOS:
-        - 1 = Instant (fijo/static/center)
-        - 2 = Scroll_left (scroll con pausa)
-        - 3 = Scroll_right (scroll con pausa)
-        - 55 = Scrollleft_continuously (scroll continuo izquierda)
-        - 56 = Scroll_right_continuously (scroll continuo derecha)
+        Protocolo nuevo (Python directo, puerto 7110) - Códigos documentación fabricante:
+        - 0  = Draw (instantáneo/fijo)
+        - 11 = Scroll to left (scroll con pausa al final)
+        - 12 = Scroll to right (scroll con pausa al final)
+        - 14 = Continuous scroll to left (scroll continuo sin pausa)
+        - 15 = Continuous scroll to right (scroll continuo sin pausa)
         
-        Protocolo antiguo:
+        Protocolo antiguo (SDK Java, puerto 8888):
         - static/center: 2 (fijo)
         - scroll_left/scroll_right: 12 (scroll)
         """
         if protocol == 'new':
-            # Códigos para SDK Java (panelSender puerto 8888)
-            # 1 = Instant (texto fijo, nunca scroll)
-            # 2 = Scroll_left (scroll automático si texto largo, pausa al final)
-            # 55 = Scrollleft_continuously (scroll siempre, sin pausa)
-            # 56 = Scroll_right_continuously (scroll siempre, sin pausa)
+            # Códigos para protocolo directo (Python, puerto 7110)
+            # Genera hexadecimal según documentación del fabricante
+            # NO usa SDK Java
             effect_codes_new = {
-                'static': 2,          # Scroll_left - auto-scroll si texto largo
-                'center': 2,          # Scroll_left - auto-scroll si texto largo
-                'fijo': 1,            # Instant - texto fijo, nunca scroll
-                'scroll_left': 55,    # Scrollleft_continuously - scroll siempre
-                'scroll_right': 56,   # Scroll_right_continuously - scroll siempre
-                'scroll': 55          # Alias para scroll continuo izquierda
+                'static': 11,         # Scroll to left - auto-scroll si texto largo
+                'center': 11,         # Scroll to left - auto-scroll si texto largo
+                'fijo': 0,            # Draw - texto fijo, nunca scroll
+                'scroll_left': 14,    # Continuous scroll to left - scroll siempre
+                'scroll_right': 15,   # Continuous scroll to right - scroll siempre
+                'scroll': 14          # Alias para scroll continuo izquierda
             }
-            return effect_codes_new.get(effect, 2)  # Scroll_left por defecto
+            return effect_codes_new.get(effect, 11)  # Scroll to left por defecto
         else:
+            # Códigos para protocolo antiguo (SDK Java, puerto 8888)
             effect_codes_old = {
                 'static': 2,      # Fijo para protocolo antiguo
                 'scroll_left': 12,  # Scroll para protocolo antiguo

@@ -266,21 +266,30 @@ async def send_text(self, ip, port, window_id, text, color, font_size, effect, s
 │    Entrada: "scroll_left", protocol="new"                               │
 │    Salida:  14 (código 0x0E = Continuous scroll to left)                │
 │                                                                          │
-│    Mapeo para protocolo nuevo:                                          │
-│    - 'static'/'center'/'fijo' → 0 (Draw)                                │
-│    - 'scroll_left' → 14 (Continuous scroll left)                        │
+│    Mapeo para protocolo nuevo (Python directo, puerto 7110):            │
+│    - 'static'/'center' → 11 (Scroll to left - auto-scroll)             │
+│    - 'fijo' → 0 (Draw - texto fijo)                                     │
+│    - 'scroll_left'/'scroll' → 14 (Continuous scroll left)              │
 │    - 'scroll_right' → 15 (Continuous scroll right)                      │
+│                                                                          │
+│    Mapeo para protocolo antiguo (SDK Java, puerto 8888):                │
+│    - 'static'/'center'/'fijo' → 2 (Fijo)                               │
+│    - 'scroll_left'/'scroll_right'/'scroll' → 12 (Scroll)               │
 └────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌────────────────────────────────────────────────────────────────────────┐
 │ 3. SERVICIO DE COMUNICACIÓN                                             │
-│    panel_communication_service.py::_send_to_unified_api()               │
+│    panel_communication_service.py::send_custom_text()                   │
+│                                                                          │
+│    Detecta automáticamente el protocolo del panel desde BD:            │
 │                                                                          │
 │    Si protocol == "new":                                                │
 │        → Llamar a _send_to_new_protocol_api() [Puerto 7110]             │
+│        → Genera hexadecimal con packet_builder.py                       │
 │    Si protocol == "old":                                                │
-│        → Llamar a API puerto 8888 (SDK Java)                            │
+│        → Llamar a _send_to_unified_api() [Puerto 8888]                  │
+│        → Usa SDK Java (protocol.jar)                                    │
 └────────────────────────────────────────────────────────────────────────┘
                           │                           │
            ┌──────────────┴──────────────┐            │
@@ -540,5 +549,14 @@ sudo systemctl restart parking-schedule-monitor.service
 
 ---
 
+### Cambios v4.7
+
+- **Routing restaurado**: `send_custom_text()` y `send_text_to_panel()` detectan automáticamente el protocolo del panel
+- **Protocolo nuevo (7110)**: Paneles con `protocol_version = 'new'` usan Python directo y `packet_builder.py`
+- **Protocolo antiguo (8888)**: Paneles con `protocol_version = 'old'` usan SDK Java
+- **Códigos de efecto corregidos**: El protocolo nuevo usa códigos de documentación del fabricante (0, 11, 14, 15)
+
+---
+
 *Documento generado: 2026-03-13*
-*Versión: v4.6*
+*Versión: v4.7*
