@@ -11,7 +11,8 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
-from models import Panel, PanelType, Parking, ParkingPanelWindow, PanelWindowConfiguration
+from models import Panel, PanelType, Parking, ParkingPanelWindow, PanelWindowConfiguration, PanelSchedule
+from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +107,61 @@ class PanelType3And4UpdateService:
         """Método de compatibilidad - redirige a update_all_type3_and_type4_panels"""
         return self.update_all_type3_and_type4_panels()
     
+    def _has_active_schedule_for_parking(self, parking_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Verifica si hay una programación activa para el parking
+        
+        Args:
+            parking_id: ID del parking
+            
+        Returns:
+            Dict con datos de la programación activa o None si no hay
+        """
+        try:
+            from timezone_utils import get_madrid_now, get_weekday_field
+            
+            now = get_madrid_now()
+            current_time = now.strftime('%H:%M')
+            current_day_column = get_weekday_field(now)
+            
+            query = text(f"""
+                SELECT id, name, message, color, effect, priority
+                FROM panel_schedules
+                WHERE parking_id = :parking_id
+                AND is_active = true
+                AND (start_date IS NULL OR start_date <= :current_date)
+                AND (end_date IS NULL OR end_date >= :current_date)
+                AND (start_time IS NULL OR start_time::time <= :current_time)
+                AND (end_time IS NULL OR end_time::time >= :current_time)
+                AND {current_day_column} = true
+                ORDER BY priority DESC, id ASC
+                LIMIT 1
+            """)
+            
+            result = self.db_session.execute(query, {
+                'parking_id': parking_id,
+                'current_date': now.date(),
+                'current_time': current_time
+            }).fetchone()
+            
+            if result:
+                schedule = {
+                    'id': result[0],
+                    'name': result[1],
+                    'message': result[2],
+                    'color': result[3],
+                    'effect': result[4],
+                    'priority': result[5]
+                }
+                logger.info(f"[SCHEDULE-CHECK] Programación activa encontrada para parking {parking_id}: '{schedule['name']}' - mensaje: '{schedule['message']}'")
+                return schedule
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error verificando programación activa para parking {parking_id}: {e}")
+            return None
+
     def update_panel(self, panel_id: int) -> Dict[str, Any]:
         """
         Actualiza un panel Tipo 3 o Tipo 4 específico (detecta automáticamente el tipo)
@@ -125,6 +181,19 @@ class PanelType3And4UpdateService:
             # Detectar tipo de panel
             if not panel.panel_type:
                 return {'success': False, 'error': 'Panel no tiene tipo asignado'}
+            
+            # VERIFICAR PROGRAMACIONES ACTIVAS ANTES DE ACTUALIZAR
+            if panel.parking_id:
+                active_schedule = self._has_active_schedule_for_parking(panel.parking_id)
+                if active_schedule:
+                    logger.info(f"[SCHEDULE-SKIP] Panel {panel.id} ({panel.name}): omitiendo actualización - programación activa '{active_schedule['name']}'")
+                    return {
+                        'success': True, 
+                        'skipped': True,
+                        'reason': 'active_schedule',
+                        'schedule_name': active_schedule['name'],
+                        'schedule_message': active_schedule['message']
+                    }
             
             windows_count = panel.panel_type.windows_count
             

@@ -48,10 +48,22 @@ class PanelUpdateMethods:
                 # Enviar mensaje de programación
                 message = active_schedule['message']
                 color = active_schedule['color']
-                effect = active_schedule['effect']
+                effect_str = active_schedule['effect']
                 message_type = 'schedule'
                 
-                logger.info(f"Enviando programación activa a {parking_name}: '{message}'")
+                # Convertir efecto string a código numérico
+                # El código se convertirá según el protocolo del panel en send_custom_text
+                effect_map = {
+                    'static': 2,      # Se mapeará a 11 (scroll) para protocolo nuevo
+                    'center': 2,
+                    'fijo': 2,
+                    'scroll_left': 14,  # Continuous scroll left para protocolo nuevo
+                    'scroll_right': 15, # Continuous scroll right para protocolo nuevo
+                    'scroll': 14
+                }
+                effect = effect_map.get(effect_str, 2)  # Por defecto fijo
+                
+                logger.info(f"[SCHEDULE] Enviando programación activa a {parking_name}: '{message}' (efecto: {effect_str} -> {effect})")
                 
             elif parking_data['fixed_message_flag']:
                 # Mantener mensaje actual si está fijado
