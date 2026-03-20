@@ -6606,7 +6606,7 @@ def get_complete_dashboard():
                 'panels_count': panels_count,
                 'sensors_count': sensors_count,
                 'sensor_states': sensor_status_counts,
-                'last_update': parking.last_update.isoformat() if parking.last_update else None
+                'last_update': parking.last_spot_sync.isoformat() if parking.last_spot_sync else None
             })
         
         # Estadísticas generales de sensores (obtener directamente para evitar recursión)
