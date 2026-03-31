@@ -317,6 +317,21 @@ def get_user_accessible_access_ids(db_session: Session, user_id: int, user_role:
         # En caso de error, devolver lista vacía para mayor seguridad
         return []
 
+# Engine compartido para el decorador (evita crear uno nuevo por request)
+_shared_engine = None
+_shared_sessionmaker = None
+
+def _get_shared_session():
+    """Obtener sesión del engine compartido"""
+    global _shared_engine, _shared_sessionmaker
+    if _shared_engine is None:
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from config import DB_URL
+        _shared_engine = create_engine(DB_URL, echo=False, pool_size=5, max_overflow=10, pool_pre_ping=True)
+        _shared_sessionmaker = sessionmaker(bind=_shared_engine)
+    return _shared_sessionmaker()
+
 # Decorador para filtrado automático por permisos de usuario
 def filter_by_user_permissions(f):
     """
@@ -325,17 +340,14 @@ def filter_by_user_permissions(f):
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        from sqlalchemy.orm import sessionmaker
-        from config import DB_URL
-        from sqlalchemy import create_engine
+        import logging
+        logger = logging.getLogger(__name__)
         
         user_id = request.user_data.get('user_id')
         user_role = request.user_data.get('role')
         
-        # Crear sesión de BD para consultar permisos
-        engine = create_engine(DB_URL, echo=False)
-        SessionLocal = sessionmaker(bind=engine)
-        db_session = SessionLocal()
+        # Usar sesión compartida
+        db_session = _get_shared_session()
         
         try:
             # Obtener recursos accesibles
@@ -344,8 +356,6 @@ def filter_by_user_permissions(f):
             access_ids = get_user_accessible_access_ids(db_session, user_id, user_role)
             
             # DEBUG: Log de permisos obtenidos
-            import logging
-            logger = logging.getLogger(__name__)
             logger.info(f"PERMISOS - Usuario {user_id} (rol: {user_role})")
             logger.info(f"  Parkings: {len(parking_ids)} - {parking_ids}")
             logger.info(f"  Paneles: {len(panel_ids)} - {panel_ids}")
@@ -356,6 +366,13 @@ def filter_by_user_permissions(f):
             request.accessible_panel_ids = panel_ids
             request.accessible_access_ids = access_ids
             
+            return f(*args, **kwargs)
+        except Exception as e:
+            logger.error(f"Error en filter_by_user_permissions: {e}")
+            # En caso de error, dar acceso vacío
+            request.accessible_parking_ids = []
+            request.accessible_panel_ids = []
+            request.accessible_access_ids = []
             return f(*args, **kwargs)
         finally:
             db_session.close()
