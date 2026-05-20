@@ -282,13 +282,14 @@ class PanelProtocolAPIServer:
                 text = data.get('text', '')
                 color = data.get('color', Color.GREEN)
                 font_size = data.get('font_size', FontSize.SIZE_16)
-                effect = data.get('effect', Effect.DRAW)
+                effect = data.get('effect', Effect.RANDOM)  # 0xFF por defecto como SDK Java
                 alignment = data.get('alignment', Alignment.CENTER_CENTER)
-                speed = data.get('speed', 0x00)
-                stay_time = data.get('stay_time', 3)
-                card_id = data.get('card_id', 0x01)  # Por defecto 0x01 según ejemplos (0xFF para broadcast)
-                request_confirmation = data.get('request_confirmation', True)  # Por defecto True para recibir confirmación
+                speed = data.get('speed', 0x05)  # 5 por defecto como SDK Java
+                stay_time = data.get('stay_time', 50)  # 50 décimas = 5 segundos
+                card_id = data.get('card_id', 0xFF)  # 0xFF broadcast por defecto como SDK Java
+                request_confirmation = data.get('request_confirmation', True)
                 wait_for_response = data.get('wait_for_response', False)
+                device_id = data.get('device_id')  # Device ID CPower (requerido para formato correcto)
                 
                 if not panel_ip:
                     return jsonify({'error': 'panel_ip es requerido'}), 400
@@ -342,8 +343,9 @@ class PanelProtocolAPIServer:
                         speed=speed,
                         stay_time=stay_time,
                         card_id=card_id,
-                        wait_for_response=False,  # Nunca esperar en el endpoint, siempre retornar task_id
-                        request_confirmation=request_confirmation
+                        wait_for_response=False,
+                        request_confirmation=request_confirmation,
+                        device_id=device_id  # Device ID CPower para formato correcto
                     )
                     logger.info(f"Corrutina creada: {coro}, enviando al event loop...")
                     future = asyncio.run_coroutine_threadsafe(coro, self.loop)
