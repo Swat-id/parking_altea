@@ -2,8 +2,9 @@
 Constantes del protocolo de comunicación con paneles LED
 """
 
-# ID Code común para todos los paneles (formato antiguo - NO USAR)
+# ID Code común para todos los paneles (formato antiguo - NO USAR para envío)
 ID_CODE_LEGACY = bytes([0xFF, 0xFF, 0xFF, 0xFF])
+ID_CODE = ID_CODE_LEGACY  # Alias para compatibilidad con packet_parser
 
 # Marcador de inicio del formato CPower (formato correcto)
 CPOWER_START_MARKER = 0xA5
