@@ -158,6 +158,9 @@ class Panel(Base):
     # NUEVO v4.3.0: Campo para soportar hasta 16 ventanas
     windows_count = Column(Integer, default=1)  # Número de ventanas soportadas (1-16)
     
+    # NUEVO v5.0.0: Device ID para protocolo CPower
+    device_id = Column(String(20))  # ID del dispositivo CPower (ej: 00606ed81e7e)
+    
     # Relaciones
     parking = relationship('Parking', back_populates='panels')
     panel_type = relationship('PanelType', back_populates='panels')

@@ -107,20 +107,72 @@ class PanelCommunicationService:
         except Exception as e:
             logger.error(f"Error obteniendo protocolo del panel {panel_ip}: {e}")
             return 'old'  # Por defecto protocolo antiguo
+
+    def _get_panel_device_id(self, panel_ip: str) -> str:
+        """
+        Obtener el device_id de un panel desde la base de datos (requerido para CPower)
+        
+        Args:
+            panel_ip: IP del panel
+            
+        Returns:
+            Device ID del panel o None si no existe
+        """
+        try:
+            from sqlalchemy import create_engine
+            from sqlalchemy.orm import sessionmaker
+            from models import Panel
+            import config
+            
+            engine = create_engine(config.DB_URL)
+            Session = sessionmaker(bind=engine)
+            session = Session()
+            
+            try:
+                panel = session.query(Panel).filter(Panel.ip == panel_ip).first()
+                if panel and panel.device_id:
+                    return panel.device_id
+                else:
+                    logger.warning(f"Panel {panel_ip} no tiene device_id configurado")
+                    return None
+            finally:
+                session.close()
+                
+        except Exception as e:
+            logger.error(f"Error obteniendo device_id del panel {panel_ip}: {e}")
+            return None
     
     def _send_to_new_protocol_api(self, panel_ip: str, text: str, window_id: int = 0,
                                     color: int = 1, font_size: int = 2, 
                                     effect: int = 0, alignment: int = 1,
-                                    speed: int = 5, stay_time: int = 3) -> Dict:
+                                    speed: int = 5, stay_time: int = 3,
+                                    device_id: str = None) -> Dict:
         """
-        v4.6.1: Enviar mensaje al servicio de protocolo nuevo (puerto 7110)
+        v5.0.1: Enviar mensaje al servicio de protocolo nuevo CPower (puerto 7110)
         Códigos de efecto según documentación del fabricante:
         - 0 = Draw (instantáneo)
         - 11 = Scroll to left
         - 14 = Continuous scroll to left
         - 15 = Continuous scroll to right
+        - 255 = Random (usado por SDK Java)
+        
+        IMPORTANTE: device_id es REQUERIDO para el formato CPower correcto.
+        Si no se proporciona, se obtiene de la base de datos.
         """
         try:
+            # Obtener device_id de la base de datos si no se proporciona
+            if not device_id:
+                device_id = self._get_panel_device_id(panel_ip)
+                if not device_id:
+                    logger.error(f"❌ [NEW PROTOCOL] Panel {panel_ip} no tiene device_id configurado")
+                    return {
+                        'success': False,
+                        'message': 'Panel sin device_id configurado (requerido para CPower)',
+                        'panel_ip': panel_ip,
+                        'protocol': 'new',
+                        'timestamp': datetime.now().isoformat()
+                    }
+            
             payload = {
                 "panel_ip": panel_ip,
                 "panel_port": 5200,
@@ -132,7 +184,8 @@ class PanelCommunicationService:
                 "alignment": alignment,
                 "speed": speed,
                 "stay_time": stay_time,
-                "card_id": 1
+                "card_id": 255,  # Broadcast como usa el SDK Java
+                "device_id": device_id  # CRÍTICO: Requerido para formato CPower
             }
             
             logger.info(f"[NEW PROTOCOL] Enviando a {panel_ip} via puerto 7110: text='{text}', effect={effect}, speed={speed}, stay_time={stay_time}, alignment={alignment}")
