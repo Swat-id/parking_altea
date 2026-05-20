@@ -69,7 +69,8 @@ class PanelProtocolService:
         windows: List[Tuple[int, int, int, int]],
         card_id: int = CARD_ID_BROADCAST,
         request_confirmation: bool = True,
-        wait_for_response: bool = False
+        wait_for_response: bool = False,
+        device_id: Optional[str] = None
     ) -> str:
         """
         Crea ventanas en un panel (operación asíncrona).
@@ -81,6 +82,7 @@ class PanelProtocolService:
             card_id: ID de la tarjeta (por defecto broadcast)
             request_confirmation: Si solicita confirmación
             wait_for_response: Si True, espera la respuesta antes de retornar
+            device_id: ID del dispositivo CPower (requerido para formato correcto)
             
         Returns:
             str: ID de la tarea
@@ -88,7 +90,8 @@ class PanelProtocolService:
         packet = PacketBuilder.build_create_window_packet(
             card_id=card_id,
             windows=windows,
-            request_confirmation=request_confirmation
+            request_confirmation=request_confirmation,
+            device_id=device_id
         )
         
         task_id = await self.task_queue.add_task(
@@ -118,13 +121,14 @@ class PanelProtocolService:
         text: str,
         color: int = Color.GREEN,
         font_size: int = FontSize.SIZE_16,
-        effect: int = Effect.DRAW,
+        effect: int = Effect.RANDOM,
         alignment: int = Alignment.CENTER_CENTER,
-        speed: int = 0x00,
-        stay_time: int = 3,
+        speed: int = 0x05,
+        stay_time: int = 50,
         card_id: int = CARD_ID_BROADCAST,
         request_confirmation: bool = True,
-        wait_for_response: bool = False
+        wait_for_response: bool = False,
+        device_id: Optional[str] = None
     ) -> str:
         """
         Envía texto directamente a una ventana del panel (operación asíncrona).
@@ -138,13 +142,14 @@ class PanelProtocolService:
             text: Texto a enviar
             color: Color del texto (Color.RED, Color.GREEN, etc.)
             font_size: Tamaño de fuente (FontSize.SIZE_8, etc.)
-            effect: Efecto de texto (Effect.DRAW, Effect.SCROLL_LEFT, etc.)
+            effect: Efecto de texto (Effect.RANDOM=0xFF por defecto)
             alignment: Alineación (Alignment.CENTER_CENTER, etc.)
-            speed: Velocidad del efecto (0x00 = más rápido)
-            stay_time: Tiempo de espera en segundos
+            speed: Velocidad del efecto (5 por defecto)
+            stay_time: Tiempo de espera (50 = 5 segundos en décimas)
             card_id: ID de la tarjeta
             request_confirmation: Si solicita confirmación
             wait_for_response: Si True, espera la respuesta antes de retornar
+            device_id: ID del dispositivo CPower (requerido para formato correcto)
             
         Returns:
             str: ID de la tarea
@@ -152,7 +157,6 @@ class PanelProtocolService:
         logger.info(f"Enviando texto '{text}' a ventana {window_id} en {panel_ip}:{panel_port}")
         logger.debug(f"send_text iniciado en event loop: {asyncio.get_event_loop()}")
         
-        # Construir paquete para enviar texto
         logger.debug("Construyendo paquete...")
         packet = PacketBuilder.build_send_text_packet(
             card_id=card_id,
@@ -164,7 +168,8 @@ class PanelProtocolService:
             alignment=alignment,
             speed=speed,
             stay_time=stay_time,
-            request_confirmation=request_confirmation
+            request_confirmation=request_confirmation,
+            device_id=device_id
         )
         
         # Crear tarea de envío de texto y obtener task_id inmediatamente
@@ -206,7 +211,8 @@ class PanelProtocolService:
         y: int = 0,
         card_id: int = CARD_ID_BROADCAST,
         request_confirmation: bool = True,
-        wait_for_response: bool = False
+        wait_for_response: bool = False,
+        device_id: Optional[str] = None
     ) -> str:
         """
         Envía una imagen a una ventana del panel (operación asíncrona).
@@ -224,6 +230,7 @@ class PanelProtocolService:
             card_id: ID de la tarjeta
             request_confirmation: Si solicita confirmación
             wait_for_response: Si True, espera la respuesta antes de retornar
+            device_id: ID del dispositivo CPower
             
         Returns:
             str: ID de la tarea
@@ -237,7 +244,8 @@ class PanelProtocolService:
             stay_time=stay_time,
             x=x,
             y=y,
-            request_confirmation=request_confirmation
+            request_confirmation=request_confirmation,
+            device_id=device_id
         )
         
         task_id = await self.task_queue.add_task(
@@ -568,10 +576,11 @@ class PanelProtocolService:
         font_size: FontSizeV4 = FontSizeV4.SIZE_16,
         alignment: TextAlignment = TextAlignment.CENTER_CENTER,
         effect: TextEffect = TextEffect.STATIC,
-        speed: int = 0x03,
-        wait_time: int = 0x0003,
+        speed: int = 0x05,
+        wait_time: int = 50,
         request_confirmation: bool = True,
-        wait_for_response: bool = False
+        wait_for_response: bool = False,
+        device_id: Optional[str] = None
     ) -> str:
         """
         Envía texto a una ventana usando protocolo v4 (Panel Tipo 4).
@@ -619,7 +628,7 @@ class PanelProtocolService:
         )
         
         packet = PacketBuilder.build_send_text_packet(
-            card_id=0x01,  # Card ID específico (0x01) en lugar de broadcast (0xFF)
+            card_id=CARD_ID_BROADCAST,  # Usar broadcast (0xFF) como el SDK Java
             window_id=window_id,
             text=text,
             color=color_int,
@@ -628,7 +637,8 @@ class PanelProtocolService:
             alignment=alignment_int,
             speed=speed,
             stay_time=wait_time,
-            request_confirmation=True  # SIEMPRE solicitar confirmación para que el panel responda
+            request_confirmation=True,
+            device_id=device_id
         )
         
         logger.debug(f"Paquete construido: {len(packet)} bytes - {packet.hex()}")

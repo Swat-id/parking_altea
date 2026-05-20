@@ -2,8 +2,16 @@
 Constantes del protocolo de comunicación con paneles LED
 """
 
-# ID Code común para todos los paneles
-ID_CODE = bytes([0xFF, 0xFF, 0xFF, 0xFF])
+# ID Code común para todos los paneles (formato antiguo - NO USAR)
+ID_CODE_LEGACY = bytes([0xFF, 0xFF, 0xFF, 0xFF])
+
+# Marcador de inicio del formato CPower (formato correcto)
+CPOWER_START_MARKER = 0xA5
+CPOWER_SEPARATOR = 0x00
+
+# Puerto UDP para discovery de paneles CPower
+CPOWER_DISCOVERY_PORT = 57274
+CPOWER_DISCOVERY_REQUEST = b'CPower~?\x00'
 
 # Tipos de paquetes
 PACKET_TYPE_SEND = 0x68
