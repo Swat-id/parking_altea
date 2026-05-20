@@ -117,9 +117,10 @@ class PacketBuilder:
         # Número de ventanas: len(windows)
         packet_data = bytes([SUB_CMD_CREATE_WINDOW, len(windows)])
         
-        # Para cada ventana: x, y, width, height (cada uno 2 bytes, little-endian)
+        # Para cada ventana: x, y, width, height (cada uno 2 bytes, BIG-ENDIAN)
+        # Según documentación: "high byte in the former" = Big-endian
         for x, y, width, height in windows:
-            packet_data += struct.pack('<HHHH', x, y, width, height)
+            packet_data += struct.pack('>HHHH', x, y, width, height)
         
         return PacketBuilder.build_network_packet(
             card_id=card_id,
@@ -369,14 +370,14 @@ class PacketBuilder:
             speed
         ])
         
-        # Tiempo de espera (2 bytes, little-endian)
-        packet_data += struct.pack('<H', stay_time)
+        # Tiempo de espera (2 bytes, BIG-ENDIAN según documentación)
+        packet_data += struct.pack('>H', stay_time)
         
         # Referencia de archivo
         packet_data += bytes([file_reference])
         
-        # Coordenadas X, Y (2 bytes cada una, little-endian)
-        packet_data += struct.pack('<HH', x, y)
+        # Coordenadas X, Y (2 bytes cada una, BIG-ENDIAN según documentación)
+        packet_data += struct.pack('>HH', x, y)
         
         # Nombre del archivo (ASCII) + byte terminador 0x00
         packet_data += filename.encode('ascii') + b'\x00'
