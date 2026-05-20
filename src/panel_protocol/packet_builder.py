@@ -86,7 +86,8 @@ class PacketBuilder:
             device_id.encode('ascii') +                  # Variable: Device ID
             bytes([CPOWER_SEPARATOR]) +                  # 1 byte: 0x00
             data_for_checksum +                          # Header + Length + PO + TP + Data
-            checksum                                     # 2 bytes: Checksum
+            checksum +                                   # 2 bytes: Checksum
+            bytes([0xAE])                                # 1 byte: Terminador CPower
         )
         
         return packet
