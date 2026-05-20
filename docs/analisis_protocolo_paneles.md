@@ -1,4 +1,70 @@
-# Análisis del Protocolo de Paneles LED - v4.6
+# Análisis del Protocolo de Paneles LED - v5.0.1
+
+## IMPORTANTE: Formato CPower Real vs Documentación
+
+### Descubrimiento Crítico (2026-05-20)
+
+La documentación del fabricante describe un formato de paquete que **NO funciona** con los paneles CPower reales. El SDK Java usa un formato diferente que **SÍ funciona**.
+
+#### Formato Documentado (NO FUNCIONA):
+```
+FF FF FF FF + NetworkLength + Reserved + PacketType + ... + Checksum
+```
+
+#### Formato CPower Real (FUNCIONA):
+```
+A5 + DeviceID (ASCII) + 00 + PacketType + CardType + CardID + ProtocolCode + 
+AdditionalInfo + PackedDataLength + PO + TP + PacketData + Checksum + AE
+```
+
+| Campo | Tamaño | Descripción |
+|-------|--------|-------------|
+| Start Marker | 1 byte | `0xA5` (fijo) |
+| Device ID | 12 bytes | ID del dispositivo en ASCII (ej: "00606ed81e7e") |
+| Separator | 1 byte | `0x00` |
+| Packet Type | 1 byte | `0x68` (envío) |
+| Card Type | 1 byte | `0x32` (LED) |
+| Card ID | 1 byte | `0xFF` (broadcast) |
+| Protocol Code | 1 byte | `0x7B` |
+| Additional Info | 1 byte | `0x01` (confirmación) |
+| Packed Data Len | 2 bytes | Little-endian |
+| PO, TP | 2 bytes | `0x00 0x00` |
+| Packet Data | Variable | CC + datos |
+| Checksum | 2 bytes | Little-endian |
+| **Terminator** | 1 byte | **`0xAE`** (crítico!) |
+
+### Descubrimiento de Device ID via UDP
+
+Los paneles CPower responden a solicitudes UDP en el puerto 57274:
+
+```bash
+echo -n -e 'CPower~?\x00' | nc -u -w 2 PANEL_IP 57274
+```
+
+Respuesta: `CP~:IP\tDeviceID\tModelo\t...`
+
+### Paneles Configurados
+
+**Protocolo NUEVO (CPower - puerto 7110):**
+| Panel | IP | Device ID |
+|-------|-----|-----------|
+| PANEL PALAU | 172.20.4.50 | 00606ed81e79 |
+| PANEL COCOLISO | 172.20.4.51 | 00606ed81e68 |
+| BELLES ARTS 2 | 172.20.4.52 | 00606ed81e7e |
+| BELLES ARTS | 172.20.4.53 | 00606ed81e60 |
+
+**Protocolo ANTIGUO (Java SDK - puerto 8888):**
+| Panel | IP | Notas |
+|-------|-----|-------|
+| PANEL ALTEA VELLA | 172.20.1.50 | No soporta CPower |
+| PANEL C. ESPORTIVA | 172.20.17.50 | No soporta CPower |
+| PANEL RENFE | 172.20.2.50 | No soporta CPower |
+| PANEL BASSETA 1 | 172.20.5.50 | No soporta CPower |
+| PANEL BASSETA 2 | 172.20.5.51 | No soporta CPower |
+| PANEL PITERES | 172.20.8.50 | Tiene device_id pero usa old |
+| PANEL PITERES 2 | 172.20.8.51 | Tiene device_id pero usa old |
+
+---
 
 ## 1. Códigos de Efecto (Documentación vs Implementación)
 
@@ -296,5 +362,44 @@ Si se requiere scroll continuo (sin pausas), cambiar a:
 
 ---
 
-*Documento generado: 2026-03-13*
-*Versión del análisis: v4.6*
+## 10. Ejemplo de Paquete CPower Correcto
+
+### Enviar "HOLA" en verde a panel 172.20.4.52
+
+```bash
+curl -X POST http://localhost:7110/api/v1/panels/send-text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "panel_ip": "172.20.4.52",
+    "panel_port": 5200,
+    "card_id": 255,
+    "window_id": 0,
+    "text": "HOLA",
+    "color": 2,
+    "font_size": 2,
+    "effect": 255,
+    "alignment": 0,
+    "speed": 5,
+    "stay_time": 50,
+    "device_id": "00606ed81e7e"
+  }'
+```
+
+### Paquete hex generado:
+```
+a5 30 30 36 30 36 65 64 38 31 65 37 65 00   # A5 + DeviceID + 00
+68 32 ff 7b 01                               # PacketType, CardType, CardID, Protocol, Confirm
+16 00                                        # PackedDataLen (22 little-endian)
+00 00                                        # PO, TP
+02 00 ff 00 05 00 32                         # CC, WindowID, Effect, Align, Speed, StayTime
+22 00 48 22 00 4f 22 00 4c 22 00 41          # HOLA (color_font + 00 + char)
+00 00 00                                     # End marker
+XX XX                                        # Checksum
+ae                                           # Terminator
+```
+
+---
+
+*Documento actualizado: 2026-05-20*
+*Versión del análisis: v5.0.1*
+*Cambios: Descubierto formato CPower real vs documentación, añadido terminador 0xAE*
