@@ -1771,6 +1771,158 @@ def get_all_panels():
         logger.error(f"Error obteniendo paneles: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@api_bp.route('/panels/discover-device-id', methods=['POST'])
+@require_auth
+def discover_panel_device_id():
+    """
+    Descubrir el device_id de un panel CPower via UDP.
+    El device_id es necesario para el protocolo nuevo (CPower).
+    """
+    try:
+        user_role = request.user_data.get('role', 'user')
+        
+        # Solo superadmin puede descubrir device_id
+        if user_role != 'superadmin':
+            return jsonify({'error': 'Acceso denegado: solo superadmin puede descubrir device_id'}), 403
+        
+        req = request.get_json(force=True)
+        ip = req.get('ip')
+        panel_id = req.get('panel_id')  # Opcional: si se proporciona, actualizar el panel
+        
+        if not ip:
+            return jsonify({'error': 'Falta el campo ip'}), 400
+        
+        # Importar función de descubrimiento
+        try:
+            from panel_protocol.discovery import discover_panel_device_id as discover_device
+        except ImportError:
+            # Fallback: implementación simple
+            import socket
+            def discover_device(panel_ip, timeout=5.0):
+                try:
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                    sock.settimeout(timeout)
+                    sock.sendto(b'CPower~?\x00', (panel_ip, 57274))
+                    data, addr = sock.recvfrom(1024)
+                    sock.close()
+                    response_str = data.decode('ascii', errors='ignore')
+                    if response_str.startswith('CP~:'):
+                        parts = response_str.split('\t')
+                        if len(parts) >= 2:
+                            device_id = parts[1]
+                            if len(device_id) == 12 and all(c in '0123456789abcdef' for c in device_id.lower()):
+                                return device_id.lower()
+                    return None
+                except:
+                    return None
+        
+        # Intentar descubrir device_id
+        device_id = discover_device(ip, timeout=5.0)
+        
+        if not device_id:
+            return jsonify({
+                'success': False,
+                'message': f'No se pudo descubrir device_id para {ip}. El panel puede no soportar protocolo CPower.',
+                'ip': ip,
+                'device_id': None
+            }), 200
+        
+        # Si se proporciona panel_id, actualizar el panel en la base de datos
+        if panel_id:
+            session = Session()
+            try:
+                panel = session.query(Panel).filter(Panel.id == panel_id).first()
+                if panel:
+                    panel.device_id = device_id
+                    session.commit()
+                    logger.info(f"Device ID {device_id} guardado para panel {panel_id} ({ip})")
+            except Exception as e:
+                logger.error(f"Error guardando device_id: {e}")
+                session.rollback()
+            finally:
+                session.close()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Device ID descubierto correctamente',
+            'ip': ip,
+            'device_id': device_id
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error descubriendo device_id: {e}")
+        return jsonify({'error': f'Error: {str(e)}'}), 500
+
+@api_bp.route('/panel/<int:panel_id>/discover-device-id', methods=['POST'])
+@require_auth
+def discover_panel_device_id_by_id(panel_id):
+    """Descubrir y guardar device_id para un panel existente"""
+    try:
+        user_role = request.user_data.get('role', 'user')
+        
+        if user_role != 'superadmin':
+            return jsonify({'error': 'Acceso denegado'}), 403
+        
+        session = Session()
+        panel = session.query(Panel).filter(Panel.id == panel_id).first()
+        
+        if not panel:
+            session.close()
+            return jsonify({'error': 'Panel no encontrado'}), 404
+        
+        ip = panel.ip
+        
+        # Importar función de descubrimiento
+        try:
+            from panel_protocol.discovery import discover_panel_device_id as discover_device
+        except ImportError:
+            import socket
+            def discover_device(panel_ip, timeout=5.0):
+                try:
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                    sock.settimeout(timeout)
+                    sock.sendto(b'CPower~?\x00', (panel_ip, 57274))
+                    data, addr = sock.recvfrom(1024)
+                    sock.close()
+                    response_str = data.decode('ascii', errors='ignore')
+                    if response_str.startswith('CP~:'):
+                        parts = response_str.split('\t')
+                        if len(parts) >= 2:
+                            device_id = parts[1]
+                            if len(device_id) == 12 and all(c in '0123456789abcdef' for c in device_id.lower()):
+                                return device_id.lower()
+                    return None
+                except:
+                    return None
+        
+        device_id = discover_device(ip, timeout=5.0)
+        
+        if device_id:
+            panel.device_id = device_id
+            session.commit()
+            logger.info(f"Device ID {device_id} guardado para panel {panel_id} ({ip})")
+            session.close()
+            return jsonify({
+                'success': True,
+                'message': 'Device ID descubierto y guardado',
+                'panel_id': panel_id,
+                'ip': ip,
+                'device_id': device_id
+            }), 200
+        else:
+            session.close()
+            return jsonify({
+                'success': False,
+                'message': f'No se pudo descubrir device_id para {ip}',
+                'panel_id': panel_id,
+                'ip': ip,
+                'device_id': None
+            }), 200
+            
+    except Exception as e:
+        logger.error(f"Error descubriendo device_id para panel {panel_id}: {e}")
+        return jsonify({'error': f'Error: {str(e)}'}), 500
+
 @api_bp.route('/panels', methods=['POST'])
 @require_auth
 def create_panel():
@@ -1788,6 +1940,7 @@ def create_panel():
         parking_id = req.get('parking_id')
         panel_type_id = req.get('panel_type_id')
         port = req.get('port', 5200)  # Puerto por defecto
+        device_id = req.get('device_id')  # Device ID CPower (opcional)
         
         # Validar campos requeridos
         if not all([name, ip, parking_id, panel_type_id]):
@@ -1852,7 +2005,8 @@ def create_panel():
             protocol_version=panel_type.protocol_type,
             service_endpoint=panel_type.service_endpoint,
             windows_count=final_windows_count,
-            is_active=True
+            is_active=True,
+            device_id=device_id if device_id else None  # Device ID CPower
         )
         
         session.add(new_panel)
@@ -1954,6 +2108,7 @@ def update_panel(panel_id):
         panel_type_id = req.get('panel_type_id')
         port = req.get('port', 5200)
         is_active = req.get('is_active', True)
+        device_id = req.get('device_id')  # Device ID CPower (opcional)
         
         # Validar campos requeridos
         if not all([name, ip, parking_id, panel_type_id]):
@@ -2022,6 +2177,10 @@ def update_panel(panel_id):
         panel.is_active = is_active
         panel.protocol_version = panel_type.protocol_type
         panel.service_endpoint = panel_type.service_endpoint
+        
+        # Actualizar device_id si se proporciona
+        if 'device_id' in req:
+            panel.device_id = device_id if device_id else None
         
         # Actualizar windows_count
         # Si se proporciona explícitamente, usarlo (validado)

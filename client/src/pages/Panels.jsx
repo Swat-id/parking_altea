@@ -34,7 +34,8 @@ import {
   CalendarDays,
   Timer,
   ExternalLink,
-  Trash2
+  Trash2,
+  Search
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../services/api'
@@ -62,8 +63,10 @@ const Panels = () => {
     parking_id: '',
     panel_type_id: '',
     port: 5200,
-    windows_count: 1
+    windows_count: 1,
+    device_id: ''
   })
+  const [isDiscoveringDeviceId, setIsDiscoveringDeviceId] = useState(false)
   // Estado para almacenar asignaciones de ventanas antes de crear el panel
   const [pendingWindowAssignments, setPendingWindowAssignments] = useState([])
   const [showEditModal, setShowEditModal] = useState(false)
@@ -74,7 +77,8 @@ const Panels = () => {
     panel_type_id: '',
     port: 5200,
     is_active: true,
-    windows_count: 1
+    windows_count: 1,
+    device_id: ''
   })
   const [editingPanel, setEditingPanel] = useState(null)
 
@@ -261,7 +265,8 @@ const Panels = () => {
           parking_id: '',
           panel_type_id: '',
           port: 5200,
-          windows_count: 1
+          windows_count: 1,
+          device_id: ''
         })
         toast.success('Panel creado correctamente')
       },
@@ -397,6 +402,54 @@ const Panels = () => {
       })
     } catch (error) {
       return timeString
+    }
+  }
+
+  // Handler para descubrir device_id
+  const handleDiscoverDeviceId = async (ip, isEdit = false) => {
+    if (!ip) {
+      toast.error('Introduce una IP válida primero')
+      return
+    }
+    
+    setIsDiscoveringDeviceId(true)
+    try {
+      const result = await panelService.discoverDeviceId(ip)
+      
+      if (result.success && result.device_id) {
+        if (isEdit) {
+          setEditForm(prev => ({ ...prev, device_id: result.device_id }))
+        } else {
+          setCreateForm(prev => ({ ...prev, device_id: result.device_id }))
+        }
+        toast.success(`Device ID descubierto: ${result.device_id}`)
+      } else {
+        toast.error(result.message || 'No se pudo descubrir el device_id. El panel puede no soportar CPower.')
+      }
+    } catch (error) {
+      toast.error('Error al descubrir device_id: ' + (error.response?.data?.error || error.message))
+    } finally {
+      setIsDiscoveringDeviceId(false)
+    }
+  }
+
+  // Handler para descubrir y guardar device_id de panel existente
+  const handleDiscoverAndSaveDeviceId = async (panelId) => {
+    setIsDiscoveringDeviceId(true)
+    try {
+      const result = await panelService.discoverAndSaveDeviceId(panelId)
+      
+      if (result.success && result.device_id) {
+        toast.success(`Device ID ${result.device_id} guardado correctamente`)
+        queryClient.invalidateQueries('panels')
+        queryClient.invalidateQueries('userPanels')
+      } else {
+        toast.error(result.message || 'No se pudo descubrir el device_id')
+      }
+    } catch (error) {
+      toast.error('Error: ' + (error.response?.data?.error || error.message))
+    } finally {
+      setIsDiscoveringDeviceId(false)
     }
   }
 
@@ -566,7 +619,8 @@ const Panels = () => {
           parking_id: '',
           panel_type_id: '',
           port: 5200,
-          windows_count: 1
+          windows_count: 1,
+          device_id: ''
         })
         setShowCreateModal(false)
         queryClient.invalidateQueries('panels')
@@ -624,7 +678,8 @@ const Panels = () => {
       panel_type_id: panelTypeIdString,
       port: panel.port || 5200,
       is_active: panel.is_active !== false,
-      windows_count: windowsCount
+      windows_count: windowsCount,
+      device_id: panel.device_id || ''
     })
     setShowEditModal(true)
   }
@@ -1477,6 +1532,37 @@ const Panels = () => {
                 </div>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Device ID (CPower)
+                  </label>
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      value={createForm.device_id}
+                      onChange={(e) => setCreateForm({...createForm, device_id: e.target.value})}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="00606ed81e7e"
+                      maxLength={12}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDiscoverDeviceId(createForm.ip, false)}
+                      disabled={isDiscoveringDeviceId || !createForm.ip}
+                      className="px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                      title="Descubrir Device ID automáticamente"
+                    >
+                      {isDiscoveringDeviceId ? (
+                        <Loader className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Search className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Requerido para protocolo CPower (nuevo). Haz clic en el botón para autodescubrir.
+                  </p>
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Puerto
                   </label>
                   <input
@@ -1674,6 +1760,37 @@ const Panels = () => {
                     placeholder="192.168.1.100"
                     required
                   />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Device ID (CPower)
+                  </label>
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      value={editForm.device_id || ''}
+                      onChange={(e) => setEditForm({...editForm, device_id: e.target.value})}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="00606ed81e7e"
+                      maxLength={12}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDiscoverDeviceId(editForm.ip, true)}
+                      disabled={isDiscoveringDeviceId || !editForm.ip}
+                      className="px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                      title="Descubrir Device ID automáticamente"
+                    >
+                      {isDiscoveringDeviceId ? (
+                        <Loader className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Search className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Requerido para protocolo CPower (nuevo). {editForm.device_id ? '✓ Configurado' : '⚠ Sin configurar'}
+                  </p>
                 </div>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">

@@ -244,6 +244,36 @@ const panelService = {
     },
 
     /**
+     * Descubrir device_id de un panel CPower via UDP
+     * El device_id es necesario para el protocolo nuevo (CPower)
+     */
+    async discoverDeviceId(ip, panelId = null) {
+        try {
+            const response = await api.post('/api/panels/discover-device-id', { 
+                ip, 
+                panel_id: panelId 
+            })
+            return response.data
+        } catch (error) {
+            console.error('Error descubriendo device_id:', error)
+            throw error
+        }
+    },
+
+    /**
+     * Descubrir y guardar device_id para un panel existente
+     */
+    async discoverAndSaveDeviceId(panelId) {
+        try {
+            const response = await api.post(`/api/panel/${panelId}/discover-device-id`)
+            return response.data
+        } catch (error) {
+            console.error('Error descubriendo device_id para panel:', error)
+            throw error
+        }
+    },
+
+    /**
      * NUEVO v4.2.0: Obtener paneles agrupados por parking del usuario
      */
     async getUserPanelsGrouped() {
