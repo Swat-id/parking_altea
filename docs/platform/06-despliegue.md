@@ -148,6 +148,28 @@ npm run build
 sudo systemctl reload nginx
 ```
 
+## 4.1 Credenciales de Administración
+
+| Servicio | Usuario | Contraseña |
+|----------|---------|------------|
+| API Backend | info@swat-id.com | Swat2025! |
+
+**Obtener token JWT:**
+```bash
+TOKEN=$(curl -s -X POST http://localhost:6001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"info@swat-id.com","password":"Swat2025!"}' | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+echo "Token: ${TOKEN:0:50}..."
+```
+
+**Enviar mensaje a panel (ejemplo):**
+```bash
+curl -X POST http://localhost:7110/api/v1/panels/send-text \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"panel_ip":"172.20.4.53","panel_port":5200,"window_id":0,"text":".","color":1,"font_size":2,"effect":0,"alignment":1,"speed":5,"stay_time":50,"card_id":1}'
+```
+
 ## 5. Verificación Post-Despliegue
 
 ### 5.1 Verificar Servicios

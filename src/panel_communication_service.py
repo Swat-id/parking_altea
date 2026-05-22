@@ -730,31 +730,34 @@ class PanelCommunicationService:
             # 15 = Continuous scroll to right (sin pausa)
             
             # Mapear códigos de efecto del frontend/protocolo antiguo al protocolo directo
+            # NOTA: Algunos paneles no soportan scroll (11, 14, 15), usar effect 255 (random) o 0 (draw)
             effect_map_new = {
-                0: 0,    # Draw/Fijo -> Draw
-                1: 0,    # Instant -> Draw
-                2: 11,   # Scroll_left (auto) -> Scroll to left (con pausa)
-                11: 11,  # Ya es código directo
-                12: 11,  # Scroll protocolo antiguo -> Scroll to left (con pausa)
-                14: 14,  # Continuous scroll left
-                15: 15,  # Continuous scroll right
-                55: 14,  # SDK Scrollleft_continuously -> Continuous scroll left
-                56: 15,  # SDK Scroll_right_continuously -> Continuous scroll right
+                0: 0,      # Draw/Fijo -> Draw (instantáneo)
+                1: 0,      # Instant -> Draw
+                2: 255,    # Fijo (frontend) -> Random (funciona en todos los paneles)
+                6: 6,      # Move to left (funciona)
+                11: 6,     # Scroll -> Move to left (fallback porque scroll no funciona en algunos paneles)
+                12: 6,     # Scroll protocolo antiguo -> Move to left
+                14: 6,     # Continuous scroll left -> Move to left (fallback)
+                15: 6,     # Continuous scroll right -> Move to left (fallback)
+                55: 6,     # SDK Scrollleft_continuously -> Move to left
+                56: 6,     # SDK Scroll_right_continuously -> Move to left
+                255: 255,  # Random -> Random
             }
             
-            effect_direct = effect_map_new.get(effect, 11)  # Por defecto scroll con pausa
+            effect_direct = effect_map_new.get(effect, 255)  # Por defecto Random (funciona en todos)
             
             # Determinar stay_time según efecto
-            if effect_direct in [14, 15]:  # Scroll continuo
+            if effect_direct in [14, 15]:  # Scroll continuo (si se usa)
                 stay_time = 0
             else:
-                stay_time = 3  # 3 segundos para Draw y Scroll con pausa
+                stay_time = 50  # 5 segundos (50 décimas) para que sea visible
             
             # Determinar speed según efecto
-            if effect_direct in [11, 14, 15]:  # Scroll
+            if effect_direct in [6, 11, 14, 15]:  # Movimiento/Scroll
                 speed = 5  # Velocidad media
             else:
-                speed = 1  # No relevante para Draw
+                speed = 1  # No relevante para Draw/Random
             
             logger.info(f"[NEW PROTOCOL] Panel {panel_ip}: effect_direct={effect_direct}, speed={speed}, stay_time={stay_time}")
             
