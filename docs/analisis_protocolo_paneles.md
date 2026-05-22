@@ -61,8 +61,31 @@ Respuesta: `CP~:IP\tDeviceID\tModelo\t...`
 | PANEL RENFE | 172.20.2.50 | No soporta CPower |
 | PANEL BASSETA 1 | 172.20.5.50 | No soporta CPower |
 | PANEL BASSETA 2 | 172.20.5.51 | No soporta CPower |
-| PANEL PITERES | 172.20.8.50 | Tiene device_id pero usa old |
-| PANEL PITERES 2 | 172.20.8.51 | Tiene device_id pero usa old |
+| PANEL PITERES | 172.20.8.50 | No soporta CPower |
+| PANEL PITERES 2 | 172.20.8.51 | No soporta CPower |
+
+### Acceso a Base de Datos
+
+**Base de datos**: `parking_db`
+**Usuario**: `parking_user`
+
+```bash
+# Consultar paneles
+sudo -u postgres psql -d parking_db -c "SELECT id, ip, name, protocol_version, device_id FROM panels;"
+
+# Actualizar protocol_version de un panel
+sudo -u postgres psql -d parking_db -c "UPDATE panels SET protocol_version='new' WHERE ip='172.20.4.50';"
+
+# Actualizar device_id de un panel
+sudo -u postgres psql -d parking_db -c "UPDATE panels SET device_id='00606ed81e79' WHERE ip='172.20.4.50';"
+```
+
+**Tablas relacionadas con paneles:**
+- `panels` - Configuracion de paneles (IP, protocolo, device_id)
+- `panel_types` - Tipos de paneles
+- `panel_schedules` - Programaciones de mensajes
+- `panel_message_logs` - Historial de mensajes enviados
+- `user_panel_configs` - Configuraciones por usuario
 
 ---
 
