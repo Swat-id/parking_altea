@@ -52,6 +52,8 @@ Respuesta: `CP~:IP\tDeviceID\tModelo\t...`
 | PANEL COCOLISO | 172.20.4.51 | 00606ed81e68 |
 | BELLES ARTS 2 | 172.20.4.52 | 00606ed81e7e |
 | BELLES ARTS | 172.20.4.53 | 00606ed81e60 |
+| PANEL PITERES | 172.20.8.50 | 00606ed81e58 |
+| PANEL PITERES 2 | 172.20.8.51 | 00606ed81e75 |
 
 **Protocolo ANTIGUO (Java SDK - puerto 8888):**
 | Panel | IP | Notas |
@@ -61,8 +63,6 @@ Respuesta: `CP~:IP\tDeviceID\tModelo\t...`
 | PANEL RENFE | 172.20.2.50 | No soporta CPower |
 | PANEL BASSETA 1 | 172.20.5.50 | No soporta CPower |
 | PANEL BASSETA 2 | 172.20.5.51 | No soporta CPower |
-| PANEL PITERES | 172.20.8.50 | No soporta CPower |
-| PANEL PITERES 2 | 172.20.8.51 | No soporta CPower |
 
 ### Acceso a Base de Datos
 
