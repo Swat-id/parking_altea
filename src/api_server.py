@@ -7,8 +7,9 @@ from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, request, jsonify, session
 from flask_cors import CORS
-from sqlalchemy import create_engine, func
+from sqlalchemy import func
 from sqlalchemy.orm import sessionmaker
+from database import get_engine, get_session_factory, get_db_session, get_db_session_no_commit
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from config import DB_URL, API_PORT
@@ -96,8 +97,9 @@ CORS(app, origins=['http://157.180.91.63:5789', 'http://localhost:5173', 'http:/
 from flask import Blueprint
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
-engine = create_engine(DB_URL, echo=False)
-Session = sessionmaker(bind=engine)
+# Usar engine y Session del módulo centralizado de base de datos
+engine = get_engine()
+Session = get_session_factory()
 Base.metadata.create_all(engine)
 
 # ============================================================================
@@ -8191,6 +8193,59 @@ def get_correction_stats():
     except Exception as e:
         logger.error(f"Error obteniendo estadísticas de corrección: {e}")
         return jsonify({'error': 'Internal server error'}), 500
+
+
+# ============================================================================
+# ENDPOINTS DE MONITOREO DE BASE DE DATOS
+# ============================================================================
+
+@api_bp.route('/system/db-pool', methods=['GET'])
+def get_db_pool_status():
+    """Obtener estado del pool de conexiones de base de datos"""
+    try:
+        from database import get_pool_status, check_connection
+        
+        pool_status = get_pool_status()
+        connection_ok = check_connection()
+        
+        return jsonify({
+            'connection_ok': connection_ok,
+            'pool': pool_status,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Error obteniendo estado del pool DB: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/system/health', methods=['GET'])
+def system_health():
+    """Endpoint de health check para monitoreo"""
+    try:
+        from database import check_connection, get_pool_status
+        
+        db_ok = check_connection()
+        pool = get_pool_status()
+        
+        status = 'healthy' if db_ok else 'unhealthy'
+        http_code = 200 if db_ok else 503
+        
+        return jsonify({
+            'status': status,
+            'database': {
+                'connected': db_ok,
+                'pool_checked_out': pool.get('checked_out', 0),
+                'pool_size': pool.get('pool_size', 0)
+            },
+            'timestamp': datetime.now().isoformat()
+        }), http_code
+    except Exception as e:
+        logger.error(f"Error en health check: {e}")
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
 
 
 app.register_blueprint(api_bp)

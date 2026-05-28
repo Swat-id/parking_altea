@@ -85,28 +85,20 @@ class PanelCommunicationService:
             Protocolo del panel ('old' o 'new')
         """
         try:
-            from sqlalchemy import create_engine
-            from sqlalchemy.orm import sessionmaker
+            from database import get_db_session_no_commit
             from models import Panel
-            import config
             
-            engine = create_engine(config.DB_URL)
-            Session = sessionmaker(bind=engine)
-            session = Session()
-            
-            try:
+            with get_db_session_no_commit() as session:
                 panel = session.query(Panel).filter(Panel.ip == panel_ip).first()
                 if panel:
-                    return panel.protocol_version or 'old'  # Por defecto 'old' si es None
+                    return panel.protocol_version or 'old'
                 else:
                     logger.warning(f"Panel {panel_ip} no encontrado en base de datos, usando protocolo antiguo")
                     return 'old'
-            finally:
-                session.close()
                 
         except Exception as e:
             logger.error(f"Error obteniendo protocolo del panel {panel_ip}: {e}")
-            return 'old'  # Por defecto protocolo antiguo
+            return 'old'
 
     def _get_panel_device_id(self, panel_ip: str) -> str:
         """
@@ -119,24 +111,16 @@ class PanelCommunicationService:
             Device ID del panel o None si no existe
         """
         try:
-            from sqlalchemy import create_engine
-            from sqlalchemy.orm import sessionmaker
+            from database import get_db_session_no_commit
             from models import Panel
-            import config
             
-            engine = create_engine(config.DB_URL)
-            Session = sessionmaker(bind=engine)
-            session = Session()
-            
-            try:
+            with get_db_session_no_commit() as session:
                 panel = session.query(Panel).filter(Panel.ip == panel_ip).first()
                 if panel and panel.device_id:
                     return panel.device_id
                 else:
                     logger.warning(f"Panel {panel_ip} no tiene device_id configurado")
                     return None
-            finally:
-                session.close()
                 
         except Exception as e:
             logger.error(f"Error obteniendo device_id del panel {panel_ip}: {e}")
@@ -907,16 +891,12 @@ def update_parking_panels(parking_id: int, current_occupancy: int, max_capacity:
         Dict con el resultado de la operación
     """
     try:
-        # Si no se proporciona sesión, crear una nueva
+        # Si no se proporciona sesión, crear una nueva usando el pool centralizado
         if db_session is None:
-            from sqlalchemy import create_engine
-            from sqlalchemy.orm import sessionmaker
+            from database import get_session_factory
             from models import Parking, Panel
-            import config
             
-            engine = create_engine(config.DB_URL)
-            Session = sessionmaker(bind=engine)
-            db_session = Session()
+            db_session = get_session_factory()()
             should_close_session = True
         else:
             from models import Parking, Panel
