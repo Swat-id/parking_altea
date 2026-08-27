@@ -33,6 +33,8 @@ from models import (
 
 # Importar configuración del proyecto
 from config import DB_URL
+from ingest_forwarder import forward_ingest
+import config as project_config
 
 # Configuración
 class Config:
@@ -473,6 +475,20 @@ class SensorPushProcessor:
 # Instancia global del procesador
 processor = SensorPushProcessor()
 
+
+def _forward_sensor_ingest():
+    """Reenviar el body original a parking-monitor sin bloquear el proceso local."""
+    try:
+        raw_body = request.get_data()
+    except Exception:
+        raw_body = b''
+    forward_ingest(
+        project_config.INGEST_FORWARD_SENSOR_URL,
+        raw_body,
+        request.headers.get('Content-Type')
+    )
+
+
 # ============================================================================
 # ENDPOINTS DE LA API
 # ============================================================================
@@ -497,6 +513,7 @@ def receive_push():
     """
     try:
         client_ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
+        _forward_sensor_ingest()
         
         # Validar Content-Type
         if not request.is_json:
@@ -595,6 +612,7 @@ def receive_sensor_root():
     try:
         client_ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
         logger.info(f"📥 Recibiendo datos de sensor desde IP: {client_ip}")
+        _forward_sensor_ingest()
         
         # Intentar procesar como JSON primero
         if request.is_json:

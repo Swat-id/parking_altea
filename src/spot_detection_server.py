@@ -36,6 +36,7 @@ from pending_events_service import (
     validate_pending_entry_on_spot_occupied,
     cleanup_expired_events
 )
+from ingest_forwarder import forward_ingest
 
 # Configurar logging
 logging.basicConfig(
@@ -519,6 +520,16 @@ def handle_detection():
     
     logger.info(f"=== SPOT DETECTION MESSAGE RECEIVED ===")
     logger.info(f"Source IP: {client_ip}")
+
+    try:
+        raw_body = request.get_data()
+    except Exception:
+        raw_body = b''
+    forward_ingest(
+        config.INGEST_FORWARD_SPOT_URL,
+        raw_body,
+        request.headers.get('Content-Type')
+    )
     
     session = Session()
     

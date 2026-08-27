@@ -20,6 +20,7 @@ from pending_events_service import (
     cancel_pending_entry_on_access_exit,
     cleanup_expired_events
 )
+from ingest_forwarder import forward_ingest
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -327,13 +328,21 @@ def handle_camera():
     logger.info(f"Source IP: {ip}")
     logger.info(f"Headers: {dict(request.headers)}")
     
-    # Capturar el body raw para logging
+    # Capturar el body raw (bytes) para reenvío idéntico y logging
     try:
-        raw_data = request.get_data(as_text=True)
+        raw_body = request.get_data()
+        raw_data = raw_body.decode('utf-8', errors='replace') if raw_body else ''
         logger.info(f"Raw body received: {raw_data}")
     except Exception as e:
         logger.error(f"Error reading raw body from {ip}: {e}")
+        raw_body = b''
         raw_data = "Unable to read raw body"
+
+    forward_ingest(
+        config.INGEST_FORWARD_LINE_COUNT_URL,
+        raw_body,
+        request.headers.get('Content-Type')
+    )
     
     session = Session()
     

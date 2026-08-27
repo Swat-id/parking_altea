@@ -24,6 +24,13 @@ Documentación general del proyecto con descripción, arquitectura, componentes 
 
 ## 📚 Documentación por Versiones
 
+### v5.0.1 (Reenvío de ingestión)
+- [README v5.0.1](v5.0.1/README.md) - Reenvío del body original a parking-monitor (cámaras y sensores)
+
+### v5.0.0
+- [Changelog v5.0.0](v5.0.0/CHANGELOG.md) - Protocolo de paneles y device_id CPower
+- [Análisis protocolo de red](v5.0.0/analisis_protocolo_red.md)
+
 ### v4.3.0 (En desarrollo)
 - [README v4.3.0](v4.3.0/README.md) - Información general y objetivos de la versión
 - [Desarrollo Completo v4.3.0](v4.3.0/DESARROLLO_COMPLETO.md) ⭐ - **Documento principal: desarrollo completo, puerto 7000 fijo y uso del servicio**

@@ -1,6 +1,19 @@
-# 📚 Documentación Parking Altea v2.7.1
+# Documentación Parking Altea
 
-## 🎯 **Documentación Principal**
+## Listado de ramas
+
+| Rama | Enfoque |
+|------|---------|
+| `v5.0.1` | Reenvío de ingestión (cámaras y sensores) a parking-monitor. [docs/v5.0.1](v5.0.1/README.md) |
+| `v5.0.0` | Protocolo CPower, device_id, pool de conexiones. [docs/v5.0.0](v5.0.0/CHANGELOG.md) |
+| `v4.3.0` | Servicio de paneles / protocolo. [docs/v4.3.0](v4.3.0/README.md) |
+| `v4.1.0` | Sensores plaza a plaza (push 3535). [docs/v4.1.0](v4.1.0/README.md) |
+
+---
+
+# Documentación Parking Altea v2.7.1 (histórico)
+
+## Documentación principal
 
 ### **Estado y Contexto del Proyecto**
 - **[Estado del Proyecto v2.7.1](project_status_v2.7.1.md)** - Estado completo del proyecto con todas las funcionalidades
